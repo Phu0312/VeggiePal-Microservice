@@ -12,9 +12,9 @@ spring:
           routes:
 
             # =========================
-            # IDENTITY SERVICE
+            # 1. IDENTITY SERVICE (:18081)
             # =========================
-            - id: identity-service
+            - id: identity-service-auth
               uri: http://localhost:${IDENTITY_PORT:18081}
               predicates:
                 - Path=/api/auth/**
@@ -43,40 +43,41 @@ spring:
                 - StripPrefix=1
 
             # =========================
-            # NUTRITION SERVICE
+            # 2. NUTRITION SERVICE (:18082)
+            # Personal Health, BMI, Allergens
             # =========================
-            - id: nutrition-service
+            - id: nutrition-service-allergens
               uri: http://localhost:${NUTRITION_PORT:18082}
               predicates:
-                - Path=/api/nutrition/**
+                - Path=/api/nutrition/allergens/**
               filters:
                 - StripPrefix=1
 
-            - id: nutrition-service-ai
+            - id: nutrition-service-health-records
               uri: http://localhost:${NUTRITION_PORT:18082}
               predicates:
-                - Path=/api/ai/**
+                - Path=/api/nutrition/health-records/**
               filters:
                 - StripPrefix=1
 
-            - id: nutrition-service-restaurants
+            - id: nutrition-service-me-allergies
               uri: http://localhost:${NUTRITION_PORT:18082}
               predicates:
-                - Path=/api/restaurants/**
+                - Path=/api/nutrition/me/allergies/**
               filters:
                 - StripPrefix=1
 
-            - id: nutrition-service-admin
+            - id: nutrition-service-me-health-records
               uri: http://localhost:${NUTRITION_PORT:18082}
               predicates:
-                - Path=/api/admin/ai/**
+                - Path=/api/nutrition/me/health-records/**
               filters:
                 - StripPrefix=1
 
-            - id: nutrition-service-search
+            - id: nutrition-service-allergies
               uri: http://localhost:${NUTRITION_PORT:18082}
               predicates:
-                - Path=/api/search/**
+                - Path=/api/nutrition/allergies/**
               filters:
                 - StripPrefix=1
 
@@ -88,7 +89,97 @@ spring:
                 - StripPrefix=1
 
             # =========================
-            # BLOG SERVICE
+            # 3. MEAL SERVICE (:18084)
+            # Recipes, Pantry Ingredients, 7-day Meal Plan
+            # =========================
+            - id: meal-service-recipes
+              uri: http://localhost:${MEAL_PORT:18084}
+              predicates:
+                - Path=/api/nutrition/recipes/**
+              filters:
+                - StripPrefix=1
+
+            - id: meal-service-ingredients
+              uri: http://localhost:${MEAL_PORT:18084}
+              predicates:
+                - Path=/api/nutrition/ingredients/**
+              filters:
+                - StripPrefix=1
+
+            - id: meal-service-me-ingredients
+              uri: http://localhost:${MEAL_PORT:18084}
+              predicates:
+                - Path=/api/nutrition/me/ingredients/**
+              filters:
+                - StripPrefix=1
+
+            - id: meal-service-meal-plans
+              uri: http://localhost:${MEAL_PORT:18084}
+              predicates:
+                - Path=/api/nutrition/meal-plans/**
+              filters:
+                - StripPrefix=1
+
+            - id: meal-service-alias
+              uri: http://localhost:${MEAL_PORT:18084}
+              predicates:
+                - Path=/api/meal/**
+              filters:
+                - StripPrefix=1
+
+            - id: meal-service-docs
+              uri: http://localhost:${MEAL_PORT:18084}
+              predicates:
+                - Path=/meal-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            # =========================
+            # 4. AI SERVICE (:18085)
+            # Guest & User AI Chatbot, AI Ops Logs & Metrics
+            # =========================
+            - id: ai-service-chat
+              uri: http://localhost:${AI_PORT:18085}
+              predicates:
+                - Path=/api/ai/**
+              filters:
+                - StripPrefix=1
+
+            - id: ai-service-admin
+              uri: http://localhost:${AI_PORT:18085}
+              predicates:
+                - Path=/api/admin/ai/**
+              filters:
+                - StripPrefix=1
+
+            - id: ai-service-docs
+              uri: http://localhost:${AI_PORT:18085}
+              predicates:
+                - Path=/ai-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            # =========================
+            # 5. RESTAURANT SERVICE (:18086)
+            # Vegan Places Directory & Haversine Nearby Search
+            # =========================
+            - id: restaurant-service
+              uri: http://localhost:${RESTAURANT_PORT:18086}
+              predicates:
+                - Path=/api/restaurants/**
+              filters:
+                - StripPrefix=1
+
+            - id: restaurant-service-docs
+              uri: http://localhost:${RESTAURANT_PORT:18086}
+              predicates:
+                - Path=/restaurant-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            # =========================
+            # 6. BLOG SERVICE (:18083)
+            # Community Blogs, Hierarchical Categories, Comments, Votes
             # =========================
             - id: blog-service-blogs
               uri: http://localhost:${BLOG_PORT:18083}
@@ -111,20 +202,6 @@ spring:
               filters:
                 - StripPrefix=1
 
-            - id: blog-service-videos
-              uri: http://localhost:${BLOG_PORT:18083}
-              predicates:
-                - Path=/api/videos/**
-              filters:
-                - StripPrefix=1
-
-            - id: blog-service-admin-moderation
-              uri: http://localhost:${BLOG_PORT:18083}
-              predicates:
-                - Path=/api/admin/moderation/**
-              filters:
-                - StripPrefix=1
-
             - id: blog-service-docs
               uri: http://localhost:${BLOG_PORT:18083}
               predicates:
@@ -132,17 +209,70 @@ spring:
               filters:
                 - StripPrefix=1
 
+            # =========================
+            # 7. VIDEO SERVICE (:18087)
+            # Cooking Videos & AI Video Summarization
+            # =========================
+            - id: video-service
+              uri: http://localhost:${VIDEO_PORT:18087}
+              predicates:
+                - Path=/api/videos/**
+              filters:
+                - StripPrefix=1
+
+            - id: video-service-docs
+              uri: http://localhost:${VIDEO_PORT:18087}
+              predicates:
+                - Path=/video-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            # =========================
+            # 8. MODERATION SERVICE (:18088)
+            # Content Keyword Checks & Admin Review Queue
+            # =========================
+            - id: moderation-service-admin
+              uri: http://localhost:${MODERATION_PORT:18088}
+              predicates:
+                - Path=/api/admin/moderation/**
+              filters:
+                - StripPrefix=1
+
+            - id: moderation-service-check
+              uri: http://localhost:${MODERATION_PORT:18088}
+              predicates:
+                - Path=/api/moderation/**
+              filters:
+                - StripPrefix=1
+
+            - id: moderation-service-docs
+              uri: http://localhost:${MODERATION_PORT:18088}
+              predicates:
+                - Path=/moderation-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
 # =========================
-# SWAGGER UI TỔNG
+# SWAGGER UI TỔNG HỢP
 # =========================
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
     urls:
-      - name: Identity Service
+      - name: 1. Identity Service (Auth & Users)
         url: /identity-service/v3/api-docs
-      - name: Nutrition Service
+      - name: 2. Nutrition Service (Health & Allergies)
         url: /nutrition-service/v3/api-docs
-      - name: Blog Service
+      - name: 3. Meal Service (Recipes & Meal Plans)
+        url: /meal-service/v3/api-docs
+      - name: 4. AI Service (Chatbot & Monitoring)
+        url: /ai-service/v3/api-docs
+      - name: 5. Restaurant Service (Vegan Places)
+        url: /restaurant-service/v3/api-docs
+      - name: 6. Blog Service (Community & Comments)
         url: /blog-service/v3/api-docs
+      - name: 7. Video Service (Cooking & Summaries)
+        url: /video-service/v3/api-docs
+      - name: 8. Moderation Service (Content Review Queue)
+        url: /moderation-service/v3/api-docs
