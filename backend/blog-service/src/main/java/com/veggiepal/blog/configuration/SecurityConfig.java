@@ -49,10 +49,7 @@ public class SecurityConfig {
             new PublicEndpoint(HttpMethod.GET, "/categories/{id:[0-9]+}"),
 
             new PublicEndpoint(HttpMethod.GET, "/comments"),
-            new PublicEndpoint(HttpMethod.GET, "/comments/{id:[0-9]+}/replies"),
-
-            new PublicEndpoint(HttpMethod.GET, "/videos"),
-            new PublicEndpoint(HttpMethod.GET, "/videos/{id:[0-9]+}")
+            new PublicEndpoint(HttpMethod.GET, "/comments/{id:[0-9]+}/replies")
     );
 
     SecurityExceptionHandler securityExceptionHandler;

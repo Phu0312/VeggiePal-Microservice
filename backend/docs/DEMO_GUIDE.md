@@ -6,35 +6,55 @@ Tài liệu này cung cấp kịch bản trình diễn (Demo Script) từng bư�
 
 ## 1. Chuẩn Bị & Khởi Động Hệ Thống
 
-### 1.1. Cơ sở dữ liệu MySQL
-Hệ thống sử dụng container MySQL 8.4 trên cổng `3307`:
+### 1.1. Cơ sở dữ liệu MySQL & Lưu trữ MinIO
+Hệ thống sử dụng container MySQL 8.4 trên cổng `3307` và MinIO trên cổng `19000`/`19001`:
 ```bash
-docker start veggiepal-mysql
+docker compose up -d
 ```
-*(Cả 3 cơ sở dữ liệu `veggiepal_identity`, `veggiepal_nutrition`, `veggiepal_blog` đã được thiết lập sẵn sàng cùng dữ liệu mẫu chuẩn nghiệp vụ).*
+*(Tất cả 8 cơ sở dữ liệu `veggiepal_identity`, `veggiepal_nutrition`, `veggiepal_blog`, `veggiepal_meal`, `veggiepal_ai`, `veggiepal_restaurant`, `veggiepal_video`, `veggiepal_moderation` được tự động khởi tạo theo chuẩn Database-per-Service cùng dữ liệu mẫu chuẩn nghiệp vụ).*
 
-### 1.2. Khởi chạy 4 dịch vụ Microservices (chạy trên 4 terminal riêng biệt):
+### 1.2. Khởi chạy 8 Microservices & API Gateway:
 ```bash
-# Terminal 1: Identity Service (Port 18081)
-cd identity-service && mvn spring-boot:run
+# Terminal 1: Identity Service (Port 18081) - Auth & User Profiles
+cd identity-service && ./mvnw spring-boot:run
 
-# Terminal 2: Nutrition Service (Port 18082)
-cd nutrition-service && mvn spring-boot:run
+# Terminal 2: Nutrition Service (Port 18082) - Health Records & Allergens
+cd nutrition-service && ./mvnw spring-boot:run
 
-# Terminal 3: Blog Service (Port 18083)
-cd blog-service && mvn spring-boot:run
+# Terminal 3: Blog Service (Port 18083) - Community Blog & Comments
+cd blog-service && ./mvnw spring-boot:run
 
-# Terminal 4: API Gateway (Port 18080)
-cd api-gateway && mvn spring-boot:run
+# Terminal 4: Meal Service (Port 18084) - Recipes, Ingredients & 7-Day Plans
+cd meal-service && ./mvnw spring-boot:run
+
+# Terminal 5: AI Service (Port 18085) - AI Chatbot & Operations Monitoring
+cd ai-service && ./mvnw spring-boot:run
+
+# Terminal 6: Restaurant Service (Port 18086) - Vegan Restaurants & GPS Nearby
+cd restaurant-service && ./mvnw spring-boot:run
+
+# Terminal 7: Video Service (Port 18087) - Cooking Videos & AI Summarization
+cd video-service && ./mvnw spring-boot:run
+
+# Terminal 8: Moderation Service (Port 18088) - Content Moderation & Admin Review
+cd moderation-service && ./mvnw spring-boot:run
+
+# Terminal 9: API Gateway (Port 18080) - Unified Gateway & Swagger Aggregator
+cd api-gateway && ./mvnw spring-boot:run
 ```
 
 ### 1.3. Cổng thông tin Swagger UI tập trung:
 Mở trình duyệt truy cập:
 👉 **`http://localhost:18080/swagger-ui.html`**
-Tại thanh chọn Select a definition (góc trên bên phải), Giảng viên có thể xem trực quan tài liệu API của cả 3 dịch vụ:
-- `Identity Service`
-- `Nutrition Service`
-- `Blog Service`
+Tại thanh chọn **Select a definition** (góc trên bên phải), Giảng viên có thể xem trực quan tài liệu API của cả 8 dịch vụ:
+- `Identity Service` (18081)
+- `Nutrition Service` (18082)
+- `Blog Service` (18083)
+- `Meal Service` (18084)
+- `AI Service` (18085)
+- `Restaurant Service` (18086)
+- `Video Service` (18087)
+- `Moderation Service` (18088)
 
 ---
 
