@@ -1,0 +1,148 @@
+server:
+  port: ${SERVER_PORT:18080}
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+
+            # =========================
+            # IDENTITY SERVICE
+            # =========================
+            - id: identity-service
+              uri: http://localhost:${IDENTITY_PORT:18081}
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=1
+
+            - id: identity-service-users
+              uri: http://localhost:${IDENTITY_PORT:18081}
+              predicates:
+                - Path=/api/users/**
+              filters:
+                - StripPrefix=1
+
+            - id: identity-service-admin-users
+              uri: http://localhost:${IDENTITY_PORT:18081}
+              predicates:
+                - Path=/api/admin/users/**
+              filters:
+                - StripPrefix=1
+
+            - id: identity-service-docs
+              uri: http://localhost:${IDENTITY_PORT:18081}
+              predicates:
+                - Path=/identity-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            # =========================
+            # NUTRITION SERVICE
+            # =========================
+            - id: nutrition-service
+              uri: http://localhost:${NUTRITION_PORT:18082}
+              predicates:
+                - Path=/api/nutrition/**
+              filters:
+                - StripPrefix=1
+
+            - id: nutrition-service-ai
+              uri: http://localhost:${NUTRITION_PORT:18082}
+              predicates:
+                - Path=/api/ai/**
+              filters:
+                - StripPrefix=1
+
+            - id: nutrition-service-restaurants
+              uri: http://localhost:${NUTRITION_PORT:18082}
+              predicates:
+                - Path=/api/restaurants/**
+              filters:
+                - StripPrefix=1
+
+            - id: nutrition-service-admin
+              uri: http://localhost:${NUTRITION_PORT:18082}
+              predicates:
+                - Path=/api/admin/ai/**
+              filters:
+                - StripPrefix=1
+
+            - id: nutrition-service-search
+              uri: http://localhost:${NUTRITION_PORT:18082}
+              predicates:
+                - Path=/api/search/**
+              filters:
+                - StripPrefix=1
+
+            - id: nutrition-service-docs
+              uri: http://localhost:${NUTRITION_PORT:18082}
+              predicates:
+                - Path=/nutrition-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            # =========================
+            # BLOG SERVICE
+            # =========================
+            - id: blog-service-blogs
+              uri: http://localhost:${BLOG_PORT:18083}
+              predicates:
+                - Path=/api/blogs/**
+              filters:
+                - StripPrefix=1
+
+            - id: blog-service-categories
+              uri: http://localhost:${BLOG_PORT:18083}
+              predicates:
+                - Path=/api/categories/**
+              filters:
+                - StripPrefix=1
+
+            - id: blog-service-comments
+              uri: http://localhost:${BLOG_PORT:18083}
+              predicates:
+                - Path=/api/comments/**
+              filters:
+                - StripPrefix=1
+
+            - id: blog-service-videos
+              uri: http://localhost:${BLOG_PORT:18083}
+              predicates:
+                - Path=/api/videos/**
+              filters:
+                - StripPrefix=1
+
+            - id: blog-service-admin-moderation
+              uri: http://localhost:${BLOG_PORT:18083}
+              predicates:
+                - Path=/api/admin/moderation/**
+              filters:
+                - StripPrefix=1
+
+            - id: blog-service-docs
+              uri: http://localhost:${BLOG_PORT:18083}
+              predicates:
+                - Path=/blog-service/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+# =========================
+# SWAGGER UI TỔNG
+# =========================
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+    urls:
+      - name: Identity Service
+        url: /identity-service/v3/api-docs
+      - name: Nutrition Service
+        url: /nutrition-service/v3/api-docs
+      - name: Blog Service
+        url: /blog-service/v3/api-docs

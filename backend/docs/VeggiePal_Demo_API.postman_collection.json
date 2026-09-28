@@ -1,0 +1,763 @@
+{
+  "info": {
+    "_postman_id": "c040e82b-veggiepal-demo-collection-v1",
+    "name": "VeggiePal Backend - Lecturer Demo Collection",
+    "description": "Bộ sưu tập Postman đầy đủ cho buổi báo cáo Đồ Án Tốt Nghiệp, kiểm thử toàn bộ 12 yêu cầu chức năng (FR-01 đến FR-12) qua API Gateway (Port 18080).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:18080/api",
+      "type": "string"
+    },
+    {
+      "key": "userToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guestId",
+      "value": "demo-device-guest-101",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Authentication & Users (FR-01 & FR-10)",
+      "item": [
+        {
+          "name": "Login as User (Auto-sets userToken)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.result && jsonData.result.token) {",
+                  "    pm.collectionVariables.set('userToken', jsonData.result.token);",
+                  "    console.log('Set userToken successfully');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@veggiepal.com\",\n  \"password\": \"Demo@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token"]
+            }
+          }
+        },
+        {
+          "name": "Login as Admin (Auto-sets adminToken)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.result && jsonData.result.token) {",
+                  "    pm.collectionVariables.set('adminToken', jsonData.result.token);",
+                  "    console.log('Set adminToken successfully');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@veggiepal.com\",\n  \"password\": \"Demo@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Admin List Users (FR-10)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "Admin Update User Status (FR-10)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/3/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users", "3", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Guest AI Trial & Quota 3 (FR-02 & FR-07)",
+      "item": [
+        {
+          "name": "Guest Chat - Question 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Guest-Id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Người ăn thuần chay nên bổ sung vitamin B12 như thế nào?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat/guest",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat", "guest"]
+            }
+          }
+        },
+        {
+          "name": "Guest Chat - Question 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Guest-Id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Gợi ý món ăn sáng chay giàu protein\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat/guest",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat", "guest"]
+            }
+          }
+        },
+        {
+          "name": "Guest Chat - Question 3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Guest-Id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Ăn chay có đủ dinh dưỡng cho người tập gym không?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat/guest",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat", "guest"]
+            }
+          }
+        },
+        {
+          "name": "Guest Chat - Question 4 (Expect 429 Quota Exceeded)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Guest-Id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Cho tôi thêm một thực đơn nữa\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat/guest",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat", "guest"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Member AI Chatbot (FR-07)",
+      "item": [
+        {
+          "name": "Member Chat (Unlimited)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Chào trợ lý VeggiePal, tư vấn giúp tôi món chay thanh đạm giải nhiệt mùa hè\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Get User Chat Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/chat/conversations",
+              "host": ["{{baseUrl}}"],
+              "path": ["ai", "chat", "conversations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Health Profile & Ingredients (FR-06)",
+      "item": [
+        {
+          "name": "Save Health Record (Height, Weight, Goal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"height\": 172.5,\n  \"weight\": 68.0,\n  \"targetWeight\": 64.0,\n  \"goal\": \"GIAM_CAN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/health-records",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "health-records"]
+            }
+          }
+        },
+        {
+          "name": "Update User Allergies (Peanut & Sesame)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allergenIds\": [4, 9]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/allergies",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "allergies"]
+            }
+          }
+        },
+        {
+          "name": "Get All Allergens Catalog",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/allergens",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "allergens"]
+            }
+          }
+        },
+        {
+          "name": "Add Available Ingredient to Fridge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Đậu phụ non\",\n  \"quantity\": \"3 bìa\",\n  \"category\": \"Đậu\",\n  \"expiryDate\": \"2026-10-05\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/ingredients",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "ingredients"]
+            }
+          }
+        },
+        {
+          "name": "Get My Available Ingredients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/ingredients",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "ingredients"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. AI 7-Day Meal Planner (FR-06)",
+      "item": [
+        {
+          "name": "Generate 7-Day Vegan Meal Plan (AI Rule-Based)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goal\": \"GIAM_CAN\",\n  \"dailyCalorieTarget\": 1600\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/meal-plans/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "meal-plans", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Save Generated Meal Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Thực đơn giảm cân thanh lọc tuần 1\",\n  \"planData\": {\n    \"goal\": \"GIAM_CAN\",\n    \"plan\": []\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/meal-plans",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "meal-plans"]
+            }
+          }
+        },
+        {
+          "name": "Get Saved Meal Plans List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/meal-plans",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "meal-plans"]
+            }
+          }
+        },
+        {
+          "name": "Browse Public Recipes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/nutrition/recipes",
+              "host": ["{{baseUrl}}"],
+              "path": ["nutrition", "recipes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Nearby Vegan Restaurants (FR-09)",
+      "item": [
+        {
+          "name": "Search Nearby Restaurants (Haversine Formula)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/nearby?latitude=21.0285&longitude=105.8542&radiusKm=5.0",
+              "host": ["{{baseUrl}}"],
+              "path": ["restaurants", "nearby"],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "21.0285"
+                },
+                {
+                  "key": "longitude",
+                  "value": "105.8542"
+                },
+                {
+                  "key": "radiusKm",
+                  "value": "5.0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Restaurant Detail by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/restaurants/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["restaurants", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Blog & Content Moderation (FR-03, FR-11, FR-12)",
+      "item": [
+        {
+          "name": "Get Category Tree (FR-11)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["categories"]
+            }
+          }
+        },
+        {
+          "name": "Create Vegan Blog (Auto-Approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": 7,\n  \"title\": \"Bí quyết nấu phở nấm ngọt lịm từ rau củ\",\n  \"content\": \"Sử dụng mía lau và củ cải trắng ninh chậm 1 tiếng sẽ cho nước dùng ngọt thanh tuyệt vời...\",\n  \"publish\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/blogs",
+              "host": ["{{baseUrl}}"],
+              "path": ["blogs"]
+            }
+          }
+        },
+        {
+          "name": "Create Non-Vegan Blog (Flags to PENDING Queue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": 1,\n  \"title\": \"Chia sẻ món ăn ngon\",\n  \"content\": \"Món ăn này rất hợp khi ăn kèm với thịt bò và hải sản tươi ngon...\",\n  \"publish\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/blogs",
+              "host": ["{{baseUrl}}"],
+              "path": ["blogs"]
+            }
+          }
+        },
+        {
+          "name": "Admin View Moderation Queue (FR-12)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/moderation/queue?status=PENDING",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "moderation", "queue"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin Review Moderation Case (Reject/Approve)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"REJECTED\",\n  \"reason\": \"Bài viết chứa thịt động vật, không đạt tiêu chuẩn 100% thuần chay.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/moderation/1/review",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "moderation", "1", "review"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Video & AI Summarization (FR-08)",
+      "item": [
+        {
+          "name": "Create Cooking Video (Auto AI Summary)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": 7,\n  \"title\": \"Hướng dẫn nấu Canh Chua Chay Đậu Hũ\",\n  \"description\": \"Video hướng dẫn nấu canh chua chay thanh mát với đậu hũ non, cà chua chín, dứa thơm và ngò om.\",\n  \"videoUrl\": \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\",\n  \"durationSeconds\": 540,\n  \"publish\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/videos",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos"]
+            }
+          }
+        },
+        {
+          "name": "Get Published Videos List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/videos",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos"]
+            }
+          }
+        },
+        {
+          "name": "Get Video Detail with AI Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/videos/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Admin AI Monitoring (FR-10)",
+      "item": [
+        {
+          "name": "Get AI Operation Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/ai/logs?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "ai", "logs"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get AI Performance Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/ai/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "ai", "metrics"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
