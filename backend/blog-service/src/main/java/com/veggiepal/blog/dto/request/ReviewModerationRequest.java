@@ -1,0 +1,21 @@
+package com.veggiepal.blog.dto.request;
+
+import jakarta.validation.constraints.NotNull;
+
+import com.veggiepal.blog.moderation.ModerationDecision;
+
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class ReviewModerationRequest {
+
+    @NotNull(message = "MODERATION_ACTION_INVALID")
+    ModerationDecision decision;
+
+    String reason;
+}
