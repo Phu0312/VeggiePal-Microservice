@@ -36,6 +36,11 @@ class ChatController extends ChangeNotifier {
 
   void ackQuotaDialog() => quotaExceeded = false;
 
+  /// Thông báo lỗi chưa hiển thị (không kết nối được backend...) -> UI mở popup rồi gọi [ackError].
+  String? error;
+
+  void ackError() => error = null;
+
   /// [isMember] = đã đăng nhập (User/Admin). Luồng phân quyền:
   ///  - Khách còn lượt: gọi bình thường, cập nhật bộ đếm còn lại.
   ///  - Khách hết lượt: chặn ngay ở client (không gọi server) và mở dialog đăng ký;
@@ -68,8 +73,10 @@ class ChatController extends ChangeNotifier {
             'Bạn đã dùng hết 3 câu hỏi miễn phí. Đăng ký để chat không giới hạn nhé!',
             fromUser: false));
       } else {
-        messages.add(ChatMessage('Xin lỗi, có lỗi xảy ra: ${e.message}', fromUser: false));
+        error = e.message;
       }
+    } catch (e) {
+      error = errorMessage(e);
     } finally {
       sending = false;
       notifyListeners();

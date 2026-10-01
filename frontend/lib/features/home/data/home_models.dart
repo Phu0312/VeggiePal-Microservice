@@ -55,6 +55,7 @@ class BlogItem {
   final int voteScore;
   final DateTime? publishedAt;
   final String? content; // chỉ có ở API chi tiết
+  final String? status; // DRAFT | PENDING | PUBLISHED | REJECTED | BANNED (chỉ có ở /blogs/me)
 
   const BlogItem({
     required this.id,
@@ -65,6 +66,7 @@ class BlogItem {
     this.voteScore = 0,
     this.publishedAt,
     this.content,
+    this.status,
   });
 
   factory BlogItem.fromJson(Map<String, dynamic> j) => BlogItem(
@@ -78,5 +80,6 @@ class BlogItem {
             ? null
             : DateTime.tryParse('${j['publishedAt']}'),
         content: j['content'] as String?,
+        status: j['status'] as String?,
       );
 }

@@ -22,11 +22,16 @@ class Endpoints {
   static const login = '/auth/login';
   static const register = '/auth/register';
   static const me = '/users/me';
+  static const myPassword = '/users/me/password';
+  static const myAvatar = '/users/me/avatar';
+  static const usersBatch = '/users/batch';
+  static String adminUser(int id) => '/admin/users/$id';
   static const adminUsers = '/admin/users';
   static String adminUserStatus(int id) => '/admin/users/$id/status';
 
   // ---- Blog service ----
   static const blogs = '/blogs';
+  static const myBlogs = '/blogs/me';
   static String blogById(int id) => '/blogs/$id';
   static const videos = '/videos';
   static String videoById(int id) => '/videos/$id';
@@ -37,7 +42,11 @@ class Endpoints {
   static String moderationReview(int id) => '/admin/moderation/$id/review';
 
   // ---- Nutrition service ----
+  static const allergens = '/nutrition/allergens';
+  static const myAllergies = '/nutrition/me/allergies';
+  static String allergiesOfUser(int userId) => '/nutrition/allergies/user/$userId';
   static const healthRecords = '/nutrition/me/health-records';
+  static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
   static const mealPlans = '/nutrition/meal-plans';
   static const mealPlanGenerate = '/nutrition/meal-plans/generate';

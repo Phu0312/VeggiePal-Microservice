@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>VeggiePal cần truy cập thư viện ảnh để bạn chọn ảnh đại diện.</string>
 </dict>
 </plist>

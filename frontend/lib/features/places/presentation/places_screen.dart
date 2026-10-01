@@ -40,8 +40,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
     try {
       final r = await context.read<PlacesRepository>().nearby(food: _keyword);
       if (mounted) setState(() => _places = r);
-    } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.message);
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -138,16 +138,14 @@ class _PlaceCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const SizedBox(height: 4),
               Row(children: [
-                const Icon(Icons.star, size: 16, color: AppColors.star),
-                Text(' ${p.rating.toStringAsFixed(1)}  •  '),
-                const Icon(Icons.place_outlined, size: 16, color: AppColors.primary),
+                Icon(Icons.place_outlined, size: 16, color: context.cs.primary),
                 Text(' ${p.distanceKm} km'),
               ]),
               const SizedBox(height: 4),
               Text(p.address,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  style: TextStyle(color: context.textMuted, fontSize: 13)),
               const SizedBox(height: 6),
               Wrap(spacing: 6, runSpacing: 4, children: [
                 for (final d in p.dishes.take(3))

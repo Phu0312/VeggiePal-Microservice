@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../constants/app_colors.dart';
 
-/// Logo VeggiePal dạng biểu tượng (SVG trong assets/icons/logo_mark.svg, không chữ/không nền).
+/// Logo VeggiePal (assets/images/logo_app.png). [size] là chiều cao; chiều rộng tự co theo tỉ lệ ảnh.
 class AppLogo extends StatelessWidget {
   final double size;
   const AppLogo({super.key, this.size = 32});
 
   @override
   Widget build(BuildContext context) =>
-      SvgPicture.asset('assets/icons/logo_mark.svg', width: size, height: size);
+      Image.asset('assets/images/logo_app.png', height: size, fit: BoxFit.contain);
 }
 
 /// Ảnh mạng có placeholder + errorBuilder để offline không làm vỡ giao diện.
@@ -26,7 +25,7 @@ class VegImage extends StatelessWidget {
       width: width,
       height: height,
       color: AppColors.accent.withValues(alpha: 0.2),
-      child: const Icon(Icons.eco, color: AppColors.primary),
+      child: Icon(Icons.eco, color: context.cs.primary),
     );
     return ClipRRect(
       borderRadius: radius ?? BorderRadius.circular(16),
@@ -77,7 +76,7 @@ class VegSearchBar extends StatelessWidget {
           controller: controller,
           hintText: hint,
           elevation: WidgetStateProperty.all(1),
-          backgroundColor: WidgetStateProperty.all(Colors.white),
+          backgroundColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surface),
           leading: const Icon(Icons.search),
           onSubmitted: onSubmitted,
         ),
@@ -88,15 +87,46 @@ void showSnack(BuildContext context, String msg) => ScaffoldMessenger.of(context
   ..hideCurrentSnackBar()
   ..showSnackBar(SnackBar(content: Text(msg)));
 
-/// Ảnh Unsplash chủ đề vegan dùng cho Mock Data.
-const mockImages = [
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600',
-  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600',
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600',
-  'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600',
-  'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600',
-  'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600',
-  'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600',
-  'https://images.unsplash.com/photo-1543339308-43e59d6b73a6?w=600',
-];
-String mockImage(int i) => mockImages[i.abs() % mockImages.length];
+final _openErrorDialogs = <String>{};
+
+/// Popup báo lỗi khi không lấy/gửi được dữ liệu từ backend. Cùng một nội dung chỉ hiện một lần
+/// tại một thời điểm (nhiều tab tải song song khi backend tắt sẽ không chồng nhiều popup).
+Future<void> showErrorDialog(BuildContext context, String message,
+    {String title = 'Không thể lấy dữ liệu'}) async {
+  if (!context.mounted || !_openErrorDialogs.add(message)) return;
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.error_outline, color: Colors.red, size: 36),
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        ],
+      ),
+    );
+  } finally {
+    _openErrorDialogs.remove(message);
+  }
+}
+
+/// Hiển thị khi không tải được dữ liệu của một màn hình: thông báo ngắn + nút thử lại.
+class RetryView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const RetryView({super.key, this.message = 'Không tải được dữ liệu.', required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: context.textMuted)),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+                onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Thử lại')),
+          ]),
+        ),
+      );
+}

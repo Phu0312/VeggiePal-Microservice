@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -7,6 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../data/health_sync.dart';
 import '../data/menu_models.dart';
 import '../data/menu_repository.dart';
 
@@ -23,8 +25,8 @@ class MenuPlannerScreen extends StatefulWidget {
 }
 
 class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
-  final _height = TextEditingController(text: '165');
-  final _weight = TextEditingController(text: '58');
+  final _height = TextEditingController();
+  final _weight = TextEditingController();
   final _ingredient = TextEditingController();
   final _ingredients = <String>[];
   String _goal = 'MAINTENANCE';
@@ -32,21 +34,42 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
   WeekPlan? _plan;
   bool _busy = false;
   UserRole? _lastRole;
+  int? _lastHealthVersion;
 
-  void _syncWithRole(UserRole role) {
-    if (_lastRole == role) return;
+  static String _num(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : '$v';
+
+  /// Nạp lại chỉ số mới nhất từ server khi đổi tài khoản (đăng nhập/đăng xuất)
+  /// hoặc khi Hồ sơ > Lịch sử sức khỏe vừa thay đổi.
+  void _syncHealth(UserRole role, int healthVersion) {
+    if (_lastRole == role && _lastHealthVersion == healthVersion) return;
+    final loggedOut = role == UserRole.guest;
     _lastRole = role;
-    // Đổi vai trò (đăng nhập/đăng xuất) -> nạp lại chỉ số từ server nếu có.
+    _lastHealthVersion = healthVersion;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final h = await context.read<MenuRepository>().latestHealth();
       if (!mounted) return;
-      setState(() {
-        _health = h;
-        if (h != null) {
-          _height.text = h.heightCm.toStringAsFixed(0);
-          _weight.text = h.weightKg.toStringAsFixed(0);
-        }
-      });
+      if (loggedOut) {
+        // Xoá dữ liệu của tài khoản trước để không lộ sang người dùng kế tiếp.
+        setState(() {
+          _health = null;
+          _plan = null;
+          _height.clear();
+          _weight.clear();
+        });
+        return;
+      }
+      try {
+        final h = await context.read<MenuRepository>().latestHealth();
+        if (!mounted) return;
+        setState(() {
+          _health = h;
+          if (h != null) {
+            _height.text = _num(h.heightCm);
+            _weight.text = _num(h.weightKg);
+          }
+        });
+      } catch (e) {
+        if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải được chỉ số sức khỏe');
+      }
     });
   }
 
@@ -54,8 +77,8 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
     setState(() => _busy = true);
     try {
       await job();
-    } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.message);
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -74,7 +97,7 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
   Future<void> _generate() => _run(() async {
         final plan = await context
             .read<MenuRepository>()
-            .generate(_goal, _ingredients, _health);
+            .generate(_goal, _ingredients);
         if (mounted) setState(() => _plan = plan);
       });
 
@@ -83,7 +106,7 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
         if (mounted) showSnack(context, 'Đã lưu thực đơn vào tài khoản');
       });
 
-  Future<void> _openSaved() async {
+  Future<void> _openSaved() => _run(() async {
     final repo = context.read<MenuRepository>();
     final list = await repo.savedPlans();
     if (!mounted) return;
@@ -97,7 +120,7 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
           if (list.isEmpty) const ListTile(title: Text('Chưa có thực đơn nào được lưu')),
           for (final p in list)
             ListTile(
-              leading: const Icon(Icons.calendar_month, color: AppColors.primary),
+              leading: Icon(Icons.calendar_month, color: context.cs.primary),
               title: Text('Thực đơn ${p.goal}'),
               subtitle: Text(p.createdAt),
               onTap: () => Navigator.pop(context, p),
@@ -107,13 +130,13 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
     );
     if (picked == null) return;
     final detail = await repo.planDetail(picked.id);
-    if (mounted && detail != null) setState(() => _plan = detail);
-  }
+    if (mounted) setState(() => _plan = detail);
+  });
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
-    _syncWithRole(auth.role);
+    _syncHealth(auth.role, context.watch<HealthSync>().version);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -140,8 +163,8 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
                       label: const Text('Của tôi'))),
             ])
           else
-            const Text('Đăng nhập để lưu và quản lý thực đơn cá nhân.',
-                style: TextStyle(color: AppColors.textMuted)),
+            Text('Đăng nhập để lưu và quản lý thực đơn cá nhân.',
+                style: TextStyle(color: context.textMuted)),
         ] else if (auth.isLoggedIn)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -168,13 +191,19 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
                 child: TextField(
                     controller: _height,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Chiều cao (cm)'))),
+                    decoration: const InputDecoration(
+                        labelText: 'Chiều cao (cm)',
+                        hintText: 'Nhập chiều cao',
+                        prefixIcon: Icon(LucideIcons.ruler)))),
             const SizedBox(width: 12),
             Expanded(
                 child: TextField(
                     controller: _weight,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Cân nặng (kg)'))),
+                    decoration: const InputDecoration(
+                        labelText: 'Cân nặng (kg)',
+                        hintText: 'Nhập cân nặng',
+                        prefixIcon: Icon(LucideIcons.weight)))),
           ]),
           const SizedBox(height: 12),
           FilledButton(onPressed: _busy ? null : _calcBmi, child: const Text('Tính BMI')),
@@ -191,9 +220,9 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
   }
 
   Widget _stat(String label, String value, String sub) => Column(children: [
-        Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        Text(label, style: TextStyle(color: context.textMuted, fontSize: 12)),
         Text(value,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: AppColors.primary)),
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: context.cs.primary)),
         Text(sub, style: const TextStyle(fontSize: 12)),
       ]);
 
@@ -219,9 +248,12 @@ class _MenuPlannerScreenState extends State<MenuPlannerScreen> {
             Expanded(
                 child: TextField(
                     controller: _ingredient,
-                    decoration: const InputDecoration(labelText: 'Nguyên liệu bạn có (vd: nấm)'),
+                    decoration: const InputDecoration(
+                        labelText: 'Nguyên liệu bạn có',
+                        hintText: 'Ví dụ: nấm, đậu hũ...',
+                        prefixIcon: Icon(LucideIcons.leaf)),
                     onSubmitted: (_) => _addIngredient())),
-            IconButton(onPressed: _addIngredient, icon: const Icon(Icons.add_circle, color: AppColors.primary)),
+            IconButton(onPressed: _addIngredient, icon: Icon(Icons.add_circle, color: context.cs.primary)),
           ]),
           Wrap(spacing: 8, children: [
             for (final i in _ingredients)
@@ -269,7 +301,7 @@ class _WeekGrid extends StatelessWidget {
         child: Table(
           defaultColumnWidth: const FixedColumnWidth(150),
           columnWidths: const {0: FixedColumnWidth(72), 4: FixedColumnWidth(64)},
-          border: TableBorder.symmetric(inside: BorderSide(color: Colors.grey.shade200)),
+          border: TableBorder.symmetric(inside: BorderSide(color: Theme.of(context).dividerColor)),
           children: [
             TableRow(
               decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.3)),
