@@ -62,7 +62,7 @@ Tại thanh chọn **Select a definition** (góc trên bên phải), Giảng vi�
 
 ### TÀI KHOẢN MẪU ĐÃ CUNG CẤP SẴN:
 - **Quản trị viên (ADMIN)**: `admin@veggiepal.com` / `Demo@123`
-- **Người dùng mẫu (USER)**: `user@veggiepal.com` / `Demo@123`
+- **Người dùng mẫu (USER)**: ``
 - **Người dùng 2 (USER)**: `user2@veggiepal.com` / `Demo@123`
 
 ---
