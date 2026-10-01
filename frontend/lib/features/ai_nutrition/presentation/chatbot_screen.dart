@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import 'chat_controller.dart';
@@ -46,7 +47,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final go = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        icon: const Icon(Icons.lock_outline, color: AppColors.primary, size: 36),
+        icon: Icon(Icons.lock_outline, color: context.cs.primary, size: 36),
         title: const Text('Hết lượt dùng thử'),
         content: const Text(
             'Bạn đã dùng hết 3 câu hỏi miễn phí. Đăng ký hoặc đăng nhập để chat không giới hạn với trợ lý AI.'),
@@ -71,6 +72,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (chat.quotaExceeded && !_dialogOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_dialogOpen) _showQuotaDialog();
+      });
+    }
+
+    // Lỗi từ backend -> popup (tin nhắn của người dùng vẫn nằm trong khung chat).
+    final err = chat.error;
+    if (err != null) {
+      chat.ackError();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showErrorDialog(context, err, title: 'Trợ lý AI không phản hồi');
       });
     }
 
@@ -149,7 +159,7 @@ class _Bubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         decoration: BoxDecoration(
-          color: me ? AppColors.primary : Colors.white,
+          color: me ? context.cs.primary : context.cs.surface,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
@@ -158,7 +168,7 @@ class _Bubble extends StatelessWidget {
           ),
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
         ),
-        child: Text(m.text, style: TextStyle(color: me ? Colors.white : AppColors.textDark, height: 1.35)),
+        child: Text(m.text, style: TextStyle(color: me ? context.cs.onPrimary : context.cs.onSurface, height: 1.35)),
       ),
     );
   }
@@ -167,11 +177,11 @@ class _Bubble extends StatelessWidget {
 class _Typing extends StatelessWidget {
   const _Typing();
   @override
-  Widget build(BuildContext context) => const Align(
+  Widget build(BuildContext context) => Align(
         alignment: Alignment.centerLeft,
         child: Padding(
           padding: EdgeInsets.only(bottom: 10),
-          child: Text('Đang trả lời...', style: TextStyle(color: AppColors.textMuted)),
+          child: Text('Đang trả lời...', style: TextStyle(color: context.textMuted)),
         ),
       );
 }

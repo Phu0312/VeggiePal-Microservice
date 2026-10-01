@@ -5,45 +5,77 @@ import '../constants/app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  /// Theme Material 3: ColorScheme sinh từ màu primary, sau đó ghi đè màu thương hiệu
-  /// (secondary = xanh đọt chuối, nền = trắng kem).
+  /// Theme sáng: nền trắng kem, card trắng, chữ xanh đen đậm.
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: Brightness.light,
     ).copyWith(
       primary: AppColors.primary,
+      onPrimary: Colors.white,
       secondary: AppColors.accent,
       surface: AppColors.surface,
+      onSurface: AppColors.textDark,
+      onSurfaceVariant: AppColors.textMuted,
     );
+    return _build(scheme, background: AppColors.background);
+  }
 
+  /// Theme tối: nền xanh đen, card xám xanh, primary sáng hơn để nổi trên nền tối.
+  static ThemeData get dark {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: AppColors.primary,
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: AppColors.primaryDark,
+      onPrimary: const Color(0xFF08260B),
+      secondary: AppColors.accent,
+      surface: AppColors.surfaceDark,
+      onSurface: AppColors.textDarkMode,
+      onSurfaceVariant: AppColors.textMutedDarkMode,
+    );
+    return _build(scheme, background: AppColors.backgroundDark);
+  }
+
+  /// Dùng chung cho cả hai chế độ: mọi màu lấy từ [scheme] nên chữ luôn đủ tương phản.
+  static ThemeData _build(ColorScheme scheme, {required Color background}) {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: AppColors.background,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textDark,
+      scaffoldBackgroundColor: background,
+      dividerColor: scheme.onSurface.withValues(alpha: 0.12),
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      // Card: trắng, bo góc 16, đổ bóng nhẹ.
       cardTheme: CardThemeData(
-        color: Colors.white,
-        elevation: 2,
+        color: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: scheme.brightness == Brightness.light ? 2 : 0,
         shadowColor: Colors.black12,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.accent.withValues(alpha: 0.35),
-        labelTextStyle: WidgetStateProperty.all(
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      dialogTheme: DialogThemeData(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: scheme.surface,
+        surfaceTintColor: Colors.transparent,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: scheme.brightness == Brightness.light
+            ? Colors.white
+            : scheme.onSurface.withValues(alpha: 0.08),
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
       ),
@@ -51,9 +83,9 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         selectedColor: AppColors.accent.withValues(alpha: 0.4),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
       ),
     );
   }

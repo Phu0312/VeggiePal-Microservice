@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../core/widgets/header_actions.dart';
+import '../../../core/utils/format.dart';
+import '../../profile/data/profile_models.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/admin_repository.dart';
 
-/// Ban quản trị. Widget tree: Scaffold -> DefaultTabController(TabBar 4 tab)
+/// App quản trị riêng cho tài khoản Admin (thay hoàn toàn app người dùng, xem main.dart).
+/// Widget tree: Scaffold -> DefaultTabController(TabBar 4 tab)
 ///   Thành viên | Kiểm duyệt | Danh mục | AI
-/// Chỉ mở được khi role == Admin (nút vào nằm ở Top Bar của MainNavigationScreen).
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
@@ -18,8 +23,11 @@ class AdminDashboardScreen extends StatelessWidget {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Quản trị VeggiePal'),
-          bottom: const TabBar(isScrollable: true, tabs: [
+          toolbarHeight: 64,
+          centerTitle: false,
+          title: const AppLogo(size: 44),
+          actions: const [ThemeToggleButton(), AdminAccountBar()],
+          bottom: const TabBar(tabs: [
             Tab(text: 'Thành viên'),
             Tab(text: 'Kiểm duyệt'),
             Tab(text: 'Danh mục'),
@@ -37,12 +45,12 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 }
 
-/// Chạy tác vụ admin, hiển thị lỗi nghiệp vụ (vd 403) nếu có.
+/// Chạy tác vụ admin, hiển thị popup lỗi (không kết nối được backend, 403...) nếu có.
 Future<void> _guard(BuildContext c, Future<void> Function() job) async {
   try {
     await job();
-  } on ApiException catch (e) {
-    if (c.mounted) showSnack(c, e.message);
+  } catch (e) {
+    if (c.mounted) await showErrorDialog(c, errorMessage(e));
   }
 }
 
@@ -102,12 +110,13 @@ class _UsersTabState extends State<_UsersTab> {
                       title: Text(u.fullName),
                       subtitle: Text('${u.email}\n${u.role} • ${u.status}'),
                       isThreeLine: true,
+                      onTap: () => _showUserDetail(context, u),
                       trailing: u.role == 'ADMIN'
                           ? null
                           : TextButton(
                               onPressed: () => _toggle(u),
                               child: Text(blocked ? 'Mở khóa' : 'Khóa',
-                                  style: TextStyle(color: blocked ? AppColors.primary : Colors.red)),
+                                  style: TextStyle(color: blocked ? context.cs.primary : Colors.red)),
                             ),
                     ),
                   );
@@ -115,6 +124,89 @@ class _UsersTabState extends State<_UsersTab> {
               ),
       ),
     ]);
+  }
+}
+
+void _showUserDetail(BuildContext context, AdminUser u) => showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _UserDetailSheet(u),
+    );
+
+/// Chi tiết thành viên: GET /admin/users/{id} + dị ứng công khai GET /nutrition/allergies/user/{id}.
+class _UserDetailSheet extends StatefulWidget {
+  final AdminUser user;
+  const _UserDetailSheet(this.user);
+
+  @override
+  State<_UserDetailSheet> createState() => _UserDetailSheetState();
+}
+
+class _UserDetailSheetState extends State<_UserDetailSheet> {
+  UserProfile? _profile;
+  List<String> _allergies = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final id = widget.user.id;
+      final r = await Future.wait([
+        context.read<AdminRepository>().userDetail(id),
+        context.read<ProfileRepository>().allergenCodesOfUser(id),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _profile = r[0] as UserProfile;
+        _allergies = r[1] as List<String>;
+      });
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải được chi tiết thành viên');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Widget _row(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SizedBox(width: 120, child: Text(label, style: TextStyle(color: context.textMuted))),
+          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600))),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _profile;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: _loading
+            ? const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()))
+            : p == null
+                ? SizedBox(height: 160, child: RetryView(onRetry: _load))
+                : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.fullName.isEmpty ? p.email : p.fullName,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    _row('Email', p.email),
+                    _row('Số điện thoại', (p.phone ?? '').isEmpty ? 'Chưa cập nhật' : p.phone!),
+                    _row('Ngày sinh', p.dateOfBirth == null ? 'Chưa cập nhật' : fmtDate(p.dateOfBirth!)),
+                    _row('Vai trò', p.role),
+                    _row('Trạng thái', p.status),
+                    _row('Xác thực email', p.emailVerified ? 'Đã xác thực' : 'Chưa xác thực'),
+                    _row('Ngày tạo', p.createdAt == null ? '-' : fmtDate(p.createdAt!)),
+                    _row('Dị ứng', _allergies.isEmpty ? 'Không có' : _allergies.join(', ')),
+                  ]),
+      ),
+    );
   }
 }
 
@@ -211,7 +303,10 @@ class _CategoryTabState extends State<_CategoryTab> {
     return ListView(padding: const EdgeInsets.all(16), children: [
       const Text('Tạo danh mục món ăn mới', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
       const SizedBox(height: 12),
-      TextField(controller: _name, decoration: const InputDecoration(labelText: 'Tên danh mục')),
+      TextField(
+          controller: _name,
+          decoration: const InputDecoration(
+              labelText: 'Tên danh mục', hintText: 'Nhập tên danh mục', prefixIcon: Icon(LucideIcons.tag))),
       const SizedBox(height: 12),
       SegmentedButton<String>(
         segments: const [
@@ -227,9 +322,13 @@ class _CategoryTabState extends State<_CategoryTab> {
   }
 }
 
-class _AiTab extends StatelessWidget {
+class _AiTab extends StatefulWidget {
   const _AiTab();
+  @override
+  State<_AiTab> createState() => _AiTabState();
+}
 
+class _AiTabState extends State<_AiTab> {
   static const _labels = {
     'totalRequests': 'Tổng yêu cầu',
     'successCount': 'Thành công',
@@ -240,30 +339,49 @@ class _AiTab extends StatelessWidget {
     'videoSummaryRequests': 'Tóm tắt video',
   };
 
+  Map<String, dynamic>? _metrics;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    await _guard(context, () async {
+      final r = await context.read<AdminRepository>().aiMetrics();
+      if (mounted) setState(() => _metrics = r);
+    });
+    if (mounted) setState(() => _loading = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: context.read<AdminRepository>().aiMetrics(),
-      builder: (_, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return GridView.count(
-          padding: const EdgeInsets.all(16),
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.6,
-          children: [
-            for (final e in _labels.entries)
-              Card(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text('${snap.data![e.key] ?? 0}',
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                  Text(e.value),
-                ]),
-              ),
-          ],
-        );
-      },
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    final m = _metrics;
+    if (m == null) {
+      return Center(
+          child: OutlinedButton.icon(
+              onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Thử lại')));
+    }
+    return GridView.count(
+      padding: const EdgeInsets.all(16),
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.6,
+      children: [
+        for (final e in _labels.entries)
+          Card(
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('${m[e.key] ?? 0}',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: context.cs.primary)),
+              Text(e.value),
+            ]),
+          ),
+      ],
     );
   }
 }

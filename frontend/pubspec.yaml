@@ -38,7 +38,9 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.3.2
   flutter_dotenv: ^6.0.1
-  flutter_svg: ^2.3.0
+  lucide_icons_flutter: ^3.1.21
+  image_picker: ^1.2.3
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:
@@ -64,7 +66,7 @@ flutter:
 
   assets:
     - .env
-    - assets/icons/
+    - assets/images/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

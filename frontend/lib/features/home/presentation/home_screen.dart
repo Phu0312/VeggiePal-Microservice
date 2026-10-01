@@ -38,8 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _load();
   }
 
-  /// Tải danh mục + video + blog song song. Repository đã có Mock Fallback nên
-  /// không bao giờ ném lỗi kết nối; chỉ bắt lỗi nghiệp vụ còn lại.
+  /// Tải danh mục + video + blog song song. Lỗi (kể cả không kết nối được backend) hiện popup.
   Future<void> _load() async {
     setState(() => _loading = true);
     final repo = context.read<HomeRepository>();
@@ -56,8 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _videos = r[1] as List<VideoItem>;
         _blogs = r[2] as List<BlogItem>;
       });
-    } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.message);
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -164,7 +163,7 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
-            child: Text(text, style: const TextStyle(color: AppColors.textMuted))),
+            child: Text(text, style: TextStyle(color: context.textMuted))),
       );
 }
 
@@ -190,7 +189,7 @@ class _VideoCard extends StatelessWidget {
                 Text('${v.categoryName ?? ''} • ${v.durationText} • ${v.viewCount} lượt xem'),
                 const SizedBox(height: 12),
                 Text(v.videoUrl ?? 'Video sẽ phát tại đây (trình phát chưa tích hợp).',
-                    style: const TextStyle(color: AppColors.textMuted)),
+                    style: TextStyle(color: context.textMuted)),
               ]),
             ),
           ),
@@ -220,7 +219,7 @@ class _VideoCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text('${v.viewCount} lượt xem',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    style: TextStyle(fontSize: 12, color: context.textMuted)),
               ]),
             ),
           ]),
@@ -250,20 +249,20 @@ class _BlogCard extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (b.categoryName != null)
                   Text(b.categoryName!,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: 12, color: context.cs.primary, fontWeight: FontWeight.w600)),
                 Text(b.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 Row(children: [
-                  const Icon(Icons.visibility_outlined, size: 14, color: AppColors.textMuted),
+                  Icon(Icons.visibility_outlined, size: 14, color: context.textMuted),
                   Text(' ${b.viewCount}   ',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                  const Icon(Icons.favorite_border, size: 14, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 12, color: context.textMuted)),
+                  Icon(Icons.favorite_border, size: 14, color: context.textMuted),
                   Text(' ${b.voteScore}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                      style: TextStyle(fontSize: 12, color: context.textMuted)),
                 ]),
               ]),
             ),
