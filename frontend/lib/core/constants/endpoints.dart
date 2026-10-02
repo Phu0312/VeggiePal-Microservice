@@ -33,6 +33,14 @@ class Endpoints {
   static const blogs = '/blogs';
   static const myBlogs = '/blogs/me';
   static String blogById(int id) => '/blogs/$id';
+  static String blogRelated(int id) => '/blogs/$id/related';
+  static String blogSubmit(int id) => '/blogs/$id/submit';
+  static String blogThumbnail(int id) => '/blogs/$id/thumbnail';
+  static String blogVote(int id) => '/blogs/$id/vote';
+  static const myBlogVotes = '/blogs/me/votes';
+  static String categoryById(int id) => '/categories/$id';
+  static String commentReplies(int id) => '/comments/$id/replies';
+  static String commentById(int id) => '/comments/$id';
   static const videos = '/videos';
   static String videoById(int id) => '/videos/$id';
   static String videoSummarize(int id) => '/videos/$id/summarize';

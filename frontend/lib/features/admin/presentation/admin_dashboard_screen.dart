@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
@@ -10,6 +9,7 @@ import '../../../core/utils/format.dart';
 import '../../profile/data/profile_models.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/admin_repository.dart';
+import 'category_manager_tab.dart';
 
 /// App quản trị riêng cho tài khoản Admin (thay hoàn toàn app người dùng, xem main.dart).
 /// Widget tree: Scaffold -> DefaultTabController(TabBar 4 tab)
@@ -37,7 +37,7 @@ class AdminDashboardScreen extends StatelessWidget {
         body: const TabBarView(children: [
           _UsersTab(),
           _ModerationTab(),
-          _CategoryTab(),
+          CategoryManagerTab(),
           _AiTab(),
         ]),
       ),
@@ -275,50 +275,6 @@ class _ModerationTabState extends State<_ModerationTab> {
         );
       },
     );
-  }
-}
-
-class _CategoryTab extends StatefulWidget {
-  const _CategoryTab();
-  @override
-  State<_CategoryTab> createState() => _CategoryTabState();
-}
-
-class _CategoryTabState extends State<_CategoryTab> {
-  final _name = TextEditingController();
-  String _type = 'RECIPE_TYPE';
-
-  Future<void> _create() async {
-    if (_name.text.trim().isEmpty) return;
-    await _guard(context, () async {
-      await context.read<AdminRepository>().createCategory(_name.text.trim(), _type);
-      if (!mounted) return;
-      showSnack(context, 'Đã tạo danh mục "${_name.text.trim()}"');
-      _name.clear();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(padding: const EdgeInsets.all(16), children: [
-      const Text('Tạo danh mục món ăn mới', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-      const SizedBox(height: 12),
-      TextField(
-          controller: _name,
-          decoration: const InputDecoration(
-              labelText: 'Tên danh mục', hintText: 'Nhập tên danh mục', prefixIcon: Icon(LucideIcons.tag))),
-      const SizedBox(height: 12),
-      FullWidthSegmented<String>(
-        options: const [
-          SegmentOption('RECIPE_TYPE', 'Loại công thức'),
-          SegmentOption('FOOD_TYPE', 'Loại thực phẩm'),
-        ],
-        selected: _type,
-        onChanged: (v) => setState(() => _type = v),
-      ),
-      const SizedBox(height: 16),
-      FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: const Text('Tạo danh mục')),
-    ]);
   }
 }
 
