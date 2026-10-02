@@ -79,12 +79,6 @@ class AdminRepository {
         body: {'decision': approve ? 'APPROVED' : 'REJECTED', 'reason': reason});
   }
 
-  // POST /categories {name, type, parentId, displayOrder, active}
-  Future<void> createCategory(String name, String type) async {
-    await _api.post(Endpoints.categories,
-        body: {'name': name, 'type': type, 'displayOrder': 0, 'active': true});
-  }
-
   // GET /admin/ai/metrics
   Future<Map<String, dynamic>> aiMetrics() async {
     final r = await _api.get(Endpoints.aiMetrics);

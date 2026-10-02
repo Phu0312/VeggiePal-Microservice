@@ -56,6 +56,10 @@ class BlogItem {
   final DateTime? publishedAt;
   final String? content; // chỉ có ở API chi tiết
   final String? status; // DRAFT | PENDING | PUBLISHED | REJECTED | BANNED (chỉ có ở /blogs/me)
+  final int? authorId;
+  final int? categoryId;
+  final DateTime? createdAt;
+  final String? moderationReason; // chỉ có khi kiểm duyệt từ chối/hoãn (BlogResponse)
 
   const BlogItem({
     required this.id,
@@ -67,6 +71,10 @@ class BlogItem {
     this.publishedAt,
     this.content,
     this.status,
+    this.authorId,
+    this.categoryId,
+    this.createdAt,
+    this.moderationReason,
   });
 
   factory BlogItem.fromJson(Map<String, dynamic> j) => BlogItem(
@@ -81,5 +89,19 @@ class BlogItem {
             : DateTime.tryParse('${j['publishedAt']}'),
         content: j['content'] as String?,
         status: j['status'] as String?,
+        authorId: (j['authorId'] as num?)?.toInt(),
+        categoryId: (j['categoryId'] as num?)?.toInt(),
+        createdAt: j['createdAt'] == null ? null : DateTime.tryParse('${j['createdAt']}'),
+        moderationReason: j['moderationReason'] as String?,
       );
 }
+
+/// Tên trạng thái bài viết tiếng Việt.
+String blogStatusLabel(String? status) => switch (status) {
+      'DRAFT' => 'Bản nháp',
+      'PENDING' => 'Chờ duyệt',
+      'PUBLISHED' => 'Đã đăng',
+      'REJECTED' => 'Bị từ chối',
+      'BANNED' => 'Bị gỡ',
+      _ => status ?? '',
+    };

@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/core/storage/session_store.dart';
-import 'package:frontend/features/auth/data/auth_models.dart';
-import 'package:frontend/features/auth/data/auth_repository.dart';
-import 'package:frontend/features/auth/presentation/auth_controller.dart';
-import 'package:frontend/features/auth/presentation/login_screen.dart';
+import 'package:VeggiePal/core/network/api_client.dart';
+import 'package:VeggiePal/core/storage/session_store.dart';
+import 'package:VeggiePal/features/auth/data/auth_models.dart';
+import 'package:VeggiePal/features/auth/data/auth_repository.dart';
+import 'package:VeggiePal/features/auth/presentation/auth_controller.dart';
+import 'package:VeggiePal/features/auth/presentation/login_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
