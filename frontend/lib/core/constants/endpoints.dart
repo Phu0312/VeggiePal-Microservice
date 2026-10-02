@@ -50,6 +50,11 @@ class Endpoints {
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
   static const mealPlans = '/nutrition/meal-plans';
   static const mealPlanGenerate = '/nutrition/meal-plans/generate';
+  static String mealPlanReplace(int id) => '/nutrition/meal-plans/$id/replace-meal';
+  static const recipes = '/nutrition/recipes';
+  static String recipeById(int id) => '/nutrition/recipes/$id';
+  static const myIngredients = '/nutrition/me/ingredients';
+  static String myIngredientById(int id) => '/nutrition/me/ingredients/$id';
   static const restaurantsNearby = '/restaurants/nearby';
   static const chatGuest = '/ai/chat/guest';
   static const chat = '/ai/chat';

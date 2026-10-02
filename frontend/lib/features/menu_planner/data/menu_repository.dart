@@ -46,10 +46,21 @@ class MenuRepository {
     return WeekPlan.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
-  // POST /nutrition/meal-plans {goal, planData}
-  Future<void> save(WeekPlan plan) async {
+  // POST /nutrition/meal-plans {goal, planData} -> trả về thực đơn kèm id để có thể đổi món.
+  Future<WeekPlan> save(WeekPlan plan) async {
     _requireLogin();
-    await _api.post(Endpoints.mealPlans, body: {'goal': plan.goal, 'planData': plan.raw});
+    final r = await _api.post(Endpoints.mealPlans, body: {'goal': plan.goal, 'planData': plan.raw});
+    final id = ((r as Map)['id'] as num).toInt();
+    return plan.withPlanId(id);
+  }
+
+  // POST /nutrition/meal-plans/{id}/replace-meal {day, mealType} -> thực đơn đã đổi món (BE chọn
+  // ngẫu nhiên món khác, tránh nguyên liệu dị ứng, và lưu lại luôn).
+  Future<WeekPlan> replaceMeal(int planId, int day, String mealType) async {
+    _requireLogin();
+    final r = await _api.post(Endpoints.mealPlanReplace(planId),
+        body: {'day': day, 'mealType': mealType});
+    return WeekPlan.fromJson(Map<String, dynamic>.from(r as Map)).withPlanId(planId);
   }
 
   // GET /nutrition/meal-plans

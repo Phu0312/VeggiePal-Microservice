@@ -130,3 +130,66 @@ class RetryView extends StatelessWidget {
         ),
       );
 }
+
+/// Một lựa chọn của [FullWidthSegmented].
+class SegmentOption<T> {
+  final T value;
+  final String label;
+  final IconData? icon;
+  const SegmentOption(this.value, this.label, {this.icon});
+}
+
+/// Bộ chọn một trong nhiều lựa chọn: các ô rộng bằng nhau, chiếm hết bề ngang khung chứa,
+/// chữ (và icon) luôn ở giữa mỗi ô. Dựng bằng tay vì SegmentedButton của Flutter không
+/// ép được độ rộng đầy đủ trong mọi bố cục.
+class FullWidthSegmented<T> extends StatelessWidget {
+  final List<SegmentOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  const FullWidthSegmented(
+      {super.key, required this.options, required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      height: 44,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: cs.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(children: [
+        for (var i = 0; i < options.length; i++) ...[
+          if (i > 0) VerticalDivider(width: 1, thickness: 1, color: cs.outline),
+          Expanded(child: _cell(context, options[i])),
+        ],
+      ]),
+    );
+  }
+
+  Widget _cell(BuildContext context, SegmentOption<T> o) {
+    final cs = Theme.of(context).colorScheme;
+    final on = o.value == selected;
+    final fg = on ? cs.onSecondaryContainer : cs.onSurface;
+    return Material(
+      color: on ? cs.secondaryContainer : Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(o.value),
+        child: Center(
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (o.icon != null) ...[Icon(o.icon, size: 18, color: fg), const SizedBox(width: 6)],
+            Flexible(
+              child: Text(o.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: fg, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
