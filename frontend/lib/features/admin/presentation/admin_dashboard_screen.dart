@@ -308,13 +308,13 @@ class _CategoryTabState extends State<_CategoryTab> {
           decoration: const InputDecoration(
               labelText: 'Tên danh mục', hintText: 'Nhập tên danh mục', prefixIcon: Icon(LucideIcons.tag))),
       const SizedBox(height: 12),
-      SegmentedButton<String>(
-        segments: const [
-          ButtonSegment(value: 'RECIPE_TYPE', label: Text('Loại công thức')),
-          ButtonSegment(value: 'FOOD_TYPE', label: Text('Loại thực phẩm')),
+      FullWidthSegmented<String>(
+        options: const [
+          SegmentOption('RECIPE_TYPE', 'Loại công thức'),
+          SegmentOption('FOOD_TYPE', 'Loại thực phẩm'),
         ],
-        selected: {_type},
-        onSelectionChanged: (s) => setState(() => _type = s.first),
+        selected: _type,
+        onChanged: (v) => setState(() => _type = v),
       ),
       const SizedBox(height: 16),
       FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: const Text('Tạo danh mục')),

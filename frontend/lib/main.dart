@@ -17,6 +17,7 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/home/data/home_repository.dart';
 import 'features/menu_planner/data/health_sync.dart';
+import 'features/menu_planner/data/meal_repository.dart';
 import 'features/menu_planner/data/menu_repository.dart';
 import 'features/notifications/notification_controller.dart';
 import 'features/places/data/places_repository.dart';
@@ -58,6 +59,7 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, HomeRepository>(update: (_, api, _) => HomeRepository(api)),
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),
         ProxyProvider<ApiClient, MenuRepository>(update: (_, api, _) => MenuRepository(api)),
+        ProxyProvider<ApiClient, MealRepository>(update: (_, api, _) => MealRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
         ProxyProvider<ApiClient, ProfileRepository>(update: (_, api, _) => ProfileRepository(api)),
         ProxyProvider<ApiClient, ChatRepository>(update: (_, api, _) => ChatRepository(api)),
