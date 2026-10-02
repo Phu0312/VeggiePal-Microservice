@@ -66,13 +66,13 @@ class _CreateFormState extends State<_CreateForm> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: false, label: Text('Bài viết'), icon: Icon(Icons.article_outlined)),
-            ButtonSegment(value: true, label: Text('Video'), icon: Icon(Icons.videocam_outlined)),
+        FullWidthSegmented<bool>(
+          options: const [
+            SegmentOption(false, 'Bài viết', icon: LucideIcons.fileText),
+            SegmentOption(true, 'Video', icon: LucideIcons.video),
           ],
-          selected: {_isVideo},
-          onSelectionChanged: (s) => setState(() => _isVideo = s.first),
+          selected: _isVideo,
+          onChanged: (v) => setState(() => _isVideo = v),
         ),
         const SizedBox(height: 12),
         TextField(
