@@ -193,3 +193,18 @@ class FullWidthSegmented<T> extends StatelessWidget {
     );
   }
 }
+
+/// Popup thông tin (không phải lỗi), ví dụ kết quả kiểm duyệt bài viết.
+Future<void> showInfoDialog(BuildContext context, String title, String message) {
+  if (!context.mounted) return Future.value();
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+      ],
+    ),
+  );
+}
