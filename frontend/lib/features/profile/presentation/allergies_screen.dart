@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../data/profile_models.dart';
 import '../data/profile_repository.dart';
+import 'allergen_chips.dart';
 
 /// Chọn các thực phẩm bạn dị ứng. Danh mục lấy từ GET /nutrition/allergens, lựa chọn hiện tại từ
 /// GET /nutrition/me/allergies và lưu bằng PUT /nutrition/me/allergies (thay thế toàn bộ danh sách).
@@ -68,14 +69,6 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Nhóm theo category, giữ thứ tự nhóm của backend.
-    final groups = <String, List<Allergen>>{
-      for (final k in Allergen.categoryLabels.keys) k: [],
-    };
-    for (final a in _catalog) {
-      groups.putIfAbsent(a.category, () => []).add(a);
-    }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Dị ứng thực phẩm')),
       body: _loading
@@ -88,24 +81,14 @@ class _AllergiesScreenState extends State<AllergiesScreen> {
                       padding: const EdgeInsets.all(16),
                       children: [
                         Text(
-                            'Chọn những nguyên liệu bạn dị ứng. Thực đơn do AI gợi ý sẽ tránh các nguyên liệu này.',
+                            'Chọn những nguyên liệu bạn dị ứng. Thực đơn được tạo sẽ tránh các nguyên liệu này.',
                             style: TextStyle(color: context.textMuted)),
-                        for (final e in groups.entries)
-                          if (e.value.isNotEmpty) ...[
-                            SectionHeader(Allergen.categoryLabels[e.key] ?? e.key),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Wrap(spacing: 8, runSpacing: 4, children: [
-                                for (final a in e.value)
-                                  FilterChip(
-                                    label: Text(a.name),
-                                    selected: _selected.contains(a.id),
-                                    onSelected: (v) => setState(
-                                        () => v ? _selected.add(a.id) : _selected.remove(a.id)),
-                                  ),
-                              ]),
-                            ),
-                          ],
+                        AllergenGroupedChips(
+                          catalog: _catalog,
+                          selected: _selected,
+                          onChanged: (a, v) =>
+                              setState(() => v ? _selected.add(a.id) : _selected.remove(a.id)),
+                        ),
                       ],
                     ),
                   ),
