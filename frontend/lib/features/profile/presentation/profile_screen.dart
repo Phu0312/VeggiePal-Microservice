@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/header_actions.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../blog/presentation/my_blogs_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -79,6 +80,9 @@ class ProfileScreen extends StatelessWidget {
           child: Column(children: [
             _MenuTile(LucideIcons.userPen, 'Thông tin cá nhân', 'Họ tên, số điện thoại, ngày sinh, ảnh đại diện',
                 () => _open(context, const EditProfileScreen())),
+            const Divider(height: 1),
+            _MenuTile(LucideIcons.fileText, 'Bài viết của tôi', 'Viết bài, sửa, gửi duyệt, xem trạng thái',
+                () => _open(context, const MyBlogsScreen())),
             const Divider(height: 1),
             _MenuTile(LucideIcons.keyRound, 'Đổi mật khẩu', null,
                 () => _open(context, const ChangePasswordScreen())),

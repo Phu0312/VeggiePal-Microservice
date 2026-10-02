@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/storage/session_store.dart';
-import 'package:frontend/features/auth/data/auth_models.dart';
+import 'package:VeggiePal/core/storage/session_store.dart';
+import 'package:VeggiePal/features/auth/data/auth_models.dart';
 
 String _jwt(int expSeconds) {
   String b64(Map m) => base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '');

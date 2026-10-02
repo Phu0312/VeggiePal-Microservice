@@ -8,8 +8,16 @@ class AuthRepository {
 
   /// POST /auth/login. Mọi lỗi (sai mật khẩu, không kết nối được máy chủ...) được ném lại cho UI.
   Future<AuthSession> login(String email, String password) async {
-    final r = await _api.post(Endpoints.login,
-        body: {'email': email.trim(), 'password': password});
+    final dynamic r;
+    try {
+      r = await _api.post(Endpoints.login, body: {'email': email.trim(), 'password': password});
+    } on ApiException catch (e) {
+      // BE trả UNAUTHENTICATED (1008) cho cả sai email lẫn sai mật khẩu.
+      if (e.code == 1008) {
+        throw ApiException('Email hoặc mật khẩu không đúng.', code: e.code, statusCode: e.statusCode);
+      }
+      rethrow;
+    }
     final m = Map<String, dynamic>.from(r as Map);
     return AuthSession('${m['accessToken']}', AuthUser.fromLogin(m));
   }

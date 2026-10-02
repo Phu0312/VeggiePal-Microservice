@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../constants/endpoints.dart';
+import 'error_messages.dart';
 
 /// Lỗi nghiệp vụ/mạng đã chuẩn hoá để repository và UI xử lý thống nhất.
 class ApiException implements Exception {
@@ -66,7 +67,8 @@ class ApiClient {
       // Envelope thành công có code == 1000; trả về `result`.
       if (data is Map && data.containsKey('code')) {
         if (data['code'] != 1000) {
-          throw ApiException('${data['message'] ?? 'Lỗi'}', code: data['code'] as int?);
+          final code = data['code'] as int?;
+          throw ApiException(localizedError(code, data['message'] as String?), code: code);
         }
         return data['result'];
       }
@@ -74,8 +76,9 @@ class ApiClient {
     } on DioException catch (e) {
       final body = e.response?.data;
       if (body is Map && body['message'] != null) {
-        throw ApiException('${body['message']}',
-            code: body['code'] as int?, statusCode: e.response?.statusCode);
+        final code = body['code'] as int?;
+        throw ApiException(localizedError(code, '${body['message']}'),
+            code: code, statusCode: e.response?.statusCode);
       }
       // Phản hồi không phải ApiResponse của backend (vd trang lỗi HTML từ gateway/proxy).
       final status = e.response?.statusCode;

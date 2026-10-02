@@ -1,5 +1,6 @@
 import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
+import '../../blog/data/blog_models.dart';
 import 'home_models.dart';
 
 /// Gọi blog-service: danh mục, video, bài viết (đọc công khai, ghi cần JWT).
@@ -35,7 +36,24 @@ class HomeRepository {
         .toList();
   }
 
-  // GET /blogs?keyword=&categoryId=
+  // GET /blogs?keyword=&categoryId=&page=&size= (bài đã đăng, mới nhất trước) -> một trang cho bảng tin.
+  Future<PageData<BlogItem>> blogsPage(
+      {String? keyword, int? categoryId, int page = 0, int size = 10}) async {
+    final r = await _api.get(Endpoints.blogs, query: {
+      if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
+      if (categoryId != null) 'categoryId': categoryId,
+      'page': page,
+      'size': size,
+    });
+    final m = Map<String, dynamic>.from(r as Map);
+    return PageData(
+      asList(r).map((e) => BlogItem.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
+      (m['page'] as num?)?.toInt() ?? page,
+      (m['totalPages'] as num?)?.toInt() ?? 1,
+      (m['totalElements'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   Future<List<BlogItem>> blogs({String? keyword, int? categoryId}) async {
     final r = await _api.get(Endpoints.blogs, query: {
       if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
@@ -64,14 +82,17 @@ class HomeRepository {
     return BlogItem.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
-  // POST /blogs với publish=true (backend tự kiểm duyệt rồi xuất bản/chờ duyệt).
-  Future<void> createBlog(String title, String content, int? categoryId) async {
-    await _api.post(Endpoints.blogs, body: {
+  // POST /blogs. publish=true: backend kiểm duyệt ngay (đăng luôn / chờ duyệt / từ chối);
+  // publish=false: lưu bản nháp. Trả về bài viết kèm status và moderationReason.
+  Future<BlogItem> createBlog(String title, String content, int categoryId,
+      {bool publish = true}) async {
+    final r = await _api.post(Endpoints.blogs, body: {
       'title': title,
       'content': content,
       'categoryId': categoryId,
-      'publish': true,
+      'publish': publish,
     });
+    return BlogItem.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
   // POST /videos (video lưu bằng URL, không upload file).

@@ -1,4 +1,4 @@
-name: frontend
+name: VeggiePal
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -52,6 +52,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -98,3 +100,27 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Biểu tượng ứng dụng (Android + iOS). Ảnh nguồn assets/images/icon_app.png được căn lại thành ảnh
+# vuông có lề trong tool/branding/ (cần thiết để adaptive icon của Android không bị cắt).
+# Tạo lại bằng: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "tool/branding/icon_launcher.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "tool/branding/icon_adaptive_foreground.png"
+  remove_alpha_ios: true
+
+# Màn hình chờ khi khởi động (thay logo Flutter). Tạo lại bằng: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#F7F9F6"
+  image: tool/branding/splash_logo.png
+  color_dark: "#111611"
+  image_dark: tool/branding/splash_logo.png
+  android_12:
+    color: "#F7F9F6"
+    image: tool/branding/splash_logo.png
+    color_dark: "#111611"
+    image_dark: tool/branding/splash_logo.png
+  web: false

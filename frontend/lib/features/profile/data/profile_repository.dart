@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/image_type.dart';
 import 'profile_models.dart';
 
 /// identity-service (hồ sơ cá nhân) + nutrition-service (dị ứng, lịch sử sức khỏe).
@@ -41,17 +42,13 @@ class ProfileRepository {
 
   // POST /users/me/avatar (multipart `file`; JPEG/PNG/WEBP, tối đa 2MB)
   Future<UserProfile> uploadAvatar(Uint8List bytes) async {
-    final type = _sniffImageType(bytes);
+    final type = sniffImageType(bytes);
     if (type == null) throw ApiException('Ảnh đại diện phải là JPEG, PNG hoặc WEBP.');
     if (bytes.length > _maxAvatarBytes) {
       throw ApiException('Ảnh đại diện không được vượt quá 2MB.');
     }
-    final form = FormData.fromMap({
-      'file': MultipartFile.fromBytes(bytes,
-          filename: 'avatar.${type == 'jpeg' ? 'jpg' : type}',
-          contentType: DioMediaType('image', type)),
-    });
-    final r = await _api.post(Endpoints.myAvatar, body: form);
+    final r = await _api.post(Endpoints.myAvatar,
+        body: FormData.fromMap({'file': imagePart(bytes, type)}));
     return UserProfile.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
@@ -118,17 +115,5 @@ class ProfileRepository {
     final r = await _api.put(Endpoints.healthRecordById(id),
         body: {'heightCm': heightCm, 'weightKg': weightKg});
     return HealthRecord.fromJson(Map<String, dynamic>.from(r as Map));
-  }
-
-  /// Nhận diện loại ảnh theo byte đầu file (không tin vào đuôi tên file vì ảnh có thể đã bị nén lại).
-  static String? _sniffImageType(Uint8List b) {
-    if (b.length > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return 'jpeg';
-    if (b.length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return 'png';
-    if (b.length > 12 &&
-        String.fromCharCodes(b.sublist(0, 4)) == 'RIFF' &&
-        String.fromCharCodes(b.sublist(8, 12)) == 'WEBP') {
-      return 'webp';
-    }
-    return null;
   }
 }

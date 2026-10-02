@@ -5,18 +5,25 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/login_screen.dart';
+import '../../blog/data/blog_models.dart';
+import '../../blog/data/blog_repository.dart';
+import '../../profile/data/profile_models.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/home_models.dart';
 import '../data/home_repository.dart';
 import 'blog_detail_screen.dart';
 import 'create_content_sheet.dart';
+import 'post_card.dart';
 
-/// TAB 1 - Trang chủ.
+/// TAB 1 - Trang chủ: bảng tin bài viết xếp theo chiều dọc (mới nhất trước), cuộn xuống tự tải thêm.
 /// Widget tree: Scaffold(FAB cho thành viên)
 ///   └─ RefreshIndicator └─ ListView
 ///        ├─ VegSearchBar
 ///        ├─ Danh mục (ListView ngang của ChoiceChip)
-///        ├─ Section "Video hướng dẫn" (carousel ngang)
-///        └─ Section "Bài viết & Blog" (danh sách dọc)
+///        └─ Danh sách PostCard (tác giả, tiêu đề + ảnh bìa, thích / không thích / bình luận)
+/// Tác giả lấy bằng GET /users/batch, phiếu bầu của tôi bằng GET /blogs/me/votes, số bình luận bằng
+/// GET /comments (chỉ gọi cho các bài mới tải của mỗi trang).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -26,46 +33,203 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _search = TextEditingController();
+  final _scroll = ScrollController();
+
   List<CategoryItem> _categories = [];
-  List<VideoItem> _videos = [];
   List<BlogItem> _blogs = [];
   int? _categoryId;
+  int _page = 0;
+  bool _hasMore = false;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _loadFailed = false;
+
+  final _authors = <int, PublicUser>{};
+  final _myVotes = <int, int?>{};
+  final _scores = <int, int>{};
+  final _commentCounts = <int, int>{};
+  int? _votesFor; // userId mà _myVotes đang tương ứng
 
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(() {
+      if (_scroll.hasClients && _scroll.position.extentAfter < 400) _loadMore();
+    });
     _load();
   }
 
-  /// Tải danh mục + video + blog song song. Lỗi (kể cả không kết nối được backend) hiện popup.
+  @override
+  void dispose() {
+    _search.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Tải lại từ trang đầu: danh mục + trang bài viết đầu tiên.
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     final repo = context.read<HomeRepository>();
     final kw = _search.text.trim();
     try {
-      final r = await Future.wait([
+      final r = await Future.wait<Object>([
         repo.categories(),
-        repo.videos(keyword: kw, categoryId: _categoryId),
-        repo.blogs(keyword: kw, categoryId: _categoryId),
+        repo.blogsPage(keyword: kw, categoryId: _categoryId, page: 0),
       ]);
       if (!mounted) return;
+      final page = r[1] as PageData<BlogItem>;
       setState(() {
         _categories = r[0] as List<CategoryItem>;
-        _videos = r[1] as List<VideoItem>;
-        _blogs = r[2] as List<BlogItem>;
+        _blogs = page.items;
+        _page = page.page;
+        _hasMore = page.hasMore;
+        for (final b in page.items) {
+          _scores[b.id] = b.voteScore;
+        }
       });
+      await _enrich(page.items);
     } catch (e) {
-      if (mounted) showErrorDialog(context, errorMessage(e));
+      if (mounted) {
+        setState(() => _loadFailed = true);
+        showErrorDialog(context, errorMessage(e));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final p = await context.read<HomeRepository>().blogsPage(
+          keyword: _search.text.trim(), categoryId: _categoryId, page: _page + 1);
+      if (!mounted) return;
+      setState(() {
+        _blogs = [..._blogs, ...p.items];
+        _page = p.page;
+        _hasMore = p.hasMore;
+        for (final b in p.items) {
+          _scores[b.id] = b.voteScore;
+        }
+      });
+      await _enrich(p.items);
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải thêm được bài viết');
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  /// Bổ sung thông tin cho các bài vừa tải: tên + avatar tác giả (1 request cho cả trang),
+  /// phiếu bầu của tôi (1 request, nếu đã đăng nhập) và số bình luận từng bài.
+  Future<void> _enrich(List<BlogItem> items) async {
+    if (items.isEmpty) return;
+    final profileRepo = context.read<ProfileRepository>();
+    final blogRepo = context.read<BlogRepository>();
+    final auth = context.read<AuthController>();
+    final ids = items.map((b) => b.id).toList();
+    final unknownAuthors = {
+      for (final b in items)
+        if (b.authorId != null && !_authors.containsKey(b.authorId)) b.authorId!,
+    }.toList();
+    try {
+      final users = await profileRepo.publicUsers(unknownAuthors);
+      final votes = auth.isLoggedIn ? await blogRepo.myVotes(ids) : <VoteInfo>[];
+      if (!mounted) return;
+      setState(() {
+        for (final u in users) {
+          _authors[u.id] = u;
+        }
+        for (final v in votes) {
+          _myVotes[v.blogId] = v.myVote;
+        }
+        _votesFor = auth.user?.id;
+      });
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải được thông tin bài viết');
+    }
+    // Số bình luận: lỗi từng bài thì bỏ qua (thẻ hiện chữ "Bình luận" không kèm số).
+    await Future.wait(ids.map((id) async {
+      try {
+        final n = await blogRepo.commentCount(id);
+        if (mounted) setState(() => _commentCounts[id] = n);
+      } catch (_) {}
+    }));
+  }
+
+  /// Đăng nhập/đăng xuất thì nạp lại (hoặc xoá) phiếu bầu của tôi.
+  void _syncVotes(int? userId) {
+    if (_blogs.isEmpty || _votesFor == userId) return;
+    _votesFor = userId;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (userId == null) {
+        setState(_myVotes.clear);
+        return;
+      }
+      try {
+        final votes = await context.read<BlogRepository>().myVotes(_blogs.map((b) => b.id).toList());
+        if (!mounted) return;
+        setState(() {
+          _myVotes
+            ..clear()
+            ..addEntries(votes.map((v) => MapEntry(v.blogId, v.myVote)));
+        });
+      } catch (e) {
+        if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải được phiếu bầu');
+      }
+    });
+  }
+
+  Future<void> _vote(BlogItem b, int value) async {
+    if (!context.read<AuthController>().isLoggedIn) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      return;
+    }
+    try {
+      // Bầu lại đúng giá trị đang chọn thì BE tự rút phiếu.
+      final v = await context.read<BlogRepository>().vote(b.id, value);
+      if (!mounted) return;
+      setState(() {
+        _myVotes[b.id] = v.myVote;
+        if (v.voteScore != null) _scores[b.id] = v.voteScore!;
+      });
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không bầu chọn được');
+    }
+  }
+
+  Future<void> _open(BlogItem b) async {
+    final blogRepo = context.read<BlogRepository>();
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BlogDetailScreen(
+        summary: b,
+        onVoteChanged: (myVote, score) {
+          if (!mounted) return;
+          setState(() {
+            _myVotes[b.id] = myVote;
+            if (score != null) _scores[b.id] = score;
+          });
+        },
+      ),
+    ));
+    // Quay lại: cập nhật số bình luận (người dùng có thể vừa bình luận hoặc xoá).
+    try {
+      final n = await blogRepo.commentCount(b.id);
+      if (mounted) setState(() => _commentCounts[b.id] = n);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    _syncVotes(auth.user?.id);
     // Chỉ thành viên (User/Admin) mới thấy nút đăng nội dung; khách chỉ xem/tìm kiếm.
-    final canPost = context.watch<AuthController>().isLoggedIn;
+    final canPost = auth.isLoggedIn;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -76,29 +240,56 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (posted == true) _load();
               },
               icon: const Icon(Icons.add),
-              label: const Text('Đăng video/bài viết'),
+              label: const Text('Đăng bài'),
             )
           : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 88),
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 100),
           children: [
             VegSearchBar(
               controller: _search,
-              hint: 'Tìm món ăn, công thức, video nấu chay...',
+              hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
               onSubmitted: (_) => _load(),
             ),
             _buildCategories(),
+            const SizedBox(height: 8),
             if (_loading)
               const Padding(
-                  padding: EdgeInsets.all(48),
-                  child: Center(child: CircularProgressIndicator()))
+                  padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+            else if (_loadFailed)
+              RetryView(onRetry: _load)
+            else if (_blogs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(48),
+                child: Center(
+                    child: Text('Chưa có bài viết phù hợp', style: TextStyle(color: context.textMuted))),
+              )
             else ...[
-              const SectionHeader('Video hướng dẫn nấu ăn'),
-              _buildVideos(),
-              const SectionHeader('Bài viết & Blog chia sẻ'),
-              _buildBlogs(),
+              for (final b in _blogs)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: PostCard(
+                    blog: b,
+                    author: _authors[b.authorId],
+                    myVote: _myVotes[b.id],
+                    score: _scores[b.id] ?? b.voteScore,
+                    commentCount: _commentCounts[b.id],
+                    onOpen: () => _open(b),
+                    onVote: (v) => _vote(b, v),
+                  ),
+                ),
+              if (_loadingMore)
+                const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
+              else if (!_hasMore)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                      child: Text('Bạn đã xem hết bài viết', style: TextStyle(color: context.textMuted))),
+                ),
             ],
           ],
         ),
@@ -126,149 +317,4 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       );
-
-  Widget _buildVideos() {
-    if (_videos.isEmpty) return const _Empty('Chưa có video phù hợp');
-    return SizedBox(
-      height: 210,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _videos.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (_, i) => _VideoCard(_videos[i]),
-      ),
-    );
-  }
-
-  Widget _buildBlogs() {
-    if (_blogs.isEmpty) return const _Empty('Chưa có bài viết phù hợp');
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          for (final b in _blogs)
-            Padding(
-                padding: const EdgeInsets.only(bottom: 12), child: _BlogCard(b)),
-        ],
-      ),
-    );
-  }
-}
-
-class _Empty extends StatelessWidget {
-  final String text;
-  const _Empty(this.text);
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-            child: Text(text, style: TextStyle(color: context.textMuted))),
-      );
-}
-
-/// Thẻ video: thumbnail + badge thời lượng + lượt xem.
-class _VideoCard extends StatelessWidget {
-  final VideoItem v;
-  const _VideoCard(this.v);
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => showModalBottomSheet(
-            context: context,
-            builder: (_) => Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(v.title, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                Text('${v.categoryName ?? ''} • ${v.durationText} • ${v.viewCount} lượt xem'),
-                const SizedBox(height: 12),
-                Text(v.videoUrl ?? 'Video sẽ phát tại đây (trình phát chưa tích hợp).',
-                    style: TextStyle(color: context.textMuted)),
-              ]),
-            ),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Stack(children: [
-              VegImage(v.thumbnailUrl, width: 220, height: 120, radius: BorderRadius.zero),
-              const Positioned.fill(
-                  child: Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 40))),
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                      color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                  child: Text(v.durationText,
-                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-              ),
-            ]),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(v.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text('${v.viewCount} lượt xem',
-                    style: TextStyle(fontSize: 12, color: context.textMuted)),
-              ]),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _BlogCard extends StatelessWidget {
-  final BlogItem b;
-  const _BlogCard(this.b);
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => BlogDetailScreen(summary: b))),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(children: [
-            VegImage(b.thumbnailUrl, width: 88, height: 88),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (b.categoryName != null)
-                  Text(b.categoryName!,
-                      style: TextStyle(
-                          fontSize: 12, color: context.cs.primary, fontWeight: FontWeight.w600)),
-                Text(b.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Row(children: [
-                  Icon(Icons.visibility_outlined, size: 14, color: context.textMuted),
-                  Text(' ${b.viewCount}   ',
-                      style: TextStyle(fontSize: 12, color: context.textMuted)),
-                  Icon(Icons.favorite_border, size: 14, color: context.textMuted),
-                  Text(' ${b.voteScore}',
-                      style: TextStyle(fontSize: 12, color: context.textMuted)),
-                ]),
-              ]),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
 }
