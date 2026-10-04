@@ -30,14 +30,7 @@ public class RecipeController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String excludeAllergen
     ) {
-        List<Recipe> recipes;
-        if (excludeAllergen != null && !excludeAllergen.trim().isEmpty()) {
-            recipes = recipeService.getRecipesExcludingAllergen(excludeAllergen);
-        } else if (keyword != null && !keyword.trim().isEmpty()) {
-            recipes = recipeService.searchRecipes(keyword);
-        } else {
-            recipes = recipeService.getAllRecipes();
-        }
+        List<Recipe> recipes = recipeService.searchRecipes(keyword, excludeAllergen);
 
         return ApiResponse.<List<Recipe>>builder()
                 .result(recipes)

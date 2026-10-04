@@ -268,6 +268,12 @@ public class BlogService {
         return toPageResponse(blogs);
     }
 
+    @Transactional(readOnly = true)
+    public BlogResponse getMyBlogDetail(Long userId, Long blogId) {
+        Blog blog = findOwnedBlog(userId, false, blogId);
+        return blogMapper.toBlogResponse(blog);
+    }
+
     @Transactional
     public BlogResponse getPublishedBlog(Long id) {
 

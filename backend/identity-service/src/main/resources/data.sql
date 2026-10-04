@@ -1,5 +1,5 @@
 -- Demo seed data. INSERT IGNORE keeps re-runs idempotent.
--- Passwords are BCrypt-encoded: Demo@123
+-- Passwords are BCrypt-encoded: password
 
 -- Admin account
 INSERT IGNORE INTO users (id, email, password_hash, full_name, phone, role, status, email_verified, created_at, updated_at)

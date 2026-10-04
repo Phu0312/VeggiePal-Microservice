@@ -67,6 +67,19 @@ public class BlogController {
                 .build();
     }
 
+    @Operation(summary = "My blog detail")
+    @GetMapping("/me/{id}")
+    ApiResponse<BlogResponse> getMyBlogDetail(
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("id") Long id
+    ) {
+
+        return ApiResponse
+                .<BlogResponse>builder()
+                .result(blogService.getMyBlogDetail(CurrentUser.id(jwt), id))
+                .build();
+    }
+
     @Operation(summary = "Edit a blog; anything already reviewed goes back through moderation")
     @PutMapping("/{id}")
     ApiResponse<BlogResponse> updateBlog(

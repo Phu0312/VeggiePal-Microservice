@@ -33,8 +33,7 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
-            "/nutrition/allergens",
-            "/nutrition/allergies/user/**"
+            "/nutrition/allergens"
     };
 
     SecurityExceptionHandler securityExceptionHandler;

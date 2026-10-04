@@ -61,9 +61,9 @@ Tại thanh chọn **Select a definition** (góc trên bên phải), Giảng vi�
 ## 2. Kịch Bản Trình Diễn Chi Tiết (Full 10 Bước)
 
 ### TÀI KHOẢN MẪU ĐÃ CUNG CẤP SẴN:
-- **Quản trị viên (ADMIN)**: `admin@veggiepal.com` / `Demo@123`
+- **Quản trị viên (ADMIN)**: `admin@veggiepal.com` / `password`
 - **Người dùng mẫu (USER)**: ``
-- **Người dùng 2 (USER)**: `user2@veggiepal.com` / `Demo@123`
+- **Người dùng 2 (USER)**: `user2@veggiepal.com` / `password`
 
 ---
 
@@ -74,7 +74,7 @@ Tại thanh chọn **Select a definition** (góc trên bên phải), Giảng vi�
 ```bash
 curl -X POST http://localhost:18080/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@veggiepal.com","password":"Demo@123"}'
+  -d '{"email":"user@veggiepal.com","password":"password"}'
 ```
 *Kết quả*: Trả về `token` (JWT chứa claim `role: "USER"` và `userId: 2`).
 
@@ -82,7 +82,7 @@ curl -X POST http://localhost:18080/api/auth/token \
 ```bash
 curl -X POST http://localhost:18080/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@veggiepal.com","password":"Demo@123"}'
+  -d '{"email":"admin@veggiepal.com","password":"password"}'
 ```
 *Kết quả*: Trả về `token` (JWT chứa claim `role: "ADMIN"` và `userId: 1`).
 
