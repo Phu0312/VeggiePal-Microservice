@@ -74,13 +74,6 @@ spring:
               filters:
                 - StripPrefix=1
 
-            - id: nutrition-service-allergies
-              uri: http://localhost:${NUTRITION_PORT:18082}
-              predicates:
-                - Path=/api/nutrition/allergies/**
-              filters:
-                - StripPrefix=1
-
             - id: nutrition-service-docs
               uri: http://localhost:${NUTRITION_PORT:18082}
               predicates:
@@ -232,7 +225,7 @@ spring:
             # Content Keyword Checks & Admin Review Queue
             # =========================
             - id: moderation-service-admin
-              uri: http://localhost:${MODERATION_PORT:18088}
+              uri: http://localhost:${BLOG_PORT:18083}
               predicates:
                 - Path=/api/admin/moderation/**
               filters:

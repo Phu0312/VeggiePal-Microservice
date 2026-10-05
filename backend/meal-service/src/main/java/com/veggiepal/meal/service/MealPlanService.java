@@ -37,6 +37,10 @@ public class MealPlanService {
     ObjectMapper objectMapper;
     RestTemplate restTemplate;
 
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Value("${app.nutrition-service.url:http://localhost:18082}")
+    String nutritionServiceUrl;
+
     public Map<String, Object> generateMealPlan(Long userId, String goal, List<String> availableIngredients) {
 
         // 1. Get user allergies (from nutrition-service with graceful fallback)
@@ -68,8 +72,6 @@ public class MealPlanService {
             String type = recipe.getMealType().toUpperCase();
             if (byMealType.containsKey(type)) {
                 byMealType.get(type).add(recipe);
-            } else {
-                byMealType.values().forEach(list -> list.add(recipe));
             }
         }
 
@@ -97,7 +99,12 @@ public class MealPlanService {
 
         // 7. Generate 7-day plan
         List<Map<String, Object>> days = new ArrayList<>();
-        Random random = new Random(userId != null ? userId : 1L);
+        Random random = new Random();
+        
+        Map<String, List<Recipe>> availableCandidates = new HashMap<>();
+        for (String type : MEAL_TYPES) {
+            availableCandidates.put(type, new ArrayList<>(byMealType.get(type)));
+        }
 
         for (int day = 1; day <= PLAN_DAYS; day++) {
             Map<String, Object> dayPlan = new LinkedHashMap<>();
@@ -107,13 +114,16 @@ public class MealPlanService {
             BigDecimal dailyCalories = BigDecimal.ZERO;
 
             for (String mealType : MEAL_TYPES) {
-                List<Recipe> candidates = byMealType.get(mealType);
+                if (availableCandidates.get(mealType).isEmpty()) {
+                    availableCandidates.get(mealType).addAll(byMealType.get(mealType));
+                }
+                
+                List<Recipe> candidates = availableCandidates.get(mealType);
+                Collections.shuffle(candidates, random);
+                candidates.sort(Comparator.comparingInt((Recipe r) -> scoreIngredientMatch(r, ingredientNames)).reversed());
 
-                Recipe chosen = candidates.stream()
-                        .sorted(Comparator.comparingInt((Recipe r) -> scoreIngredientMatch(r, ingredientNames)).reversed()
-                                .thenComparingInt(r -> random.nextInt()))
-                        .findFirst()
-                        .orElse(candidates.get(random.nextInt(candidates.size())));
+                Recipe chosen = candidates.get(0);
+                candidates.remove(0);
 
                 Map<String, Object> meal = new LinkedHashMap<>();
                 meal.put("mealType", mealType);
@@ -131,8 +141,6 @@ public class MealPlanService {
 
                 meals.add(meal);
                 dailyCalories = dailyCalories.add(calories);
-
-                Collections.rotate(candidates, 1);
             }
 
             dayPlan.put("meals", meals);
@@ -151,6 +159,14 @@ public class MealPlanService {
     public MealPlan saveMealPlan(Long userId, String goal, Map<String, Object> planData) {
         try {
             String json = objectMapper.writeValueAsString(planData);
+            
+            List<MealPlan> existingPlans = mealPlanRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            for (MealPlan plan : existingPlans) {
+                if (json.equals(plan.getPlanData())) {
+                    return plan;
+                }
+            }
+
             MealPlan mealPlan = MealPlan.builder()
                     .userId(userId)
                     .goal(goal)
@@ -254,14 +270,15 @@ public class MealPlanService {
     private Set<String> fetchUserAllergens(Long userId) {
         if (userId == null) return Collections.emptySet();
         try {
-            String url = "http://localhost:18082/nutrition/allergies/user/" + userId;
+            String url = nutritionServiceUrl + "/nutrition/allergies/user/" + userId;
             @SuppressWarnings("unchecked")
             Map<String, Object> resp = restTemplate.getForObject(url, Map.class);
             if (resp != null && resp.get("result") instanceof List<?> list) {
                 return list.stream().map(Object::toString).collect(Collectors.toSet());
             }
         } catch (Exception e) {
-            log.debug("Notice: Could not fetch user allergens from nutrition-service: {}", e.getMessage());
+            log.error("Notice: Could not fetch user allergens from nutrition-service: {}", e.getMessage());
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
         }
         return Collections.emptySet();
     }

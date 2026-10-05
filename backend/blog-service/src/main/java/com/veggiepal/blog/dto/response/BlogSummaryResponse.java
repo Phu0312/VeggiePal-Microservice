@@ -24,6 +24,8 @@ public class BlogSummaryResponse {
 
     String title;
 
+    String content;
+
     String thumbnailUrl;
 
     ContentStatus status;

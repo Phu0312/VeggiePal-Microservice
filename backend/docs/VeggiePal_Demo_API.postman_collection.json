@@ -58,7 +58,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@veggiepal.com\",\n  \"password\": \"Demo@123\"\n}"
+              "raw": "{\n  \"email\": \"user@veggiepal.com\",\n  \"password\": \"password\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/token",
@@ -94,7 +94,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@veggiepal.com\",\n  \"password\": \"Demo@123\"\n}"
+              "raw": "{\n  \"email\": \"admin@veggiepal.com\",\n  \"password\": \"password\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/token",

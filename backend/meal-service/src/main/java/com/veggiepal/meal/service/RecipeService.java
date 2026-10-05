@@ -29,17 +29,25 @@ public class RecipeService {
                 .orElseThrow(() -> new AppException(ErrorCode.RECIPE_NOT_FOUND));
     }
 
-    public List<Recipe> searchRecipes(String keyword) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return recipeRepository.findByVeganTrue();
+    public List<Recipe> searchRecipes(String keyword, String excludeAllergen) {
+        List<Recipe> recipes;
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            recipes = recipeRepository.searchRecipes(keyword.trim());
+        } else {
+            recipes = recipeRepository.findByVeganTrue();
         }
-        return recipeRepository.searchRecipes(keyword.trim());
-    }
 
-    public List<Recipe> getRecipesExcludingAllergen(String allergen) {
-        if (allergen == null || allergen.trim().isEmpty()) {
-            return recipeRepository.findByVeganTrue();
+        if (excludeAllergen != null && !excludeAllergen.trim().isEmpty()) {
+            java.util.List<String> codesToExclude = java.util.Arrays.stream(excludeAllergen.split(","))
+                    .map(String::trim).map(String::toUpperCase).collect(java.util.stream.Collectors.toList());
+            recipes = recipes.stream()
+                    .filter(r -> {
+                        if (r.getAllergenCodes() == null || r.getAllergenCodes().isBlank()) return true;
+                        String[] recipeCodes = r.getAllergenCodes().split(",");
+                        return java.util.Arrays.stream(recipeCodes).map(String::trim).noneMatch(codesToExclude::contains);
+                    })
+                    .collect(java.util.stream.Collectors.toList());
         }
-        return recipeRepository.findVeganExcludingAllergen(allergen.trim().toUpperCase());
+        return recipes;
     }
 }
