@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.veggiepal.blog.entity.Blog;
 import com.veggiepal.blog.entity.ModerationCase;
-import com.veggiepal.blog.entity.Video;
 import com.veggiepal.blog.enums.ContentStatus;
 import com.veggiepal.blog.enums.TargetType;
 import com.veggiepal.blog.exception.AppException;
@@ -17,7 +16,6 @@ import com.veggiepal.blog.moderation.ModerationDecision;
 import com.veggiepal.blog.moderation.ModerationResult;
 import com.veggiepal.blog.repository.BlogRepository;
 import com.veggiepal.blog.repository.ModerationCaseRepository;
-import com.veggiepal.blog.repository.VideoRepository;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +30,6 @@ public class ModerationService {
 
     ModerationCaseRepository moderationCaseRepository;
     BlogRepository blogRepository;
-    VideoRepository videoRepository;
 
     @Transactional
     public ModerationCase recordCase(
@@ -95,19 +92,6 @@ public class ModerationService {
                 }
                 blogRepository.save(blog);
                 log.info("Blog {} status updated to {} by admin {}", blog.getId(), blog.getStatus(), adminId);
-            });
-        } else if (moderationCase.getTargetType() == TargetType.VIDEO) {
-            videoRepository.findById(moderationCase.getTargetId()).ifPresent(video -> {
-                if (newDecision == ModerationDecision.APPROVED) {
-                    video.setStatus(ContentStatus.PUBLISHED);
-                    if (video.getPublishedAt() == null) {
-                        video.setPublishedAt(LocalDateTime.now());
-                    }
-                } else if (newDecision == ModerationDecision.REJECTED) {
-                    video.setStatus(ContentStatus.REJECTED);
-                }
-                videoRepository.save(video);
-                log.info("Video {} status updated to {} by admin {}", video.getId(), video.getStatus(), adminId);
             });
         }
 
