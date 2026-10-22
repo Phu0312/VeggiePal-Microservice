@@ -1,0 +1,50 @@
+package com.veggiepal.video.dto.response;
+
+import java.time.LocalDateTime;
+
+import com.veggiepal.video.enums.ContentStatus;
+
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class VideoResponse {
+
+    Long id;
+
+    Long authorId;
+
+    Long categoryId;
+
+    String categoryName;
+
+    String title;
+
+    String description;
+
+    String videoUrl;
+
+    String thumbnailUrl;
+
+    Integer durationSeconds;
+
+    String summary;
+
+    ContentStatus status;
+
+    Integer viewCount;
+
+    Integer voteScore;
+
+    LocalDateTime publishedAt;
+
+    LocalDateTime createdAt;
+
+    LocalDateTime updatedAt;
+
+    String moderationReason;
+}

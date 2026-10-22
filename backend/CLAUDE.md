@@ -4,7 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-VeggiePal backend: Spring Boot microservices (Java 21, Spring Boot 4.1.1). There is **no parent/aggregator POM**. Each service (`api-gateway/`, `identity-service/`, `nutrition-service/`, `blog-service/`) is a separate Maven project with its own wrapper, so run Maven commands from inside the service directory. Only `api-gateway` uses `application.yaml`; every other service, including `blog-service`, uses `application.properties`.
+VeggiePal backend: Spring Boot microservices (Java 21, Spring Boot 4.1.1). There is **no parent/aggregator POM**. The architecture consists of **8 independent, single-responsibility microservices** plus **1 API Gateway**:
+1. `identity-service` (Port 18081, DB `veggiepal_identity`): User Auth, Profile Management & Admin Users
+2. `nutrition-service` (Port 18082, DB `veggiepal_nutrition`): Health Records, BMI calculation & Allergens
+3. `blog-service` (Port 18083, DB `veggiepal_blog`): Community Blog Posts, Categories, Comments & Votes
+4. `meal-service` (Port 18084, DB `veggiepal_meal`): Vegan Recipes, Pantry Ingredients & 7-Day Meal Plan Generator
+5. `ai-service` (Port 18085, DB `veggiepal_ai`): AI Nutrition Chatbot (Guest trial & Auth), AI Operations Logging & Admin Metrics
+6. `restaurant-service` (Port 18086, DB `veggiepal_restaurant`): Vegan Restaurants Catalog & Haversine GPS Nearby Search
+7. `video-service` (Port 18087, DB `veggiepal_video`): Cooking Videos Catalog & AI Video Summarization
+8. `moderation-service` (Port 18088, DB `veggiepal_moderation`): Keyword Filter Engine & Admin Moderation Review Queue
+9. `api-gateway` (Port 18080): Unified Routing & Aggregated Swagger UI
+
+Each service is a separate Maven project with its own wrapper, so run Maven commands from inside the service directory. Only `api-gateway` uses `application.yaml`; every other service uses `application.properties`.
 
 ## Workflow and skills
 
@@ -38,62 +49,60 @@ Four skill families are installed for this project. Pick by situation — do not
 ## Commands
 
 ```bash
-# Start MySQL (host 3307, root/12345) and MinIO (API 9000, console 9001, minioadmin/minioadmin).
-# minio-init creates the public-read buckets veggiepal-avatars and veggiepal-blog-thumbnails.
+# Start MySQL (host 3307, root/12345) and MinIO (API 19000, console 19001, minioadmin/minioadmin).
+# minio-init creates the public-read buckets veggiepal-avatars, veggiepal-blog-thumbnails, veggiepal-videos.
 docker compose up -d
 
-# Run a service (from its directory; on Windows use mvnw.cmd or Git Bash)
-cd identity-service && ./mvnw spring-boot:run    # :8081
-cd nutrition-service && ./mvnw spring-boot:run   # :8082
-cd blog-service && ./mvnw spring-boot:run        # :8083
-cd api-gateway && ./mvnw spring-boot:run         # :8080
+# Run services (from their directory; on Windows use mvnw.cmd or Git Bash)
+cd identity-service && ./mvnw spring-boot:run    # :18081
+cd nutrition-service && ./mvnw spring-boot:run   # :18082
+cd blog-service && ./mvnw spring-boot:run        # :18083
+cd meal-service && ./mvnw spring-boot:run        # :18084
+cd ai-service && ./mvnw spring-boot:run          # :18085
+cd restaurant-service && ./mvnw spring-boot:run  # :18086
+cd video-service && ./mvnw spring-boot:run       # :18087
+cd moderation-service && ./mvnw spring-boot:run  # :18088
+cd api-gateway && ./mvnw spring-boot:run         # :18080
 
-# Build / test
-./mvnw clean package
+# Build / test (run inside any service)
+./mvnw clean test-compile -DskipTests
 ./mvnw test
-./mvnw test -Dtest=ProfileServiceTest                         # single class
-./mvnw test -Dtest=ProfileServiceTest#changePassword_success_storesNewHash  # single method
-./mvnw test -Dtest='!VeggiepalApplicationTests'               # identity-service: everything except the MySQL-backed contextLoads
-./mvnw test -Dtest='!NutritionServiceApplicationTests'        # nutrition-service: same
-./mvnw test -Dtest='!BlogServiceApplicationTests,!BlogServiceIntegrationTests'   # blog-service: same
-
-# blog-service only: the tests that need a real database, run on their own
-./mvnw test -Dtest='BlogServiceApplicationTests,BlogServiceIntegrationTests'
 ```
 
-**`BlogServiceIntegrationTests` is a required gate before committing a change to an entity, a repository or a `@Query`** — not an optional extra. Two defects that made blog-service completely unusable (see the `@Lob` note below and `@Transactional` on the read methods) survived 126 mock-based tests and eight code reviews, because the one test that starts a Spring context was excluded from the loop for eight consecutive tasks while four of them added queries. The fast command above still excludes both so the loop stays runnable without Docker; the second command is what you owe the change.
-
-In `-Dtest`, separate classes with a comma. `+` only joins methods inside one class (`Class#m1+m2`); `A+B` across classes matches nothing and fails with "No tests matching pattern".
-
-There is no linter or formatter configured.
-
 **Database gotchas:**
-- `docker-compose.yml` creates a database named `veggiepal`. identity-service connects to `veggiepal_identity` without `createDatabaseIfNotExist`, so create it by hand: `docker exec veggiepal-mysql mysql -uroot -p12345 -e "CREATE DATABASE IF NOT EXISTS veggiepal_identity"`. nutrition-service creates `veggiepal_nutrition` itself, and blog-service creates `veggiepal_blog` itself the same way.
-- Tables come from Hibernate `ddl-auto=update`; there are no migrations. nutrition-service seeds the `allergens` catalog from `src/main/resources/data.sql` (`INSERT IGNORE`, runs on every start).
-- `minio-init` creates two public-read buckets: `veggiepal-avatars` (identity-service) and `veggiepal-blog-thumbnails` (blog-service).
-- The `@SpringBootTest` `contextLoads` tests use the same MySQL (no test profile or H2). Unit tests and `@WebMvcTest` tests need no database.
-- Hibernate maps `@Enumerated(EnumType.STRING)` to a native MySQL `ENUM` column. `ddl-auto=update` does not add new constants to it, so adding an enum value needs a manual `ALTER TABLE ... MODIFY COLUMN`. This happened with `ContentStatus.BANNED`: a database created before it existed rejects the value and the admin takedown answers 500 until the column is altered.
-- `@Lob` on a `String` field maps it to CLOB in Hibernate 6+, and `lower()`/`like` against a CLOB fails query validation at application startup (this took down blog-service entirely once a `search` query added `lower()` on a `@Lob` column). A text column that needs searching should get its real column type from `columnDefinition` alone, without `@Lob`.
+- `docker-compose.yml` mounts `./db-init` which runs `01-create-databases.sql` to initialize all 8 databases: `veggiepal_identity`, `veggiepal_nutrition`, `veggiepal_blog`, `veggiepal_meal`, `veggiepal_ai`, `veggiepal_restaurant`, `veggiepal_video`, `veggiepal_moderation`.
+- Tables come from Hibernate `ddl-auto=update`; there are no migrations.
+- Catalogs seed on start:
+  - `nutrition-service`: seeds allergens from `data.sql`.
+  - `meal-service`: seeds 18 vegan recipes from `data.sql`.
+  - `restaurant-service`: seeds 6 vegan restaurants with GPS coords from `data.sql`.
+- `minio-init` creates three public-read buckets: `veggiepal-avatars`, `veggiepal-blog-thumbnails`, `veggiepal-videos`.
 
 ## Architecture
 
 ### Request flow through the gateway
 
-`api-gateway` uses **Spring Cloud Gateway Server WebMVC** (servlet-based, not the reactive WebFlux gateway). Routes are defined in `api-gateway/src/main/resources/application.yaml`, and downstream URIs are hardcoded `localhost` ports (no service discovery).
+`api-gateway` uses **Spring Cloud Gateway Server WebMVC** (servlet-based, not the reactive WebFlux gateway). Routes are defined in `api-gateway/src/main/resources/application.yaml`, and downstream URIs are hardcoded `localhost` ports (no service discovery):
 
-- Routes (all `StripPrefix=1`): `/api/auth/**` and `/api/users/**` → identity-service (8081); `/api/nutrition/**` → nutrition-service (8082); `/api/blogs/**`, `/api/categories/**`, `/api/comments/**` → blog-service (8083).
+- `/api/auth/**`, `/api/users/**`, `/api/admin/users/**` → identity-service (18081)
+- `/api/nutrition/health-records/**`, `/api/nutrition/allergies/**` → nutrition-service (18082)
+- `/api/blogs/**`, `/api/categories/**`, `/api/comments/**` → blog-service (18083)
+- `/api/nutrition/recipes/**`, `/api/nutrition/me/ingredients/**`, `/api/nutrition/meal-plans/**`, `/api/meal/**` → meal-service (18084)
+- `/api/ai/**`, `/api/admin/ai/**` → ai-service (18085)
+- `/api/restaurants/**` → restaurant-service (18086)
+- `/api/videos/**` → video-service (18087)
+- `/api/admin/moderation/**`, `/api/moderation/**` → moderation-service (18088)
+
 - Do not set `spring.servlet.multipart.*` in api-gateway: the gateway disables multipart parsing on its own so file uploads stream through to the service.
-- Controllers in a service therefore map paths **without** the `/api` prefix, and identity-service's `SecurityConfig` matchers use the un-prefixed paths (`/auth/login`).
+- Controllers in a service map paths **without** the `/api` prefix (handled by `StripPrefix=1`), and security matchers use the un-prefixed paths.
 - CORS is configured **only** in the gateway (`CorsConfig`, allowing `http://localhost:*` with credentials). The frontend must go through the gateway.
 
 ### Swagger aggregation
 
-The gateway serves a combined Swagger UI at `http://localhost:8080/swagger-ui.html`. The pieces fit together like this:
-1. A gateway route `/identity-service/v3/api-docs/**` with `StripPrefix=1` forwards to the service's `/v3/api-docs`.
-2. An entry under `springdoc.swagger-ui.urls` in the gateway yaml points at that route.
-3. The service's `OpenApiConfig` sets the server URL to `/api`, so "Try it out" requests go back through the gateway.
-
-A new service needs all three: an API route, a docs route, and a springdoc `urls` entry. It also needs its own `OpenApiConfig`. Each service's `OpenApiConfig` also declares the `bearerAuth` scheme so the Swagger **Authorize** button sends the JWT.
+The gateway serves a combined Swagger UI at `http://localhost:18080/swagger-ui.html`. The pieces fit together like this:
+1. Gateway routes `/<service-name>/v3/api-docs/**` with `StripPrefix=1` forward to each service's `/v3/api-docs`.
+2. Entries under `springdoc.swagger-ui.urls` in `api-gateway/src/main/resources/application.yaml` point at each service.
+3. Each service's `OpenApiConfig` sets the server URL to `/api`, so "Try it out" requests go back through the gateway.
 
 ### identity-service conventions
 
@@ -118,12 +127,42 @@ Same conventions as identity-service, under package `com.veggiepal.blog` (shared
 
 - **Comments and votes are polymorphic** (`target_type` + `target_id`) so videos slot in without a migration. `TargetType.VIDEO` and `CommentStatus.PENDING` already exist in the enums for the same reason — `ddl-auto=update` cannot add an ENUM constant later.
 - **`SecurityConfig.PUBLIC_ENDPOINTS` here is method-aware** and its path variables are constrained to digits (`/blogs/{id:[0-9]+}`). Without the digits, `/blogs/me` matches `/blogs/{id}`, becomes public, loses its bearer token and then 401s forever. `SecurityConfigTest` guards this.
-- **Moderation is a stub.** `ContentModerationService` has one implementation, `AutoApproveContentModerationService`. BR-02 is wired but not really enforced until an AI implementation replaces it.
 - **`blogs.vote_score` is denormalized**, kept in sync inside the vote transaction with `UPDATE blogs SET vote_score = vote_score + :delta`. The delta is just `new value - old value`, treating "no vote" as 0.
 - **Voting is `POST /blogs/{id}/vote` and toggles**: the same value a second time takes the vote back (the task sheet's heart button sends `1` on every click), the opposite value switches it. It is POST, not PUT, because it is not idempotent. `DELETE /blogs/{id}/vote` still removes explicitly.
 - Admin has no separate controller: ownership checks widen to `ROLE_ADMIN` on blog and comment `PUT`/`DELETE`. **An admin deleting someone else's blog bans it** (`ContentStatus.BANNED`) rather than removing the row: hidden from every public read, still listed in the owner's `GET /blogs/me`. `BANNED` is terminal — `updateBlog` refuses it, because editing re-runs moderation and would otherwise let the owner lift the ban. An owner deleting their own post is a real delete.
 - **Category names are unique across the whole tree**, not per parent, enforced by the service and by `uk_categories_name`. The column is `utf8mb4_0900_as_ci` on purpose: MySQL's default `ai_ci` ignores diacritics, so "Che", "Chè" and "Chế" would collide both in the lookup and in the index.
-- **`BlogServiceIntegrationTests`** drives the real filter chain and a real MySQL schema (`veggiepal_blog_it`, created on demand via `createDatabaseIfNotExist`, so it never leaves rows in `veggiepal_blog`). Each case is chosen to fail if one of the two defect classes returns: a keyword search forces `lower()` against the real content column, the list assertions read `categoryName` off a lazy proxy, and reading a blog twice checks the `@Modifying` view counter actually ran. Verified by mutation — restoring `@Lob` breaks the context, dropping `@Transactional` turns the list endpoints into 500s.
+
+### meal-service (Port 18084, DB `veggiepal_meal`)
+
+Package `com.veggiepal.meal`. Manages recipes, pantry ingredients (`user_ingredients`), and 7-day meal plan generation (`meal_plans`).
+- Dual-mapped endpoints for 100% backward compatibility: `/nutrition/recipes/**` & `/meal/recipes/**`, `/nutrition/me/ingredients/**` & `/meal/me/ingredients/**`, `/nutrition/meal-plans/**` & `/meal/meal-plans/**`.
+- Seeds 18 vegan recipes from `data.sql`.
+- Communicates with `nutrition-service` via REST (`http://localhost:18082/nutrition/allergies/user/{userId}`) to exclude user allergens during meal plan generation.
+
+### ai-service (Port 18085, DB `veggiepal_ai`)
+
+Package `com.veggiepal.ai`. Manages AI Nutrition Chatbot (`/ai/chat/**`) and Admin AI Operations Monitoring (`/admin/ai/**`).
+- Guest AI trial support (`POST /ai/chat/guest` with `X-Guest-Id` header) with 3-question quota enforcement.
+- Authenticated multi-turn chat sessions (`ChatConversation`, `ChatMessage`).
+- AI operations logging (`ai_operation_logs`) and metrics (`GET /admin/ai/metrics`).
+
+### restaurant-service (Port 18086, DB `veggiepal_restaurant`)
+
+Package `com.veggiepal.restaurant`. Manages vegan restaurants catalog (`/restaurants/**`).
+- Seeds 6 vegan restaurants across Hanoi, Da Nang, and Ho Chi Minh City from `data.sql`.
+- Haversine GPS distance calculation for `/restaurants/nearby` with radius filter and tag compatibility ranking.
+
+### video-service (Port 18087, DB `veggiepal_video`)
+
+Package `com.veggiepal.video`. Manages cooking videos catalog and AI summarization (`/videos/**`).
+- CRUD for vegan cooking videos with difficulty levels and durations.
+- AI Video Summarization (`POST /videos/{id}/summarize`) extracting dish summary, key ingredients, steps, and nutrition highlights.
+
+### moderation-service (Port 18088, DB `veggiepal_moderation`)
+
+Package `com.veggiepal.moderation`. Manages automated content filtering and admin review queue (`/admin/moderation/**`, `/moderation/check`).
+- Rule-based keyword filtering engine detecting profanity, prohibited terms, and non-vegan ingredients (meat, fish, poultry).
+- Admin moderation review queue (`GET /admin/moderation/queue`, `POST /admin/moderation/{id}/review`).
 
 ### Auth (JWT)
 

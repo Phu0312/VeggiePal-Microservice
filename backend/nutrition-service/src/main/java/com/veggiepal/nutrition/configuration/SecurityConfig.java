@@ -33,12 +33,8 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
-            "/ai/chat/guest",
-            "/restaurants/**",
             "/nutrition/allergens",
-            "/nutrition/recipes",
-            "/nutrition/recipes/**",
-            "/search/**"
+            "/nutrition/allergies/user/**"
     };
 
     SecurityExceptionHandler securityExceptionHandler;

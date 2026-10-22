@@ -70,4 +70,16 @@ public class AllergyController {
                 .result(allergyService.replaceAllergies(CurrentUser.id(jwt), request))
                 .build();
     }
+
+    @Operation(
+            summary = "Internal: Get allergen codes for a user"
+    )
+    @GetMapping("/allergies/user/{userId}")
+    ApiResponse<List<String>> getUserAllergenCodes(@PathVariable Long userId) {
+
+        return ApiResponse
+                .<List<String>>builder()
+                .result(allergyService.getUserAllergenCodes(userId))
+                .build();
+    }
 }
