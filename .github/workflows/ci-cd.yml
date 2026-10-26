@@ -1,0 +1,176 @@
+name: VeggiePal CI/CD
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  maven:
+    name: Test and package (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - identity-service
+          - nutrition-service
+          - blog-service
+          - recipe-service
+          - location-service
+          - ai-service
+          - payment-service
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_mysql_password
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci_mysql_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3307
+      DB_USERNAME: root
+      DB_PASSWORD: ci_mysql_password
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters
+      INTERNAL_SERVICE_TOKEN: ci-only-internal-token-at-least-32-characters
+    defaults:
+      run:
+        working-directory: backend/${{ matrix.service }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java and Maven cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/${{ matrix.service }}/pom.xml
+
+      - name: Restore Maven dependencies
+        run: mvn --batch-mode dependency:go-offline
+
+      - name: Run tests
+        run: mvn --batch-mode test
+
+      - name: Build Spring Boot package
+        run: mvn --batch-mode package -DskipTests
+
+  docker:
+    name: Build Docker image (${{ matrix.service }})
+    needs: maven
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - identity-service
+          - nutrition-service
+          - blog-service
+          - recipe-service
+          - location-service
+          - ai-service
+          - payment-service
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build existing Dockerfile
+        run: docker build --tag "veggiepal/${{ matrix.service }}:${{ github.sha }}" "backend/${{ matrix.service }}"
+
+  compose-check:
+    name: Validate Docker Compose
+    needs: maven
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_PASSWORD: ci_compose_password
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters
+      INTERNAL_SERVICE_TOKEN: ci-only-internal-token-at-least-32-characters
+      NGROK_AUTHTOKEN: ci-compose-placeholder
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate resolved Compose configuration
+        run: docker compose config --quiet
+
+  deploy:
+    name: Deploy to local Windows runner
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    needs: [docker, compose-check]
+    runs-on: [self-hosted, Windows, X64]
+    concurrency:
+      group: veggiepal-local-deploy
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: powershell
+        working-directory: backend
+    env:
+      BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
+    steps:
+      - name: Checkout deploy revision
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Prepare local environment
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:BACKEND_ENV_FILE)) {
+            [System.IO.File]::WriteAllText(
+              (Join-Path $PWD '.env'),
+              $env:BACKEND_ENV_FILE,
+              [System.Text.UTF8Encoding]::new($false)
+            )
+          }
+          if (-not (Test-Path -LiteralPath '.env')) {
+            throw 'Missing backend/.env. Create it on the runner or configure the BACKEND_ENV_FILE repository secret.'
+          }
+
+      - name: Validate Docker and Compose
+        run: |
+          docker version
+          docker compose version
+          docker compose config --quiet
+
+      - name: Deploy with Docker Compose
+        run: docker compose up -d --build --wait --wait-timeout 300
+
+      - name: Verify containers and health checks
+        run: |
+          docker compose ps
+          $services = @(docker compose config --services)
+          $failed = @()
+          foreach ($service in $services) {
+            $containerId = docker compose ps --quiet $service
+            if ([string]::IsNullOrWhiteSpace($containerId)) {
+              $failed += "${service}: container missing"
+              continue
+            }
+            $state = docker inspect --format '{{.State.Status}}' $containerId
+            $health = docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' $containerId
+            Write-Host "${service}: state=$state health=$health"
+            if ($state -ne 'running' -or ($health -ne 'none' -and $health -ne 'healthy')) {
+              $failed += "${service}: state=$state health=$health"
+            }
+          }
+          if ($failed.Count -gt 0) {
+            docker compose logs --tail 100
+            throw "Deployment verification failed:`n$($failed -join "`n")"
+          }
