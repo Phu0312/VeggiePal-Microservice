@@ -1,6 +1,6 @@
 # VeggiePal Microservice
 
-Repository gồm backend Spring Boot microservices, frontend và mobile. Backend được triển khai local bằng file Compose có sẵn tại `backend/docker-compose.yml`.
+Repository gồm backend Spring Boot microservices, frontend và mobile. Backend được triển khai local bằng project Compose riêng `veggiepal-prm` tại `backend/docker-compose.yml`.
 
 ## CI/CD GitHub Actions
 
@@ -8,7 +8,7 @@ Workflow `.github/workflows/ci-cd.yml` chạy khi push hoặc mở/cập nhật 
 
 - CI trên GitHub-hosted Ubuntu: restore Maven dependencies, chạy toàn bộ test, package 8 Spring Boot service, build từng Dockerfile và kiểm tra cấu hình Docker Compose.
 - CD trên Windows self-hosted runner: chỉ chạy sau CI thành công đối với sự kiện push vào `dev` hoặc `main`; pull request không deploy.
-- CD chạy `docker compose up -d --build --wait --wait-timeout 300`, sau đó kiểm tra trạng thái và healthcheck của tất cả container.
+- CD chạy `docker compose --project-name veggiepal-prm up -d --build --wait --wait-timeout 300`, sau đó kiểm tra trạng thái và healthcheck của tất cả container thuộc đúng project này.
 
 ## Cài self-hosted runner trên Windows
 
@@ -63,11 +63,19 @@ NGROK_AUTHTOKEN=...
 
 ```powershell
 Set-Location backend
-docker compose config --quiet
-docker compose up -d --build --wait --wait-timeout 300
-docker compose ps
+docker compose --project-name veggiepal-prm config --quiet
+docker compose --project-name veggiepal-prm up -d --build --wait --wait-timeout 300
+docker compose --project-name veggiepal-prm ps
 ```
 
-Nếu deploy lỗi, xem log bằng `docker compose logs --tail 100`. API Gateway được publish tại `http://localhost:8080` theo cấu hình mặc định.
+Port mặc định của project:
+
+- API Gateway: `http://localhost:9080`
+- MySQL: `127.0.0.1:4307`
+- Ngrok inspector: `http://localhost:5041`
+
+Ngrok tunnel trực tiếp tới `api-gateway:8080` trong network riêng. Webhook PayOS cần đăng ký bằng URL public `https://<ngrok-domain>/api/payments/webhook/payos`; xem domain hiện tại tại Ngrok inspector. Return/cancel URL PayOS vẫn trỏ tới frontend và được cấu hình trong `.env`.
+
+Nếu deploy lỗi, xem log bằng `docker compose --project-name veggiepal-prm logs --tail 100`. Không dùng `down -v` hoặc lệnh cleanup toàn Docker vì có thể ảnh hưởng dữ liệu/project khác.
 
 Xem thêm hướng dẫn backend tại [backend/README.md](backend/README.md).
