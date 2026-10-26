@@ -1,40 +1,232 @@
-name: veggiepal_microservice
+
+name: veggiepal
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  networks:
+    - backend
+
+x-database-environment: &database-environment
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_USERNAME: ${DB_USERNAME:-root}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
 
 services:
   mysql:
     image: mysql:8.4
-    container_name: veggiepal-ms-mysql
     restart: unless-stopped
-
-    environment:
-      MYSQL_ROOT_PASSWORD: 12345
-      MYSQL_DATABASE: veggiepal
-
     ports:
-      - "54306:3306"
-
+      - "127.0.0.1:3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
     volumes:
-      - veggiepal_mysql_data:/var/lib/mysql
-      - ./db-init:/docker-entrypoint-initdb.d
-
-  minio:
-    image: coollabsio/minio:latest
-    container_name: veggiepal-ms-minio
+      - mysql_data:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+  
+  ngrok:
+    image: ngrok/ngrok:latest
     restart: unless-stopped
-
-    command: server /data --console-address ":9001"
-
+    command:
+      - http
+      - api-gateway:8080
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?NGROK_AUTHTOKEN must be set}
     ports:
-      - "19100:9000"
-      - "19101:9001"
+      - "127.0.0.1:4040:4040"
+    networks:
+      - backend
+    depends_on:
+      api-gateway:
+        condition: service_healthy
 
-    volumes:
-      - veggiepal_minio_data:/data
+  identity-service:
+    <<: *service-defaults
+    build:
+      context: ./identity-service
+    environment:
+      <<: *database-environment
+      IDENTITY_SERVICE_PORT: "8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8081/v3/api-docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  nutrition-service:
+    <<: *service-defaults
+    build:
+      context: ./nutrition-service
+    environment:
+      <<: *database-environment
+      NUTRITION_SERVICE_PORT: "8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8082/v3/api-docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  blog-service:
+    <<: *service-defaults
+    build:
+      context: ./blog-service
+    environment:
+      <<: *database-environment
+      BLOG_SERVICE_PORT: "8083"
+      AI_SERVICE_URL: http://ai-service:8086
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8083/v3/api-docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  recipe-service:
+    <<: *service-defaults
+    build:
+      context: ./recipe-service
+    environment:
+      <<: *database-environment
+      RECIPE_SERVICE_PORT: "8084"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8084/v3/api-docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  location-service:
+    <<: *service-defaults
+    build:
+      context: ./location-service
+    environment:
+      <<: *database-environment
+      LOCATION_SERVICE_PORT: "8085"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8085/v3/api-docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  ai-service:
+    <<: *service-defaults
+    build:
+      context: ./ai-service
+    environment:
+      <<: *database-environment
+      AI_SERVICE_PORT: "8086"
+      BLOG_SERVICE_URL: http://blog-service:8083
+      RECIPE_SERVICE_URL: http://recipe-service:8084
+      NUTRITION_SERVICE_URL: http://nutrition-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:8087
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set in .env}
+      FFMPEG_PATH: ffmpeg
+      FFPROBE_PATH: ffprobe
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nutrition-service:
+        condition: service_healthy
+      recipe-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8086/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+
+  payment-service:
+    <<: *service-defaults
+    build:
+      context: ./payment-service
+    environment:
+      <<: *database-environment
+      PAYMENT_SERVICE_PORT: "8087"
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set in .env}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8087/v3/api-docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
+  api-gateway:
+    <<: *service-defaults
+    build:
+      context: ./api-gateway
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
+    environment:
+      GATEWAY_PORT: "8080"
+      IDENTITY_SERVICE_URL: http://identity-service:8081
+      NUTRITION_SERVICE_URL: http://nutrition-service:8082
+      BLOG_SERVICE_URL: http://blog-service:8083
+      RECIPE_SERVICE_URL: http://recipe-service:8084
+      LOCATION_SERVICE_URL: http://location-service:8085
+      AI_SERVICE_URL: http://ai-service:8086
+      PAYMENT_SERVICE_URL: http://payment-service:8087
+    depends_on:
+      identity-service:
+        condition: service_healthy
+      nutrition-service:
+        condition: service_healthy
+      blog-service:
+        condition: service_healthy
+      recipe-service:
+        condition: service_healthy
+      location-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+
+networks:
+  backend:
+    driver: bridge
 
 volumes:
-  veggiepal_mysql_data:
-  veggiepal_minio_data:
+  mysql_data:
