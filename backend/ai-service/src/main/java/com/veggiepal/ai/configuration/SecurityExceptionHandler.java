@@ -1,10 +1,11 @@
 package com.veggiepal.ai.configuration;
 
 import java.io.IOException;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.veggiepal.ai.common.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -12,51 +13,21 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.veggiepal.ai.dto.response.ApiResponse;
-import com.veggiepal.ai.exception.ErrorCode;
-
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
-
 @Component
 @RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SecurityExceptionHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
-
-    ObjectMapper objectMapper;
-
+    private final ObjectMapper objectMapper;
     @Override
-    public void commence(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AuthenticationException authException
-    ) throws IOException {
-
-        writeErrorResponse(response, ErrorCode.UNAUTHENTICATED);
+    public void commence(HttpServletRequest req, HttpServletResponse res, AuthenticationException ex) throws IOException {
+        write(res, 401, 6001, "Unauthenticated");
     }
-
     @Override
-    public void handle(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AccessDeniedException accessDeniedException
-    ) throws IOException {
-
-        writeErrorResponse(response, ErrorCode.UNAUTHORIZED);
+    public void handle(HttpServletRequest req, HttpServletResponse res, AccessDeniedException ex) throws IOException {
+        write(res, 403, 6002, "You do not have permission");
     }
-
-    private void writeErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
-        response.setStatus(errorCode.getStatusCode().value());
+    private void write(HttpServletResponse response, int status, int code, String message) throws IOException {
+        response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-
-        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-                .code(errorCode.getCode())
-                .message(errorCode.getMessage())
-                .build();
-
-        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+        objectMapper.writeValue(response.getOutputStream(), new ApiResponse<>(code, message, null));
     }
 }
