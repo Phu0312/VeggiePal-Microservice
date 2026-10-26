@@ -120,7 +120,7 @@ public class BlogController {
         return ApiResponse.<Void>builder().build();
     }
 
-    @Operation(summary = "Published blogs; keyword searches title and content")
+    @Operation(summary = "Published blogs; keyword searches title and content, title matches first")
     @GetMapping
     ApiResponse<PageResponse<BlogSummaryResponse>> getPublishedBlogs(
             @RequestParam(name = "categoryId", required = false) Long categoryId,
@@ -139,12 +139,16 @@ public class BlogController {
     @Operation(summary = "One published blog; counts a view")
     @GetMapping("/{id}")
     ApiResponse<BlogResponse> getPublishedBlog(
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @PathVariable("id") Long id
     ) {
 
         return ApiResponse
                 .<BlogResponse>builder()
-                .result(blogService.getPublishedBlog(id))
+                .result(blogService.getBlog(
+                        id,
+                        jwt == null ? null : CurrentUser.id(jwt),
+                        jwt != null && CurrentUser.isAdmin(jwt)))
                 .build();
     }
 
