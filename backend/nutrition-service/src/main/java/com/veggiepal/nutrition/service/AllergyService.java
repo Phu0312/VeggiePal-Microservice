@@ -50,12 +50,6 @@ public class AllergyService {
         return toSortedResponses(userAllergyRepository.findAllergensByUserId(userId));
     }
 
-    public List<String> getUserAllergenCodes(Long userId) {
-        return userAllergyRepository.findAllergensByUserId(userId).stream()
-                .map(Allergen::getCode)
-                .toList();
-    }
-
     @Transactional
     public List<AllergenResponse> replaceAllergies(Long userId, UpdateAllergiesRequest request) {
 
