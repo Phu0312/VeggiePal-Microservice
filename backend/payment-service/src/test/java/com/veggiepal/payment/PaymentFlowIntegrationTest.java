@@ -7,6 +7,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.veggiepal.payment.controller.InternalSubscriptionController;
 import com.veggiepal.payment.entity.*;
 import com.veggiepal.payment.payos.*;
 import com.veggiepal.payment.exception.PayOsOperationException;
@@ -21,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -36,6 +38,7 @@ class PaymentFlowIntegrationTest {
     @Autowired PaymentOrderRepository orders;
     @Autowired UserSubscriptionRepository subscriptions;
     @Autowired PaymentService paymentService;
+    @Value("${internal.service-token}") String internalServiceToken;
     @MockitoBean PayOsGateway payOs;
 
     @BeforeEach
@@ -305,7 +308,7 @@ class PaymentFlowIntegrationTest {
                 .andExpect(status().isUnauthorized());
 
         mvc.perform(get("/internal/subscriptions/77")
-                        .header("X-Internal-Service-Token", "test-internal-service-token-at-least-32-characters"))
+                        .header(InternalSubscriptionController.INTERNAL_TOKEN_HEADER, internalServiceToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.planCode").value("FREE"))
                 .andExpect(jsonPath("$.result.chatPerDay").value(5))
