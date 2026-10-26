@@ -1,4 +1,4 @@
-package com.veggiepal.blog.configuration;
+package com.veggiepal.recipe.configuration;
 
 import java.util.List;
 
@@ -18,20 +18,19 @@ public class OpenApiConfig {
     private static final String BEARER_AUTH = "bearerAuth";
 
     @Bean
-    public OpenAPI veggiePalOpenAPI() {
+    public OpenAPI recipeOpenAPI() {
 
         return new OpenAPI()
                 .info(
                         new Info()
-                                .title("VeggiePal Blog Service API")
+                                .title("VeggiePal Recipe Service API")
                                 .version("1.0")
-                                .description("Blog, category, comment and vote APIs for VeggiePal")
+                                .description("Recipe and ingredient APIs for VeggiePal")
                 )
                 .servers(
                         List.of(
-                                new Server()
-                                        .url("/api")
-                                        .description("API Gateway")
+                                new Server().url("/api").description("API Gateway"),
+                                new Server().url("/").description("Direct Service")
                         )
                 )
                 .components(
