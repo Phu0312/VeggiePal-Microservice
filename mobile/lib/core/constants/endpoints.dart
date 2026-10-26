@@ -7,15 +7,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class Endpoints {
   Endpoints._();
 
-  /// Gateway chạy cổng 18080. Emulator Android không thấy `localhost` của máy host,
+  /// Gateway chạy cổng 9080. Emulator Android không thấy `localhost` của máy host,
   /// phải dùng 10.0.2.2. Thứ tự ưu tiên: --dart-define=API_BASE_URL=... > `.env` > mặc định theo nền tảng.
   static String get baseUrl {
     const define = String.fromEnvironment('API_BASE_URL');
     if (define.isNotEmpty) return define;
     final fromEnv = dotenv.maybeGet('API_BASE_URL');
     if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:18080/api';
-    return 'http://localhost:18080/api';
+    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:9080/api';
+    return 'http://localhost:9080/api';
   }
 
   // ---- Identity ----

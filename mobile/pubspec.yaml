@@ -114,13 +114,9 @@ flutter_launcher_icons:
 
 # Màn hình chờ khi khởi động (thay logo Flutter). Tạo lại bằng: dart run flutter_native_splash:create
 flutter_native_splash:
-  color: "#F7F9F6"
+  color: "#FFFFFF"
   image: tool/branding/splash_logo.png
-  color_dark: "#111611"
-  image_dark: tool/branding/splash_logo.png
   android_12:
-    color: "#F7F9F6"
+    color: "#FFFFFF"
     image: tool/branding/splash_logo.png
-    color_dark: "#111611"
-    image_dark: tool/branding/splash_logo.png
   web: false
