@@ -63,9 +63,6 @@ class BlogServiceTest {
     @Mock
     FileStorageService fileStorageService;
 
-    @Mock
-    ModerationService moderationService;
-
     @Spy
     BlogMapper blogMapper = Mappers.getMapper(BlogMapper.class);
 
@@ -110,13 +107,13 @@ class BlogServiceTest {
 
         assertThat(response.getStatus()).isEqualTo(ContentStatus.DRAFT);
         assertThat(response.getPublishedAt()).isNull();
-        verify(contentModerationService, never()).moderate(anyString());
+        verify(contentModerationService, never()).moderate(anyString(), any(), any(), anyString());
     }
 
     @Test
     void createBlog_publishTrueAndApproved_publishesAndStampsPublishedAt() {
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString())).thenReturn(ModerationResult.approved());
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString())).thenReturn(ModerationResult.approved());
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
         BlogResponse response = blogService.createBlog(AUTHOR_ID, request(true));
@@ -128,7 +125,7 @@ class BlogServiceTest {
     @Test
     void createBlog_publishTrueButRejected_returnsRejectedWithReason() {
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString()))
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString()))
                 .thenReturn(new ModerationResult(ModerationDecision.REJECTED, "spam"));
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
@@ -142,8 +139,8 @@ class BlogServiceTest {
     @Test
     void createBlog_moderationPending_holdsContentBackFromPublic() {
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString()))
-                .thenReturn(new ModerationResult(ModerationDecision.PENDING, "queued"));
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString()))
+                .thenReturn(new ModerationResult(ModerationDecision.REVIEW_REQUIRED, "queued"));
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
         BlogResponse response = blogService.createBlog(AUTHOR_ID, request(true));
@@ -173,13 +170,13 @@ class BlogServiceTest {
 
         when(blogRepository.findById(10L)).thenReturn(Optional.of(existing));
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString())).thenReturn(ModerationResult.approved());
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString())).thenReturn(ModerationResult.approved());
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
         BlogResponse response = blogService.updateBlog(AUTHOR_ID, false, 10L, request(true));
 
         assertThat(response.getStatus()).isEqualTo(ContentStatus.PUBLISHED);
-        verify(contentModerationService).moderate(anyString());
+        verify(contentModerationService).moderate(anyString(), any(), any(), anyString());
     }
 
     @Test
@@ -191,7 +188,7 @@ class BlogServiceTest {
         BlogResponse response = blogService.updateBlog(AUTHOR_ID, false, 10L, request(false));
 
         assertThat(response.getStatus()).isEqualTo(ContentStatus.DRAFT);
-        verify(contentModerationService, never()).moderate(anyString());
+        verify(contentModerationService, never()).moderate(anyString(), any(), any(), anyString());
     }
 
     // How a member fixes a rejected post and tries again
@@ -199,7 +196,7 @@ class BlogServiceTest {
     void updateBlog_onRejected_reModeratesAndCanBecomePublished() {
         when(blogRepository.findById(10L)).thenReturn(Optional.of(blog(ContentStatus.REJECTED)));
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString())).thenReturn(ModerationResult.approved());
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString())).thenReturn(ModerationResult.approved());
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
         BlogResponse response = blogService.updateBlog(AUTHOR_ID, false, 10L, request(true));
@@ -216,7 +213,7 @@ class BlogServiceTest {
 
         when(blogRepository.findById(10L)).thenReturn(Optional.of(existing));
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString())).thenReturn(ModerationResult.approved());
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString())).thenReturn(ModerationResult.approved());
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
         blogService.updateBlog(AUTHOR_ID, false, 10L, request(true));
@@ -284,8 +281,20 @@ class BlogServiceTest {
                 .extracting(e -> ((AppException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_BLOG_STATUS_TRANSITION);
 
-        verify(contentModerationService, never()).moderate(anyString());
+        verify(contentModerationService, never()).moderate(anyString(), any(), any(), anyString());
         verify(blogRepository, never()).save(any());
+    }
+
+    @Test
+    void applyAdminModeration_bannedBlog_staysBanned() {
+        Blog blog = blog(ContentStatus.BANNED);
+        when(blogRepository.findById(10L)).thenReturn(Optional.of(blog));
+
+        assertThatThrownBy(() -> blogService.applyAdminModeration(10L, AUTHOR_ID, true))
+                .isInstanceOf(AppException.class)
+                .extracting(e -> ((AppException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_BLOG_STATUS_TRANSITION);
+        assertThat(blog.getStatus()).isEqualTo(ContentStatus.BANNED);
     }
 
     @Test
@@ -304,7 +313,7 @@ class BlogServiceTest {
     void submitBlog_fromDraft_runsModeration() {
         when(blogRepository.findById(10L)).thenReturn(Optional.of(blog(ContentStatus.DRAFT)));
         when(categoryService.requireActiveCategory(3L)).thenReturn(category());
-        when(contentModerationService.moderate(anyString())).thenReturn(ModerationResult.approved());
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString())).thenReturn(ModerationResult.approved());
         when(blogRepository.save(any(Blog.class))).thenAnswer(call -> call.getArgument(0));
 
         BlogResponse response = blogService.submitBlog(AUTHOR_ID, 10L);
@@ -335,7 +344,7 @@ class BlogServiceTest {
                 .extracting(e -> ((AppException) e).getErrorCode())
                 .isEqualTo(ErrorCode.CATEGORY_INACTIVE);
 
-        verify(contentModerationService, never()).moderate(anyString());
+        verify(contentModerationService, never()).moderate(anyString(), any(), any(), anyString());
         verify(blogRepository, never()).save(any());
     }
 
@@ -425,6 +434,27 @@ class BlogServiceTest {
         verify(blogRepository).incrementViewCount(10L);
         // The JPQL update does not refresh the loaded entity, so the service adds the 1 itself
         assertThat(response.getViewCount()).isEqualTo(42);
+    }
+
+    @Test
+    void getBlog_ownerCanReadDraftWithoutIncrementingViews() {
+        Blog draft = blog(ContentStatus.DRAFT);
+        when(blogRepository.findById(10L)).thenReturn(Optional.of(draft));
+
+        BlogResponse response = blogService.getBlog(10L, AUTHOR_ID, false);
+
+        assertThat(response.getStatus()).isEqualTo(ContentStatus.DRAFT);
+        verify(blogRepository, never()).incrementViewCount(any());
+    }
+
+    @Test
+    void getBlog_guestCannotDiscoverDraft() {
+        when(blogRepository.findById(10L)).thenReturn(Optional.of(blog(ContentStatus.DRAFT)));
+
+        assertThatThrownBy(() -> blogService.getBlog(10L, null, false))
+                .isInstanceOf(AppException.class)
+                .extracting(ex -> ((AppException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.BLOG_NOT_EXISTED);
     }
 
     @Test
