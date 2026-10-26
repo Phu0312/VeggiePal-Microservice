@@ -31,31 +31,6 @@ public enum ErrorCode {
 
     ALLERGEN_NOT_EXISTED(2007, "Allergen not existed", HttpStatus.BAD_REQUEST),
 
-    // Ingredients
-    INGREDIENT_NOT_FOUND(2010, "Ingredient not found", HttpStatus.NOT_FOUND),
-
-    INGREDIENT_NAME_REQUIRED(2011, "Ingredient name is required", HttpStatus.BAD_REQUEST),
-
-    // Meal Plan
-    MEAL_PLAN_NOT_FOUND(2020, "Meal plan not found", HttpStatus.NOT_FOUND),
-
-    INSUFFICIENT_RECIPES(2021, "Not enough safe recipes to generate a meal plan. Try removing some allergies.", HttpStatus.BAD_REQUEST),
-
-    // AI Chat
-    GUEST_AI_QUOTA_EXCEEDED(2030, "You have used all 3 free trial questions. Please register or login to continue.", HttpStatus.TOO_MANY_REQUESTS),
-
-    CONVERSATION_NOT_FOUND(2031, "Conversation not found", HttpStatus.NOT_FOUND),
-
-    GUEST_ID_REQUIRED(2032, "X-Guest-Id header is required", HttpStatus.BAD_REQUEST),
-
-    CHAT_MESSAGE_REQUIRED(2033, "Message content is required", HttpStatus.BAD_REQUEST),
-
-    // Restaurant
-    RESTAURANT_NOT_FOUND(2040, "Restaurant not found", HttpStatus.NOT_FOUND),
-
-    // Recipe
-    RECIPE_NOT_FOUND(2050, "Recipe not found", HttpStatus.NOT_FOUND),
-
     INVALID_REQUEST(1018, "Invalid request data", HttpStatus.BAD_REQUEST);
 
     ErrorCode(

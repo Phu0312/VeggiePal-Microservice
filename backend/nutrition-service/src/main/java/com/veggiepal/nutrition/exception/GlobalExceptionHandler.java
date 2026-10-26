@@ -23,12 +23,6 @@ public class GlobalExceptionHandler {
 
     private static final String MIN_ATTRIBUTE = "min";
 
-    // @PreAuthorize denial must propagate to SecurityExceptionHandler, not the catch-all
-    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
-    void rethrowAccessDenied(org.springframework.security.access.AccessDeniedException ex) throws org.springframework.security.access.AccessDeniedException {
-        throw ex;
-    }
-
     @ExceptionHandler(value = Exception.class)
     ResponseEntity<ApiResponse<?>> handlingException(
             Exception exception
