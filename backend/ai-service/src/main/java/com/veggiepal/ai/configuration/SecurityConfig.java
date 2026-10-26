@@ -1,13 +1,11 @@
 package com.veggiepal.ai.configuration;
 
-import java.util.Arrays;
 import java.util.List;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -18,68 +16,49 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
-
 @Configuration
-@EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SecurityConfig {
-
-    static final String[] PUBLIC_ENDPOINTS = {
-            "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/v3/api-docs/**",
-            "/ai/chat/guest"
-    };
-
-    SecurityExceptionHandler securityExceptionHandler;
+    private static final List<RequestMatcher> PUBLIC_ENDPOINTS = List.of(
+            PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui/**"),
+            PathPatternRequestMatcher.withDefaults().matcher("/swagger-ui.html"),
+            PathPatternRequestMatcher.withDefaults().matcher("/v3/api-docs/**"),
+            PathPatternRequestMatcher.withDefaults().matcher("/actuator/health"),
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/ai/chat/guest"),
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/ai/chat/guest-sessions"),
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/ai/videos/by-video/{videoId:[0-9]+}")
+    );
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity
-                .authorizeHttpRequests(request -> request
-                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+    SecurityFilterChain filterChain(HttpSecurity http, SecurityExceptionHandler errors) throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/ai/chat/guest").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/ai/chat/guest-sessions").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/ai/videos/by-video/{videoId:[0-9]+}").permitAll()
+                        .requestMatchers("/ai/admin/**").hasRole("ADMIN")
+                        .anyRequest().authenticated())
+                .exceptionHandling(e -> e.authenticationEntryPoint(errors).accessDeniedHandler(errors))
+                .oauth2ResourceServer(oauth -> oauth.authenticationEntryPoint(errors).accessDeniedHandler(errors)
                         .bearerTokenResolver(publicEndpointAwareBearerTokenResolver())
-                        .authenticationEntryPoint(securityExceptionHandler)
-                        .accessDeniedHandler(securityExceptionHandler)
-                )
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(securityExceptionHandler)
-                        .accessDeniedHandler(securityExceptionHandler)
-                )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        httpSecurity.csrf(AbstractHttpConfigurer::disable);
-
-        return httpSecurity.build();
-    }
-
-    private JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        authoritiesConverter.setAuthoritiesClaimName("role");
-        authoritiesConverter.setAuthorityPrefix("ROLE_");
-
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
-        return converter;
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(converter())));
+        return http.build();
     }
 
     private BearerTokenResolver publicEndpointAwareBearerTokenResolver() {
-        DefaultBearerTokenResolver defaultResolver = new DefaultBearerTokenResolver();
-        List<RequestMatcher> publicMatchers = Arrays.stream(PUBLIC_ENDPOINTS)
-                .map(pattern -> (RequestMatcher) PathPatternRequestMatcher.withDefaults().matcher(pattern))
-                .toList();
-
-        return request -> publicMatchers.stream().anyMatch(matcher -> matcher.matches(request))
+        DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
+        return request -> PUBLIC_ENDPOINTS.stream().anyMatch(matcher -> matcher.matches(request))
                 ? null
-                : defaultResolver.resolve(request);
+                : delegate.resolve(request);
+    }
+    private JwtAuthenticationConverter converter() {
+        var authorities = new JwtGrantedAuthoritiesConverter();
+        authorities.setAuthoritiesClaimName("role");
+        authorities.setAuthorityPrefix("ROLE_");
+        var converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        return converter;
     }
 }
