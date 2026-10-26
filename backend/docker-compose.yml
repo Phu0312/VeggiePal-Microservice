@@ -1,5 +1,5 @@
 
-name: veggiepal
+name: veggiepal-prm
 
 x-service-defaults: &service-defaults
   restart: unless-stopped
@@ -18,10 +18,11 @@ x-database-environment: &database-environment
 
 services:
   mysql:
+    container_name: veggiepal-prm-mysql
     image: mysql:8.4
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3307:3306"
+      - "127.0.0.1:${PRM_MYSQL_HOST_PORT:-4307}:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
     volumes:
@@ -36,6 +37,7 @@ services:
       start_period: 30s
   
   ngrok:
+    container_name: veggiepal-prm-ngrok
     image: ngrok/ngrok:latest
     restart: unless-stopped
     command:
@@ -44,7 +46,7 @@ services:
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?NGROK_AUTHTOKEN must be set}
     ports:
-      - "127.0.0.1:4040:4040"
+      - "127.0.0.1:${PRM_NGROK_INSPECTOR_HOST_PORT:-5041}:4040"
     networks:
       - backend
     depends_on:
@@ -53,6 +55,7 @@ services:
 
   identity-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-identity-service
     build:
       context: ./identity-service
     environment:
@@ -70,6 +73,7 @@ services:
 
   nutrition-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-nutrition-service
     build:
       context: ./nutrition-service
     environment:
@@ -87,6 +91,7 @@ services:
 
   blog-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-blog-service
     build:
       context: ./blog-service
     environment:
@@ -107,6 +112,7 @@ services:
 
   recipe-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-recipe-service
     build:
       context: ./recipe-service
     environment:
@@ -124,6 +130,7 @@ services:
 
   location-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-location-service
     build:
       context: ./location-service
     environment:
@@ -141,6 +148,7 @@ services:
 
   ai-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-ai-service
     build:
       context: ./ai-service
     environment:
@@ -174,6 +182,7 @@ services:
 
   payment-service:
     <<: *service-defaults
+    container_name: veggiepal-prm-payment-service
     build:
       context: ./payment-service
     environment:
@@ -192,10 +201,11 @@ services:
 
   api-gateway:
     <<: *service-defaults
+    container_name: veggiepal-prm-api-gateway
     build:
       context: ./api-gateway
     ports:
-      - "${GATEWAY_HOST_PORT:-8080}:8080"
+      - "${PRM_GATEWAY_HOST_PORT:-9080}:8080"
     environment:
       GATEWAY_PORT: "8080"
       IDENTITY_SERVICE_URL: http://identity-service:8081
@@ -229,7 +239,9 @@ services:
 
 networks:
   backend:
+    name: veggiepal-prm-backend
     driver: bridge
 
 volumes:
   mysql_data:
+    name: veggiepal-prm-mysql-data
