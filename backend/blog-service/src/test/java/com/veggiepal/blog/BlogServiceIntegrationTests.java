@@ -13,17 +13,24 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
+import org.springframework.util.unit.DataSize;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import com.jayway.jsonpath.JsonPath;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -31,6 +38,9 @@ import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.veggiepal.blog.configuration.VideoProperties;
+import com.veggiepal.blog.moderation.ContentModerationService;
+import com.veggiepal.blog.moderation.ModerationResult;
 
 /**
  * End-to-end tests against a real MySQL schema and the real filter chain.
@@ -51,8 +61,9 @@ import com.nimbusds.jwt.SignedJWT;
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:mysql://localhost:${DB_PORT:3307}/veggiepal_blog_it?createDatabaseIfNotExist=true",
-        "spring.jpa.show-sql=false"
+        "spring.datasource.url=jdbc:mysql://localhost:${DB_PORT:3306}/veggiepal_blog_it?createDatabaseIfNotExist=true",
+        "spring.jpa.show-sql=false",
+        "jwt.secret=veggiepal-secret-key-must-be-at-least-32-characters"
 })
 class BlogServiceIntegrationTests {
 
@@ -65,6 +76,21 @@ class BlogServiceIntegrationTests {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    VideoProperties videoProperties;
+
+    @Value("${spring.servlet.multipart.max-file-size}")
+    DataSize multipartMaxFileSize;
+
+    @MockitoBean
+    private ContentModerationService contentModerationService;
+
+    @BeforeEach
+    void setUpModeration() {
+        when(contentModerationService.moderate(any(), any(), any(), any()))
+                .thenReturn(ModerationResult.approved());
+    }
 
     // ---------------------------------------------------------------- categories
 
@@ -160,6 +186,22 @@ class BlogServiceIntegrationTests {
         mockMvc.perform(get("/blogs").param("keyword", "marker" + suffix))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalElements").value(1));
+    }
+
+    // Task sheet US7: a title match ranks above a body-only match. The body match is
+    // published second, so without the ranking the default newest-first sort would put it on top.
+    @Test
+    void keywordSearch_ranksTitleMatchesBeforeBodyMatches() throws Exception {
+        String keyword = "tukhoa" + unique();
+        long categoryId = createRootCategory("Danh mục " + unique());
+        long titleMatch = createPublishedBlog(categoryId, "Đậu hũ " + keyword, body(unique()));
+        long bodyMatch = createPublishedBlog(categoryId, "Bún chay " + unique(), body(keyword));
+
+        mockMvc.perform(get("/blogs").param("keyword", keyword))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.totalElements").value(2))
+                .andExpect(jsonPath("$.result.items[0].id").value(titleMatch))
+                .andExpect(jsonPath("$.result.items[1].id").value(bodyMatch));
     }
 
     @Test
@@ -300,6 +342,74 @@ class BlogServiceIntegrationTests {
                 .andExpect(jsonPath("$.code").value(3014));
     }
 
+    // ---------------------------------------------------------------- videos
+    // YouTube sources only: an upload would need Cloudinary credentials this test does not have.
+
+    @Test
+    void publishedVideo_appearsInTheListWithItsCategoryName() throws Exception {
+        String suffix = unique();
+        long categoryId = createRootCategory("Danh mục " + suffix);
+        long videoId = createVideo(categoryId, "Canh chua " + suffix, true);
+
+        // Same lazy-proxy trap as the blog list: categoryName needs the read transaction
+        mockMvc.perform(get("/videos").param("categoryId", String.valueOf(categoryId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.items[?(@.id == %d)].categoryName".formatted(videoId))
+                        .value("Danh mục " + suffix))
+                .andExpect(jsonPath("$.result.items[?(@.id == %d)].videoUrl".formatted(videoId))
+                        .value("https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1"));
+    }
+
+    @Test
+    void readingAVideo_incrementsItsViewCount() throws Exception {
+        String suffix = unique();
+        long categoryId = createRootCategory("Danh mục " + suffix);
+        long videoId = createVideo(categoryId, "Canh chua " + suffix, true);
+
+        // Proves the @Modifying update really executes; a mocked repository cannot
+        mockMvc.perform(get("/videos/" + videoId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.viewCount").value(1));
+
+        mockMvc.perform(get("/videos/" + videoId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.viewCount").value(2));
+    }
+
+    @Test
+    void ownVideos_requireATokenAndIncludeDraftsThatThePublicCannotSee() throws Exception {
+        String suffix = unique();
+        long categoryId = createRootCategory("Danh mục " + suffix);
+        long draftId = createVideo(categoryId, "Nháp " + suffix, false);
+
+        // /videos/me matches a bare /videos/{id} pattern; the digit constraint keeps its token
+        mockMvc.perform(get("/videos/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(1008));
+
+        mockMvc.perform(get("/videos/me").header("Authorization", bearer(AUTHOR_ID, "USER"))
+                        .param("status", "DRAFT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.items[?(@.id == %d)].title".formatted(draftId))
+                        .value("Nháp " + suffix));
+
+        mockMvc.perform(get("/videos/" + draftId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(3060));
+    }
+
+    // Task sheet US5: a category still referenced by a video cannot be deleted
+    @Test
+    void deletingACategoryStillUsedByAVideo_isRefused() throws Exception {
+        String suffix = unique();
+        long categoryId = createRootCategory("Danh mục " + suffix);
+        createVideo(categoryId, "Canh chua " + suffix, true);
+
+        mockMvc.perform(authed(delete("/categories/" + categoryId), ADMIN_ID, "ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3005));
+    }
+
     // ---------------------------------------------------------------- votes
 
     @Test
@@ -381,7 +491,7 @@ class BlogServiceIntegrationTests {
         long categoryId = createRootCategory("Danh mục " + suffix);
         long blogId = createPublishedBlog(categoryId, "Bài viết " + suffix, body(suffix));
 
-        // Between MAX_THUMBNAIL_BYTES (5MB) and the multipart limit (6MB): the parser lets
+        // Between MAX_THUMBNAIL_BYTES (5MB) and the multipart limit (31MB): the parser lets
         // it through and BlogService's own check rejects it. That check was unreachable
         // while the two limits were equal.
         MockMultipartFile file = new MockMultipartFile(
@@ -394,13 +504,14 @@ class BlogServiceIntegrationTests {
     }
 
     @Test
-    void aThumbnailOverTheMultipartLimit_isRejectedByTheHandlerNotTheCatchAll() throws Exception {
+    void aThumbnailWellOverTheServiceLimit_isStillRejectedBySize() throws Exception {
         String suffix = unique();
         long categoryId = createRootCategory("Danh mục " + suffix);
         long blogId = createPublishedBlog(categoryId, "Bài viết " + suffix, body(suffix));
 
-        // Above the 6MB parser limit but below the 7MB request limit: this is the path that
-        // answered 9999/500 until MaxUploadSizeExceededException got its own handler.
+        // MockMvc does not run the servlet multipart parser, so MaxUploadSizeExceededException
+        // never happens here; the handler's mapping (3022 for thumbnails, 3066 for videos) is
+        // unit-tested in GlobalExceptionHandlerTest.
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cover.png", "image/png", new byte[6 * 1024 * 1024 + 512 * 1024]);
 
@@ -503,15 +614,31 @@ class BlogServiceIntegrationTests {
         return idOf(result);
     }
 
-    /** Guards the assumption the two thumbnail tests above are built on. */
-    @Test
-    void thumbnailLimits_leaveRoomForTheServiceCheckToRun() {
-        long serviceLimit = 5L * 1024 * 1024;
-        long parserLimit = 6L * 1024 * 1024;
+    private long createVideo(long categoryId, String title, boolean publish) throws Exception {
+        MvcResult result = mockMvc.perform(authedMultipart(multipart("/videos"), AUTHOR_ID, "USER")
+                        .param("title", title)
+                        .param("description", "Nấu trong 15 phút")
+                        .param("categoryId", String.valueOf(categoryId))
+                        .param("youtubeUrl", "https://youtu.be/dQw4w9WgXcQ")
+                        .param("publish", String.valueOf(publish)))
+                .andExpect(status().isOk())
+                .andReturn();
 
-        assertThat(parserLimit)
+        return idOf(result);
+    }
+
+    /** Guards the assumption the thumbnail and video size checks are built on. */
+    @Test
+    void uploadLimits_leaveRoomForTheServiceChecksToRun() {
+        assertThat(multipartMaxFileSize.toBytes())
+                .as("the multipart limit must exceed video.max-file-size, or the parser rejects "
+                        + "the upload first and VIDEO_TOO_LARGE from the service is unreachable")
+                .isGreaterThan(videoProperties.maxFileSize().toBytes());
+
+        // BlogService.MAX_THUMBNAIL_BYTES (5MB) is package-private, hence the literal.
+        assertThat(multipartMaxFileSize.toBytes())
                 .as("the multipart limit must exceed MAX_THUMBNAIL_BYTES, or the service's "
                         + "own size check is unreachable and THUMBNAIL_TOO_LARGE is dead code")
-                .isGreaterThan(serviceLimit);
+                .isGreaterThan(5L * 1024 * 1024);
     }
 }
