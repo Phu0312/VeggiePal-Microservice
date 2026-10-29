@@ -8,6 +8,9 @@ import '../../../core/widgets/common_widgets.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../ingredient/data/pantry_controller.dart';
+import '../../payment/data/payment_models.dart';
+import '../../payment/data/subscription_controller.dart';
+import '../../payment/presentation/upgrade_dialog.dart';
 import '../../profile/presentation/edit_profile_screen.dart';
 import '../data/health_sync.dart';
 import '../data/meal_plan_models.dart';
@@ -177,13 +180,23 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
       return;
     }
     await _run(() async {
-      final plan = await context
-          .read<MealPlanRepository>()
-          .generate(name: name, goal: _goal, ingredients: List.of(_ingredients));
-      if (!mounted) return;
-      _show(plan);
-      setState(() => _name.text = _defaultName());
-      showSnack(context, 'Đã tạo và lưu thực đơn');
+      try {
+        final plan = await context
+            .read<MealPlanRepository>()
+            .generate(name: name, goal: _goal, ingredients: List.of(_ingredients));
+        if (!mounted) return;
+        _show(plan);
+        setState(() => _name.text = _defaultName());
+        showSnack(context, 'Đã tạo và lưu thực đơn');
+      } on ApiException catch (e) {
+        // 6003: hết lượt tạo thực đơn trong tháng theo gói -> mời nâng cấp thay vì chỉ báo lỗi.
+        if (e.code != 6003 || !mounted) rethrow;
+        await showUpgradeDialog(
+            context,
+            'Bạn đã hết lượt tạo thực đơn tuần của gói hiện tại. '
+            'Hãy nâng cấp gói để có thêm lượt hoặc quay lại vào tháng sau.',
+            title: 'Hết lượt tạo thực đơn');
+      }
     });
   }
 
@@ -429,6 +442,12 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
               padding: const EdgeInsets.only(top: 8),
               child: Text('Đăng nhập để tạo và lưu thực đơn cá nhân.',
                   style: TextStyle(color: context.textMuted)),
+            )
+          else if (context.watch<SubscriptionController>().subscription case final sub?)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('${planName(sub.planCode)}: tối đa ${sub.mealPlansPerMonth} thực đơn mỗi tháng.',
+                  style: TextStyle(fontSize: 12.5, color: context.textMuted)),
             ),
         ]),
       ),

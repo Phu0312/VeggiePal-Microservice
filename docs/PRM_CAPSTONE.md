@@ -314,7 +314,7 @@ flowchart LR
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
 | FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`GET /ai/admin/moderation`, oldest first). An administrator approves or rejects a case (`PUT /ai/admin/moderation/{id}`, optional reason; the decision is applied to the original blog, video or comment in blog-service) or dismisses it (`DELETE`, which only closes the case and leaves the content unchanged). A case that was already handled returns error 6013. |
 | FR-11 | Admin operations | ai-service, payment-service, blog-service, recipe-service | AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management (create, edit, delete). The web and mobile admin clients cover these screens; neither manages user accounts because identity-service exposes no administrator endpoint for them. |
-| FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
+| FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Clients poll `GET /payments/orders/{id}` until the order is PAID, can cancel a pending order (`POST /payments/orders/{id}/cancel`) and list past orders (`GET /payments/history`); the current plan comes from `GET /subscriptions/me`. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
 
 ### 4. Non-Functional Requirements (NFR)
 
@@ -1145,10 +1145,10 @@ sequenceDiagram
 
 #### 3.4. Workflow 4: Upgrading to a PLUS or PRO Subscription via VietQR PayOS
 
-1. Navigate to Profile > Subscription.
-2. Select PLUS or PRO and choose to pay with PayOS.
-3. Scan the dynamic VietQR code with any Vietnamese banking app.
-4. After PayOS confirms the payment through the webhook, the subscription is activated for 30 days.
+1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan.
+2. Select PLUS or PRO. Choosing a different paid plan than the current one asks for confirmation first, because the new plan replaces the current one.
+3. The app creates the order (`POST /payments/checkout`; an unexpired pending order of the same plan is reused) and shows the dynamic VietQR code with the amount, account and transfer content. Scan it with any Vietnamese banking app. The app polls the order every 2.5 seconds, shows a countdown, offers to recreate an expired code and lets the user cancel a pending order.
+4. After PayOS confirms the payment through the webhook, the order becomes PAID and the subscription is activated for 30 days; paying again for the active plan adds 30 days to its expiry. When a quota is used up (error 6003 in ai-service), the app offers a shortcut to this screen. Past orders are listed under Profile > Payment history.
 
 | Plan | Price | Chat per day | Meal plans per month | Videos per month |
 |---|---|---|---|---|
