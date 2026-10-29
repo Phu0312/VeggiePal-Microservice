@@ -17,9 +17,10 @@ import 'features/blog/data/blog_repository.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/home/data/home_repository.dart';
+import 'features/ingredient/data/ingredient_repository.dart';
+import 'features/ingredient/data/pantry_controller.dart';
 import 'features/menu_planner/data/health_sync.dart';
 import 'features/menu_planner/data/meal_plan_repository.dart';
-import 'features/menu_planner/data/meal_repository.dart';
 import 'features/menu_planner/data/menu_repository.dart';
 import 'features/notifications/notification_controller.dart';
 import 'features/places/data/places_repository.dart';
@@ -63,7 +64,7 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),
         ProxyProvider<ApiClient, MenuRepository>(update: (_, api, _) => MenuRepository(api)),
         ProxyProvider<ApiClient, BlogRepository>(update: (_, api, _) => BlogRepository(api)),
-        ProxyProvider<ApiClient, MealRepository>(update: (_, api, _) => MealRepository(api)),
+        ProxyProvider<ApiClient, IngredientRepository>(update: (_, api, _) => IngredientRepository(api)),
         ProxyProvider<ApiClient, MealPlanRepository>(update: (_, api, _) => MealPlanRepository(api)),
         ProxyProvider<ApiClient, RecipeRepository>(update: (_, api, _) => RecipeRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
@@ -77,6 +78,10 @@ class VeggiePalApp extends StatelessWidget {
             create: (c) => ChatController(c.read<ChatRepository>())),
         ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
+        ChangeNotifierProxyProvider<AuthController, PantryController>(
+          create: (_) => PantryController(),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
+        ),
         ChangeNotifierProxyProvider<AuthController, NotificationController>(
           create: (c) => NotificationController(c.read<HomeRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
