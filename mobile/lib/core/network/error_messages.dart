@@ -31,6 +31,8 @@ const Map<int, String> errorMessagesVi = {
   2006: 'Thiếu danh sách dị ứng.',
   2007: 'Chất gây dị ứng không tồn tại.',
   // ai-service
+  6000: 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại nội dung đã nhập.',
+  6002: 'Không tìm thấy dữ liệu yêu cầu (có thể đã bị xoá).',
   6003: 'Bạn đã hết lượt sử dụng tính năng AI theo gói hiện tại.',
   6004: 'Dịch vụ AI tạm thời không khả dụng. Vui lòng thử lại sau.',
   6005: 'Dịch vụ AI chưa được cấu hình.',
@@ -41,10 +43,6 @@ const Map<int, String> errorMessagesVi = {
   2011: 'Vui lòng nhập tên nguyên liệu.',
   2020: 'Không tìm thấy thực đơn.',
   2021: 'Không đủ công thức an toàn để tạo thực đơn. Hãy thử bỏ bớt một vài dị ứng.',
-  2030: 'Bạn đã dùng hết 3 câu hỏi miễn phí. Vui lòng đăng ký hoặc đăng nhập để tiếp tục.',
-  2031: 'Không tìm thấy cuộc trò chuyện.',
-  2032: 'Thiếu mã định danh khách.',
-  2033: 'Vui lòng nhập nội dung câu hỏi.',
   2040: 'Không tìm thấy nhà hàng.',
   // recipe-service
   4000: 'Vui lòng nhập tên nguyên liệu.',

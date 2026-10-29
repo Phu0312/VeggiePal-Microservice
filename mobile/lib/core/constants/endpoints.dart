@@ -73,7 +73,11 @@ class Endpoints {
   static const ingredients = '/ingredients';
 
   static const restaurantsNearby = '/restaurants/nearby';
+  // ---- AI service: chatbot ----
+  static const chatGuestSessions = '/ai/chat/guest-sessions';
   static const chatGuest = '/ai/chat/guest';
   static const chat = '/ai/chat';
+  static const chatConversations = '/ai/chat/conversations';
+  static String chatConversation(int id) => '/ai/chat/conversations/$id';
   static const aiMetrics = '/admin/ai/metrics';
 }

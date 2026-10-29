@@ -42,7 +42,7 @@ void main() {
     // Nút tròn giữa mở tab Trợ lý AI.
     await tester.tap(find.byIcon(LucideIcons.sparkles));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Dùng thử: còn'), findsOneWidget);
+    expect(find.textContaining('Dùng thử: tối đa'), findsOneWidget);
 
     // Đổi sang giao diện tối.
     expect(Theme.of(tester.element(find.byType(Scaffold).first)).brightness, Brightness.light);
