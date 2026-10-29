@@ -56,8 +56,6 @@ class Endpoints {
   static const healthRecords = '/nutrition/me/health-records';
   static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
-  static const myIngredients = '/nutrition/me/ingredients';
-  static String myIngredientById(int id) => '/nutrition/me/ingredients/$id';
   // ---- AI service: thực đơn tuần ----
   static const aiMealPlans = '/ai/meal-plans';
   static String aiMealPlan(int id) => '/ai/meal-plans/$id';

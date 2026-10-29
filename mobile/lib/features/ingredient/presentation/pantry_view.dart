@@ -2,67 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/constants/app_colors.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
-import '../data/meal_models.dart';
-import '../data/meal_repository.dart';
+import '../data/ingredient_models.dart';
+import '../data/pantry_controller.dart';
+import 'ingredient_picker.dart';
 
-/// Phần "Nguyên liệu của tôi": quản lý nguyên liệu đang có trong tủ (cần đăng nhập).
-/// API: GET/POST /nutrition/me/ingredients, PATCH/DELETE /nutrition/me/ingredients/{id}.
-/// Khi tạo thực đơn, BE tự ưu tiên các món dùng nguyên liệu trong tủ này.
-class PantryTab extends StatefulWidget {
-  const PantryTab({super.key});
+/// "Tủ của tôi": nguyên liệu đang có, lưu trên máy theo tài khoản (cần đăng nhập). Khi tạo thực đơn tuần,
+/// nút "Dùng nguyên liệu trong tủ" ở tab Thực đơn gửi các nguyên liệu còn hạn cho AI để ưu tiên các món dùng chúng.
+class PantryView extends StatelessWidget {
+  const PantryView({super.key});
 
-  @override
-  State<PantryTab> createState() => _PantryTabState();
-}
-
-class _PantryTabState extends State<PantryTab> with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  List<PantryItem> _items = [];
-  bool _loading = false;
-  bool _loadFailed = false;
-  int? _loadedFor; // userId đã nạp dữ liệu
-
-  void _syncWithUser(int? userId) {
-    if (_loadedFor == userId) return;
-    _loadedFor = userId;
-    if (userId == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _items = []);
-      });
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-    }
-  }
-
-  Future<void> _load() async {
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _loadFailed = false;
-    });
-    try {
-      final r = await context.read<MealRepository>().pantry();
-      if (mounted) setState(() => _items = r);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loadFailed = true);
-        showErrorDialog(context, errorMessage(e), title: 'Không tải được nguyên liệu');
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _openForm([PantryItem? item]) async {
-    final saved = await showModalBottomSheet<bool>(
+  Future<void> _openForm(BuildContext context, [PantryItem? item]) {
+    return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -71,10 +26,9 @@ class _PantryTabState extends State<PantryTab> with AutomaticKeepAliveClientMixi
         child: _PantryForm(item),
       ),
     );
-    if (saved == true) _load();
   }
 
-  Future<void> _delete(PantryItem item) async {
+  Future<void> _delete(BuildContext context, PantryItem item) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -86,22 +40,15 @@ class _PantryTabState extends State<PantryTab> with AutomaticKeepAliveClientMixi
         ],
       ),
     );
-    if (ok != true || !mounted) return;
-    try {
-      await context.read<MealRepository>().deletePantryItem(item.id);
-      if (!mounted) return;
-      setState(() => _items = _items.where((e) => e.id != item.id).toList());
-      showSnack(context, 'Đã xoá "${item.name}"');
-    } catch (e) {
-      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không xoá được');
-    }
+    if (ok != true || !context.mounted) return;
+    context.read<PantryController>().remove(item);
+    showSnack(context, 'Đã xoá "${item.name}"');
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final auth = context.watch<AuthController>();
-    _syncWithUser(auth.user?.id);
+    final items = context.watch<PantryController>().items;
 
     if (!auth.isLoggedIn) {
       return Center(
@@ -128,37 +75,34 @@ class _PantryTabState extends State<PantryTab> with AutomaticKeepAliveClientMixi
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'pantry-add',
-        onPressed: () => _openForm(),
+        onPressed: () => _openForm(context),
         icon: const Icon(LucideIcons.plus),
         label: const Text('Thêm nguyên liệu'),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _loadFailed
-              ? RetryView(onRetry: _load)
-              : _items.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                            'Tủ nguyên liệu đang trống. Thêm nguyên liệu bạn có để AI ưu tiên các món dùng chúng khi tạo thực đơn.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: context.textMuted)),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                        itemCount: _items.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _PantryCard(
-                          _items[i],
-                          onEdit: () => _openForm(_items[i]),
-                          onDelete: () => _delete(_items[i]),
-                        ),
-                      ),
-                    ),
+      body: items.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                    'Tủ nguyên liệu đang trống. Thêm nguyên liệu bạn có (hoặc chọn từ tab Danh mục) để điền nhanh khi tạo thực đơn tuần.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: context.textMuted)),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+              itemCount: items.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (_, i) {
+                if (i == 0) {
+                  return Text('Tủ được lưu trên máy này, không đồng bộ lên máy chủ.',
+                      style: TextStyle(fontSize: 12.5, color: context.textMuted));
+                }
+                final item = items[i - 1];
+                return _PantryCard(item,
+                    onEdit: () => _openForm(context, item), onDelete: () => _delete(context, item));
+              },
+            ),
     );
   }
 }
@@ -181,19 +125,17 @@ class _PantryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final left = item.daysLeft;
+    final left = item.daysLeft();
     final expired = left != null && left < 0;
     final soon = left != null && left >= 0 && left <= 3;
-    final warn = expired || soon;
-    final hasQuantity = (item.quantity ?? '').trim().isNotEmpty;
-    final hasUnit = (item.unit ?? '').trim().isNotEmpty;
-    final expiryText = item.expiryDate == null
+    final expiry = item.expiryDate;
+    final expiryText = expiry == null
         ? null
         : expired
-            ? 'Đã hết hạn (${fmtDate(item.expiryDate!)})'
+            ? 'Đã hết hạn (${fmtDate(expiry)}), không dùng khi tạo thực đơn'
             : soon
-                ? 'Còn $left ngày (${fmtDate(item.expiryDate!)})'
-                : 'HSD: ${fmtDate(item.expiryDate!)}';
+                ? 'Còn $left ngày (${fmtDate(expiry)})'
+                : 'HSD: ${fmtDate(expiry)}';
 
     return Card(
       child: Padding(
@@ -213,17 +155,14 @@ class _PantryCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              if (hasQuantity || hasUnit || expiryText != null) const SizedBox(height: 6),
-              if (hasQuantity || hasUnit)
-                Wrap(spacing: 16, runSpacing: 4, children: [
-                  if (hasQuantity)
-                    _info(context, LucideIcons.hash, 'Số lượng: ${item.quantity!.trim()}'),
-                  if (hasUnit) _info(context, LucideIcons.scale, 'Đơn vị: ${item.unit!.trim()}'),
-                ]),
-              if ((hasQuantity || hasUnit) && expiryText != null) const SizedBox(height: 4),
+              if (item.amountText.isNotEmpty || expiryText != null) const SizedBox(height: 6),
+              if (item.amountText.isNotEmpty)
+                _info(context, LucideIcons.scale, item.amountText),
+              if (item.amountText.isNotEmpty && expiryText != null) const SizedBox(height: 4),
               if (expiryText != null)
-                _info(context, warn ? LucideIcons.triangleAlert : LucideIcons.calendar, expiryText,
-                    color: warn ? context.cs.error : null),
+                _info(context, (expired || soon) ? LucideIcons.triangleAlert : LucideIcons.calendar,
+                    expiryText,
+                    color: (expired || soon) ? context.cs.error : null),
             ]),
           ),
           IconButton(
@@ -238,7 +177,8 @@ class _PantryCard extends StatelessWidget {
   }
 }
 
-/// Form thêm/sửa nguyên liệu (item == null -> thêm mới).
+/// Form thêm/sửa nguyên liệu trong tủ (item == null -> thêm mới).
+/// Nên chọn tên từ danh mục để AI khớp được với nguyên liệu của công thức.
 class _PantryForm extends StatefulWidget {
   final PantryItem? item;
   const _PantryForm(this.item);
@@ -253,7 +193,6 @@ class _PantryFormState extends State<_PantryForm> {
   late final _quantity = TextEditingController(text: widget.item?.quantity ?? '');
   late final _unit = TextEditingController(text: widget.item?.unit ?? '');
   late DateTime? _expiry = widget.item?.expiryDate;
-  bool _busy = false;
 
   @override
   void dispose() {
@@ -261,6 +200,11 @@ class _PantryFormState extends State<_PantryForm> {
     _quantity.dispose();
     _unit.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFromCatalog() async {
+    final g = await showIngredientPicker(context);
+    if (g != null && mounted) setState(() => _name.text = g.name);
   }
 
   Future<void> _pickExpiry() async {
@@ -275,38 +219,21 @@ class _PantryFormState extends State<_PantryForm> {
     if (d != null) setState(() => _expiry = d);
   }
 
-  Future<void> _submit() async {
+  void _submit() {
     if (!_form.currentState!.validate()) return;
-    setState(() => _busy = true);
-    final repo = context.read<MealRepository>();
-    final name = _name.text.trim();
-    final qty = _quantity.text.trim();
-    final unit = _unit.text.trim();
-    final expiry = _expiry == null ? null : isoDate(_expiry!);
-    try {
-      if (widget.item == null) {
-        await repo.addPantryItem(
-          name: name,
-          quantity: qty.isEmpty ? null : qty,
-          unit: unit.isEmpty ? null : unit,
-          expiryDate: expiry,
-        );
-      } else {
-        // BE bỏ qua trường rỗng/null (giữ giá trị cũ), nên chỉ gửi những gì đã nhập.
-        await repo.updatePantryItem(
-          widget.item!.id,
-          name: name,
-          quantity: qty.isEmpty ? null : qty,
-          unit: unit.isEmpty ? null : unit,
-          expiryDate: expiry,
-        );
-      }
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (e) {
-      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không lưu được nguyên liệu');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    final pantry = context.read<PantryController>();
+    final item = PantryItem(
+      name: _name.text.trim().replaceAll(RegExp(r'\s+'), ' '),
+      quantity: _quantity.text.trim(),
+      unit: _unit.text.trim(),
+      expiryDate: _expiry,
+    );
+    final ok = widget.item == null ? pantry.add(item) : pantry.update(widget.item!, item);
+    if (!ok) {
+      showErrorDialog(context, '"${item.name}" đã có trong tủ.', title: 'Không lưu được nguyên liệu');
+      return;
     }
+    Navigator.of(context).pop();
   }
 
   @override
@@ -321,11 +248,19 @@ class _PantryFormState extends State<_PantryForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _name,
+            maxLength: 100, // backend giới hạn 100 ký tự cho mỗi nguyên liệu khi tạo thực đơn
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-                labelText: 'Tên nguyên liệu',
-                hintText: 'Ví dụ: Nấm hương, đậu hũ...',
-                prefixIcon: Icon(LucideIcons.leaf)),
+            decoration: InputDecoration(
+              labelText: 'Tên nguyên liệu',
+              hintText: 'Ví dụ: Nấm hương, đậu hũ...',
+              prefixIcon: const Icon(LucideIcons.leaf),
+              counterText: '',
+              suffixIcon: IconButton(
+                tooltip: 'Chọn từ danh mục',
+                icon: const Icon(LucideIcons.search),
+                onPressed: _pickFromCatalog,
+              ),
+            ),
             validator: (v) => v!.trim().isEmpty ? 'Vui lòng nhập tên nguyên liệu' : null,
           ),
           const SizedBox(height: 12),
@@ -371,12 +306,7 @@ class _PantryFormState extends State<_PantryForm> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
-              onPressed: _busy ? null : _submit,
-              child: _busy
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Lưu'),
-            ),
+            child: FilledButton(onPressed: _submit, child: const Text('Lưu')),
           ),
         ]),
       ),

@@ -7,6 +7,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../ingredient/data/pantry_controller.dart';
 import '../../profile/presentation/edit_profile_screen.dart';
 import '../data/health_sync.dart';
 import '../data/meal_plan_models.dart';
@@ -403,6 +404,15 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
             for (final i in _ingredients)
               InputChip(label: Text(i), onDeleted: () => setState(() => _ingredients.remove(i))),
           ]),
+          if (loggedIn && context.watch<PantryController>().items.isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _usePantry,
+                icon: const Icon(LucideIcons.refrigerator, size: 18),
+                label: const Text('Dùng nguyên liệu trong tủ'),
+              ),
+            ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -453,12 +463,49 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
     );
   }
 
+  /// Thêm nguyên liệu gõ tay; backend nhận tối đa [PantryController.maxForPlan] nguyên liệu, mỗi cái tối đa 100 ký tự.
   void _addIngredient() {
-    final t = _ingredient.text.trim();
+    final t = _ingredient.text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (t.isEmpty) return;
+    if (t.length > 100) {
+      showSnack(context, 'Tên nguyên liệu tối đa 100 ký tự');
+      return;
+    }
+    if (_hasIngredient(t)) {
+      _ingredient.clear();
+      return;
+    }
+    if (_ingredients.length >= PantryController.maxForPlan) {
+      showSnack(context, 'Tối đa ${PantryController.maxForPlan} nguyên liệu mỗi thực đơn');
+      return;
+    }
     setState(() {
       _ingredients.add(t);
       _ingredient.clear();
     });
+  }
+
+  bool _hasIngredient(String name) =>
+      _ingredients.any((e) => e.toLowerCase() == name.toLowerCase());
+
+  /// Điền nguyên liệu trong tủ (còn hạn, sắp hết hạn trước) vào danh sách "nguyên liệu bạn có".
+  void _usePantry() {
+    final names = context.read<PantryController>().namesForPlan();
+    var added = 0;
+    setState(() {
+      for (final n in names) {
+        if (_ingredients.length >= PantryController.maxForPlan) break;
+        if (_hasIngredient(n)) continue;
+        _ingredients.add(n);
+        added++;
+      }
+    });
+    showSnack(
+        context,
+        added > 0
+            ? 'Đã thêm $added nguyên liệu từ tủ'
+            : names.isEmpty
+                ? 'Tủ không có nguyên liệu còn hạn'
+                : 'Các nguyên liệu trong tủ đã có trong danh sách');
   }
 }

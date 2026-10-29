@@ -133,14 +133,4 @@ class RecipeRepository {
     await _api.delete(Endpoints.recipeById(id));
     _cache.remove(id);
   }
-
-  // GET /ingredients?keyword=&size= : nguyên liệu đang hoạt động trong danh mục chung.
-  Future<List<Ingredient>> ingredients({String? keyword, int size = 20}) async {
-    final r = await _api.get(Endpoints.ingredients, query: {
-      if (keyword != null && keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
-      'page': 0,
-      'size': size,
-    });
-    return asList(r).map((e) => Ingredient.fromJson(Map<String, dynamic>.from(e as Map))).toList();
-  }
 }
