@@ -1061,14 +1061,14 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
 
 5. Register the PayOS webhook as `https://<ngrok-domain>/api/payments/webhook/payos`.
 
-6. Run the clients: `cd frontend && npm install && npm run dev` for the web app, and `cd mobile && flutter pub get && flutter run` for the mobile app.
+6. Run the clients: `cd frontend && npm install && npm run dev` for the web app, and `cd mobile && flutter pub get && flutter run` for the mobile app. The mobile app reads `mobile/.env` (copy `mobile/.env.example`): `API_BASE_URL` for the gateway and, for Google sign-in, `GOOGLE_CLIENT_ID` (the same OAuth web client ID as identity-service) and, on iOS, `GOOGLE_IOS_CLIENT_ID`.
 
 ### 3. User Manual & Core Workflows
 
 #### 3.1. Workflow 1: Registration, Login & Allergen Setup
 
 1. Open the VeggiePal application.
-2. Register with email and password, or sign in with Google.
+2. Register with full name, email, an optional phone number and a password of at least 6 characters (typed twice in the mobile app), or choose "Continue with Google". Google sign-in sends the Google ID token to `POST /auth/google`, which links the account with the same email or creates a new `USER` account; the mobile app keeps that session on the device, as the web app does.
 3. Open Profile > Health Profile and enter height (cm) and weight (kg).
 4. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
 
