@@ -55,6 +55,6 @@ void main() {
     // Khách bấm chuông -> mời đăng nhập.
     await tester.tap(find.byIcon(LucideIcons.bell));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng nhập để nhận thông báo về bài viết của bạn.'), findsOneWidget);
+    expect(find.text('Đăng nhập để nhận thông báo về bài viết và video của bạn.'), findsOneWidget);
   });
 }
