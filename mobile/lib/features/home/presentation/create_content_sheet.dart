@@ -9,7 +9,7 @@ import '../../notifications/notification_controller.dart';
 import '../data/home_models.dart';
 import '../data/home_repository.dart';
 
-/// Bottom sheet đăng Bài viết hoặc Video (chỉ mở cho thành viên đã đăng nhập).
+/// Bottom sheet đăng Bài viết (chỉ mở cho thành viên đã đăng nhập). Video đăng ở màn riêng (VideoFormScreen).
 /// Trả về true nếu đăng/lưu thành công để màn Home tải lại.
 /// Bài viết: kiểm tra trước khi gửi theo luật của BE (tiêu đề ≤ 150, nội dung ≥ 20 ký tự, bắt buộc
 /// chọn danh mục), có thể "Đăng bài" hoặc "Lưu nháp". Muốn thêm ảnh bìa/sửa sau: Hồ sơ > Bài viết của tôi.
@@ -36,10 +36,9 @@ class _CreateForm extends StatefulWidget {
 
 class _CreateFormState extends State<_CreateForm> {
   final _form = GlobalKey<FormState>();
-  bool _isVideo = false;
   int? _categoryId;
   final _title = TextEditingController();
-  final _body = TextEditingController(); // nội dung blog hoặc URL video
+  final _body = TextEditingController(); // nội dung bài viết
   bool _busy = false;
 
   @override
@@ -57,15 +56,6 @@ class _CreateFormState extends State<_CreateForm> {
     final messenger = ScaffoldMessenger.of(context);
     final rootContext = Navigator.of(context, rootNavigator: true).context;
     try {
-      if (_isVideo) {
-        await repo.createVideo(_title.text.trim(), _body.text.trim(), null, _categoryId);
-        if (!mounted) return;
-        Navigator.of(context).pop(true);
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Đã gửi video.')));
-        return;
-      }
       final blog = await repo.createBlog(_title.text.trim(), _body.text.trim(), _categoryId!,
           publish: publish);
       notifications.refresh();
@@ -94,15 +84,6 @@ class _CreateFormState extends State<_CreateForm> {
       child: Form(
         key: _form,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          FullWidthSegmented<bool>(
-            options: const [
-              SegmentOption(false, 'Bài viết', icon: LucideIcons.fileText),
-              SegmentOption(true, 'Video', icon: LucideIcons.video),
-            ],
-            selected: _isVideo,
-            onChanged: (v) => setState(() => _isVideo = v),
-          ),
-          const SizedBox(height: 12),
           TextFormField(
             controller: _title,
             maxLength: 150,
@@ -115,16 +96,16 @@ class _CreateFormState extends State<_CreateForm> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _body,
-            maxLines: _isVideo ? 1 : 5,
-            decoration: InputDecoration(
-              labelText: _isVideo ? 'Đường dẫn video (URL)' : 'Nội dung',
-              hintText: _isVideo ? 'Dán đường dẫn video' : 'Nhập nội dung (tối thiểu 20 ký tự)',
-              prefixIcon: Icon(_isVideo ? LucideIcons.link : LucideIcons.fileText),
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Nội dung',
+              hintText: 'Nhập nội dung (tối thiểu 20 ký tự)',
+              prefixIcon: Icon(LucideIcons.fileText),
             ),
             validator: (v) {
               final t = v!.trim();
-              if (t.isEmpty) return _isVideo ? 'Vui lòng nhập đường dẫn video' : 'Vui lòng nhập nội dung';
-              if (!_isVideo && t.length < 20) return 'Nội dung tối thiểu 20 ký tự';
+              if (t.isEmpty) return 'Vui lòng nhập nội dung';
+              if (t.length < 20) return 'Nội dung tối thiểu 20 ký tự';
               return null;
             },
           ),
@@ -137,25 +118,22 @@ class _CreateFormState extends State<_CreateForm> {
               for (final c in widget.cats) DropdownMenuItem(value: c.id, child: Text(c.name)),
             ],
             onChanged: (v) => setState(() => _categoryId = v),
-            // Bài viết bắt buộc có danh mục (BE), video thì không.
-            validator: (v) => !_isVideo && v == null ? 'Vui lòng chọn danh mục' : null,
+            validator: (v) => v == null ? 'Vui lòng chọn danh mục' : null,
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
                 onPressed: _busy ? null : () => _submit(publish: true),
-                child: Text(_isVideo ? 'Đăng video' : 'Đăng bài')),
+                child: const Text('Đăng bài')),
           ),
-          if (!_isVideo) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                  onPressed: _busy ? null : () => _submit(publish: false),
-                  child: const Text('Lưu nháp')),
-            ),
-          ],
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+                onPressed: _busy ? null : () => _submit(publish: false),
+                child: const Text('Lưu nháp')),
+          ),
         ]),
       ),
     );
