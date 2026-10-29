@@ -13,6 +13,7 @@ class Ingredient {
   final double? fiber;
   final bool vegan;
   final bool allergen;
+  final bool active;
 
   const Ingredient({
     required this.id,
@@ -26,6 +27,7 @@ class Ingredient {
     this.fiber,
     this.vegan = false,
     this.allergen = false,
+    this.active = true,
   });
 
   factory Ingredient.fromJson(Map<String, dynamic> j) => Ingredient(
@@ -40,6 +42,7 @@ class Ingredient {
         fiber: _dbl(j['fiberPer100g']),
         vegan: j['vegan'] == true,
         allergen: j['allergen'] == true,
+        active: j['active'] != false,
       );
 
   bool get hasDescription => (description ?? '').trim().isNotEmpty;
