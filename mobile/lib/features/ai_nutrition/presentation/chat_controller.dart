@@ -18,11 +18,15 @@ class SendOutcome {
   /// Khách hết lượt: màn hình mời đăng ký / đăng nhập.
   final bool guestQuotaExceeded;
 
-  const SendOutcome.sent() : this._(true, null, false);
-  const SendOutcome.ignored() : this._(false, null, false);
-  const SendOutcome.failed(String error) : this._(false, error, false);
-  const SendOutcome.guestQuota(String error) : this._(false, error, true);
-  const SendOutcome._(this.ok, this.error, this.guestQuotaExceeded);
+  /// Thành viên hết lượt của gói hiện tại: màn hình mời nâng cấp gói.
+  final bool memberQuotaExceeded;
+
+  const SendOutcome.sent() : this._(true, null, false, false);
+  const SendOutcome.ignored() : this._(false, null, false, false);
+  const SendOutcome.failed(String error) : this._(false, error, false, false);
+  const SendOutcome.guestQuota(String error) : this._(false, error, true, false);
+  const SendOutcome.memberQuota(String error) : this._(false, error, false, true);
+  const SendOutcome._(this.ok, this.error, this.guestQuotaExceeded, this.memberQuotaExceeded);
 }
 
 /// Dịch lỗi của ai-service sang thông báo tiếng Việt cho người dùng (backend trả message tiếng Anh).
@@ -211,7 +215,8 @@ class ChatController extends ChangeNotifier {
       final message = chatErrorMessage(e, guest: guest);
       final quota = e is ApiException && (e.code == aiQuotaExceededCode || e.statusCode == 429);
       if (quota) remaining = 0;
-      return guest && quota ? SendOutcome.guestQuota(message) : SendOutcome.failed(message);
+      if (!quota) return SendOutcome.failed(message);
+      return guest ? SendOutcome.guestQuota(message) : SendOutcome.memberQuota(message);
     } finally {
       if (epoch == _epoch) {
         sending = false;
@@ -220,12 +225,17 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  /// Dòng hiển thị lượt hỏi còn lại (khách và thành viên).
-  String get quotaLabel {
+  /// Dòng hiển thị lượt hỏi còn lại. [limit] là hạn mức chat mỗi ngày của gói thành viên (nếu đã biết).
+  String quotaLabelFor({int? limit}) {
     final r = remaining;
-    if (isMember) return r == null ? 'Thành viên' : 'Còn $r lượt hỏi hôm nay';
+    if (isMember) {
+      if (r != null) return limit == null ? 'Còn $r lượt hỏi hôm nay' : 'Còn $r/$limit lượt hỏi hôm nay';
+      return limit == null ? 'Thành viên' : 'Thành viên • tối đa $limit lượt hỏi mỗi ngày';
+    }
     return r == null
         ? 'Dùng thử: tối đa ${AppStrings.guestQuota} câu hỏi mỗi ngày'
         : 'Dùng thử: còn $r lượt hỏi hôm nay';
   }
+
+  String get quotaLabel => quotaLabelFor();
 }

@@ -23,6 +23,8 @@ import 'features/menu_planner/data/health_sync.dart';
 import 'features/menu_planner/data/meal_plan_repository.dart';
 import 'features/menu_planner/data/menu_repository.dart';
 import 'features/notifications/notification_controller.dart';
+import 'features/payment/data/payment_repository.dart';
+import 'features/payment/data/subscription_controller.dart';
 import 'features/places/data/places_repository.dart';
 import 'features/recipe/data/recipe_repository.dart';
 import 'features/video/data/video_repository.dart';
@@ -69,6 +71,7 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, MealPlanRepository>(update: (_, api, _) => MealPlanRepository(api)),
         ProxyProvider<ApiClient, RecipeRepository>(update: (_, api, _) => RecipeRepository(api)),
         ProxyProvider<ApiClient, VideoRepository>(update: (_, api, _) => VideoRepository(api)),
+        ProxyProvider<ApiClient, PaymentRepository>(update: (_, api, _) => PaymentRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
         ProxyProvider<ApiClient, ProfileRepository>(update: (_, api, _) => ProfileRepository(api)),
         ProxyProvider<ApiClient, ChatRepository>(update: (_, api, _) => ChatRepository(api)),
@@ -82,6 +85,10 @@ class VeggiePalApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
+        ChangeNotifierProxyProvider<AuthController, SubscriptionController>(
+          create: (c) => SubscriptionController(c.read<PaymentRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
         ChangeNotifierProxyProvider<AuthController, PantryController>(
           create: (_) => PantryController(),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),

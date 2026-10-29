@@ -4,20 +4,6 @@ double _d(Object? v) => v is num ? v.toDouble() : 0;
 int _i(Object? v) => v is num ? v.toInt() : 0;
 DateTime? _t(Object? v) => v == null ? null : DateTime.tryParse('$v')?.toLocal();
 
-/// "1.250.000 ₫"
-String formatVnd(num amount) {
-  final s = amount.round().abs().toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
-    buf.write(s[i]);
-  }
-  return '${amount < 0 ? '-' : ''}$buf ₫';
-}
-
-/// "12.450" (ngăn cách hàng nghìn bằng dấu chấm)
-String formatCount(num n) => formatVnd(n).replaceAll(' ₫', '');
-
 // ---------------- Kiểm duyệt nội dung (ai-service) ----------------
 
 const moderationTypeLabels = {'BLOG': 'Bài viết', 'VIDEO': 'Video', 'COMMENT': 'Bình luận'};
