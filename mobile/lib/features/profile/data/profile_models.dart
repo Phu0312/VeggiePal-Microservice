@@ -6,6 +6,8 @@ class UserProfile {
   final String? phone;
   final String? avatarUrl;
   final DateTime? dateOfBirth;
+  final String? gender; // MALE | FEMALE | OTHER
+  final String? activityLevel; // SEDENTARY | LIGHT | MODERATE | ACTIVE | VERY_ACTIVE
   final String role; // USER | ADMIN
   final String status; // PENDING | ACTIVE | INACTIVE | BLOCKED
   final bool emailVerified;
@@ -18,6 +20,8 @@ class UserProfile {
     this.phone,
     this.avatarUrl,
     this.dateOfBirth,
+    this.gender,
+    this.activityLevel,
     required this.role,
     required this.status,
     this.emailVerified = false,
@@ -31,12 +35,24 @@ class UserProfile {
         phone: j['phone'] as String?,
         avatarUrl: j['avatarUrl'] as String?,
         dateOfBirth: j['dateOfBirth'] == null ? null : DateTime.tryParse('${j['dateOfBirth']}'),
+        gender: j['gender'] as String?,
+        activityLevel: j['activityLevel'] as String?,
         role: '${j['role'] ?? 'USER'}',
         status: '${j['status'] ?? ''}',
         emailVerified: j['emailVerified'] == true,
         createdAt: j['createdAt'] == null ? null : DateTime.tryParse('${j['createdAt']}'),
       );
 }
+
+/// Giới tính và mức vận động (identity-service: Gender, ActivityLevel) - backend dùng để tính calo mục tiêu.
+const genderLabels = {'MALE': 'Nam', 'FEMALE': 'Nữ', 'OTHER': 'Khác'};
+const activityLabels = {
+  'SEDENTARY': 'Ít vận động (ngồi nhiều)',
+  'LIGHT': 'Vận động nhẹ (1-3 buổi/tuần)',
+  'MODERATE': 'Vận động vừa (3-5 buổi/tuần)',
+  'ACTIVE': 'Vận động nhiều (6-7 buổi/tuần)',
+  'VERY_ACTIVE': 'Vận động rất nhiều (lao động nặng)',
+};
 
 /// Thông tin công khai của tác giả (GET /users/batch): không có email/SĐT.
 class PublicUser {

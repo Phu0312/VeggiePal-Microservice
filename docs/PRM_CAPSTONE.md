@@ -308,7 +308,7 @@ flowchart LR
 | FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. |
 | FR-04 | Comments & votes | blog-service | Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` / `-1` / `0`) enforced by a unique constraint; the blog `vote_score` is updated with an atomic SQL increment. |
 | FR-05 | Recipe & restaurant search | recipe-service, location-service | Recipe browsing and keyword search; ingredient catalog; nearby restaurant search within a requested radius, ordered by distance computed by MySQL `ST_Distance_Sphere`. |
-| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned and favorited. |
+| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned and favorited. |
 | FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. |
 | FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs: FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts ingredients, steps and nutrition highlights as structured JSON. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
@@ -848,7 +848,7 @@ sequenceDiagram
 
 1. The client sends `POST /api/ai/meal-plans` with a Bearer token (public gateway path; the service route is `/ai/meal-plans`).
 2. ai-service calls recipe-service for the recipe list and calls nutrition-service with the user's token to read the user's allergens and latest health record.
-3. If the request has no daily nutrition target, ai-service computes one from the user's profile and health record (BMR/TDEE adjusted by the goal type: weight loss, muscle gain or maintenance) and validates it.
+3. If the request has no daily nutrition target, ai-service computes one from the user's profile and health record (BMR/TDEE adjusted by the goal type: lose, maintain or gain weight) and validates it.
 4. ai-service reserves one meal-plan unit from the user's monthly quota (plan limits are read from payment-service; an unavailable lookup is treated as the FREE plan).
 5. The validator removes every recipe that contains a declared allergen and ranks the remaining recipes so that those matching more of the user's available ingredients come first.
 6. ai-service asks the Groq LLM (default model `openai/gpt-oss-20b`) to build a plan from these real recipe IDs. If the call fails, a deterministic planner is used instead.
@@ -1070,7 +1070,8 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
 1. Open the VeggiePal application.
 2. Register with email and password, or sign in with Google.
 3. Open Profile > Health Profile and enter height (cm) and weight (kg).
-4. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
+4. Open Profile > Personal Information and enter date of birth, gender and activity level; the meal planner needs them to compute the daily calorie target.
+5. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
 
 **Figure VI.1. Registration and health profile workflow**
 
@@ -1083,25 +1084,26 @@ flowchart TD
     D --> E
     E --> F["Profile > Health Profile"]
     F --> G["Enter height and weight<br/>(BMI computed by server)"]
-    G --> H["Select allergens"]
+    G --> G2["Enter date of birth, gender,<br/>activity level"]
+    G2 --> H["Select allergens"]
     H --> I["Saved in nutrition-service"]
 ```
 
-*Figure VI.1 shows the first-use workflow: authenticate, store the token, then enter body measurements and allergens, which later drive meal planning.*
+*Figure VI.1 shows the first-use workflow: authenticate, store the token, then enter body measurements, the profile details used for the calorie target, and allergens, which later drive meal planning.*
 
 #### 3.2. Workflow 2: Generating a 7-Day Personalized Meal Plan
 
 1. Navigate to Menu Planner > Generate Plan.
-2. Select a goal (weight loss, muscle gain or maintenance) and optionally list preferences and ingredients you have on hand.
-3. The system computes the nutrition target, excludes recipes containing your allergens, and shows a plan with breakfast, lunch and dinner for seven days.
-4. Open any recipe to see its ingredient quantities and cooking steps. Plans can be edited, a single meal can be replaced, and plans can be favorited.
+2. Name the plan, select a goal (lose, maintain or gain weight) and optionally list the ingredients you have on hand. The web app also accepts preferences and a custom nutrition target. The mobile app shows the daily calorie target that the server computes for the chosen goal, or the reason it cannot (missing health record, incomplete profile, under 18).
+3. The system computes the nutrition target, excludes recipes containing your allergens, saves the plan and shows breakfast, lunch and dinner for seven days, with the nutrition totals of each day and a warning on days that miss the calorie target.
+4. Open any meal to see its ingredient quantities and cooking steps. A single meal can be replaced and plans can be favorited. The mobile app also lists your plans and favorites and opens older versions of a plan read-only; manual editing of a plan is available on the web app only.
 
 **Figure VI.2. Meal plan workflow**
 
 ```mermaid
 flowchart TD
-    A["Menu Planner > Generate Plan"] --> B["Choose goal<br/>weight loss / muscle gain / maintenance"]
-    B --> C["Optional: preferences and<br/>ingredients on hand"]
+    A["Menu Planner > Generate Plan"] --> B["Name the plan, choose goal<br/>lose / maintain / gain weight"]
+    B --> C["Optional: ingredients on hand<br/>(web also: preferences, target)"]
     C --> D["Submit"]
     D --> E{"Monthly plan quota left?"}
     E -- "No" --> F["Show quota exceeded<br/>offer PLUS / PRO upgrade"]
