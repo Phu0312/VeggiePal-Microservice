@@ -18,11 +18,9 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import iconChatbot from "@/assets/img/icon_chatbot_1.png";
-import GoalCombobox from "@/features/meal-planner/components/GoalCombobox";
 import NutritionTargetCard from "@/features/meal-planner/components/NutritionTargetCard";
 import NutritionTargetFields from "@/features/meal-planner/components/NutritionTargetFields";
-import { flavorPreferences, healthGoalSuggestions } from "@/features/meal-planner/data/mockMealPlanner";
+import { flavorPreferences } from "@/features/meal-planner/data/mealPlannerOptions";
 import { useCreateMealPlan } from "@/features/meal-planner/hooks/useMealPlanMutations";
 import { useNutritionTarget } from "@/features/meal-planner/hooks/useMealPlans";
 import { MEAL_PLAN_LIMITS, mealPlanSchema } from "@/features/meal-planner/schema";
@@ -62,7 +60,7 @@ const AUTO_TARGET_BLOCKING_CODES = new Set([6020, 6021]);
 
 /**
  * Form nhờ AI lên thực đơn 7 ngày (POST /ai/meal-plans).
- * - Mục tiêu (giảm / duy trì / tăng cân) là `goalType` bắt buộc; ô "Mô tả thêm" là tùy chọn và được ghép vào `healthGoal`.
+ * - Mục tiêu (giảm / duy trì / tăng cân) là `goalType` bắt buộc; `healthGoal` gửi BE là nhãn của mục tiêu.
  * - Mục tiêu dinh dưỡng mỗi ngày: mặc định BE tự tính từ hồ sơ (thẻ NutritionTargetCard cho xem trước); điền các ô
  *   "Tự đặt mục tiêu riêng" thì gửi `dailyNutritionTarget` thay thế.
  * - Nguyên liệu có sẵn: chọn từ danh mục nguyên liệu; BE chỉ ưu tiên các món dùng chúng (không loại món khác).
@@ -86,7 +84,6 @@ export default function AiMealSuggestion({ onCreated }) {
   const [ingredients, setIngredients] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activePrefs, setActivePrefs] = useState(() => new Set());
-  const [targetOpen, setTargetOpen] = useState(false);
 
   const {
     register,
@@ -96,7 +93,7 @@ export default function AiMealSuggestion({ onCreated }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(mealPlanSchema),
-    defaultValues: { name: defaultPlanName(), goalType: "", healthNote: "", ...emptyTarget() },
+    defaultValues: { name: defaultPlanName(), goalType: "", ...emptyTarget() },
   });
 
   const watched = useWatch({ control });
@@ -113,12 +110,11 @@ export default function AiMealSuggestion({ onCreated }) {
   const autoTargetBlocked =
     !customTarget && (Boolean(profileIssue) || AUTO_TARGET_BLOCKING_CODES.has(autoTarget.error?.code));
 
-  // Điền mục tiêu BE tính được vào các ô "tự đặt riêng" (mở sẵn phần đó) để người dùng chỉnh tiếp.
+  // Điền mục tiêu BE tính được vào các ô "tự đặt riêng" để người dùng chỉnh tiếp.
   const fillCustomTarget = (target) => {
     for (const field of TARGET_FIELDS) {
       setValue(field, target?.[field] == null ? "" : String(target[field]), { shouldDirty: true, shouldValidate: true });
     }
-    setTargetOpen(true);
   };
 
   // Xóa mọi ô để quay lại mục tiêu BE tự tính.
@@ -148,11 +144,10 @@ export default function AiMealSuggestion({ onCreated }) {
   };
 
   const onSubmit = async (values) => {
-    const { name, goalType, healthNote, ...target } = values;
+    const { name, goalType, ...target } = values;
     const payload = buildGeneratePayload({
       name,
       goalType,
-      healthNote,
       preferences: flavorPreferences.filter((pref) => activePrefs.has(pref.id)).map((pref) => pref.label),
       ingredients: ingredients.map((item) => item.name),
       target,
@@ -166,7 +161,7 @@ export default function AiMealSuggestion({ onCreated }) {
           `Thực đơn đã xong, nhưng ${missedDays}/7 ngày chưa đạt mục tiêu dinh dưỡng. Bạn xem chi tiết ở từng ngày nhé.`,
         );
       } else {
-        toast.success("Bé Bông Cải đã lên xong thực đơn cho bạn!");
+        toast.success("VeggiePal đã lên xong thực đơn cho bạn!");
       }
       onCreated?.(plan);
     } catch (error) {
@@ -177,7 +172,7 @@ export default function AiMealSuggestion({ onCreated }) {
   const isCreating = createPlan.isPending;
 
   return (
-    <section id="ai-suggestion" className="relative scroll-mt-28 rounded-[28px] bg-card p-6 shadow-lg sm:p-8">
+    <section id="ai-suggestion" className="relative scroll-mt-28 rounded-[28px] border border-border bg-card p-6 shadow-sm sm:p-8">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="relative flex flex-col items-center text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1 text-base font-semibold text-brand">
@@ -188,21 +183,12 @@ export default function AiMealSuggestion({ onCreated }) {
             Hôm nay tủ lạnh nhà bạn có nguyên liệu tươi nào?
           </h2>
           <p className="mt-2 max-w-xl text-sm text-subtle">
-            Bé Bông Cải sẽ kết hợp các loại rau củ sẵn có để thiết kế thực đơn thuần thực vật chuẩn cân bằng vi
+            VeggiePal sẽ kết hợp các loại rau củ sẵn có để thiết kế thực đơn thuần thực vật chuẩn cân bằng vi
             chất.
           </p>
         </div>
 
-        <div className="relative mt-7 flex flex-col items-center gap-6 lg:flex-row lg:items-center">
-          <div className="relative shrink-0">
-            <img
-              src={iconChatbot}
-              alt="Bé Bông Cải gợi ý thực đơn"
-              className="mt-2 h-72 w-auto select-none sm:h-72"
-              draggable={false}
-            />
-          </div>
-
+        <div className="relative mt-7 flex flex-col gap-6">
           <div className="flex min-h-[300px] w-full flex-1 flex-col justify-center gap-2 rounded-2xl bg-surface p-6 sm:p-8">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-ink">Nguyên liệu có sẵn trong bếp:</h3>
@@ -239,7 +225,7 @@ export default function AiMealSuggestion({ onCreated }) {
               ))}
               {ingredients.length === 0 && (
                 <span className="text-xs text-subtle">
-                  Chưa chọn nguyên liệu nào. Chọn để Bé Bông Cải ưu tiên các món dùng chúng, bỏ trống nếu bạn không cần.
+                  Chưa chọn nguyên liệu nào. Chọn để VeggiePal ưu tiên các món dùng chúng, bỏ trống nếu bạn không cần.
                 </span>
               )}
             </div>
@@ -340,8 +326,17 @@ export default function AiMealSuggestion({ onCreated }) {
               {errors.goalType && <p className={errorClass}>{errors.goalType.message}</p>}
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
+            {/* Tên thực đơn nằm trong thẻ mục tiêu gợi ý; ô tự đặt mục tiêu riêng luôn hiển thị bên cạnh. */}
+            <div className="mt-4 grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+              <NutritionTargetCard
+                goalType={watched.goalType}
+                enabled={!missingHealthRecord}
+                profileIssue={profileIssue}
+                missingFields={missingFields}
+                overridden={Boolean(customTarget)}
+                onUseTarget={fillCustomTarget}
+                onClearTarget={clearCustomTarget}
+              >
                 <label htmlFor={`${idPrefix}-name`} className={labelClass}>
                   Tên thực đơn
                 </label>
@@ -354,54 +349,8 @@ export default function AiMealSuggestion({ onCreated }) {
                   {...register("name")}
                 />
                 {errors.name && <p className={errorClass}>{errors.name.message}</p>}
-              </div>
-
-              <div>
-                <label htmlFor={`${idPrefix}-note`} className={labelClass}>
-                  Mô tả thêm <span className="text-xs font-normal text-subtle">(không bắt buộc)</span>
-                </label>
-                <Controller
-                  name="healthNote"
-                  control={control}
-                  render={({ field }) => (
-                    <GoalCombobox
-                      id={`${idPrefix}-note`}
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      inputRef={field.ref}
-                      options={healthGoalSuggestions}
-                      maxLength={MEAL_PLAN_LIMITS.healthNote}
-                      placeholder="Ví dụ: tăng cơ, ăn thanh đạm..."
-                      aria-invalid={Boolean(errors.healthNote)}
-                      className={cn(fieldClass, "h-11")}
-                    />
-                  )}
-                />
-                {errors.healthNote && <p className={errorClass}>{errors.healthNote.message}</p>}
-              </div>
-            </div>
-
-            <div className="mt-2">
-              <NutritionTargetCard
-                goalType={watched.goalType}
-                enabled={!missingHealthRecord}
-                profileIssue={profileIssue}
-                missingFields={missingFields}
-                overridden={Boolean(customTarget)}
-                onUseTarget={fillCustomTarget}
-                onClearTarget={clearCustomTarget}
-              />
-            </div>
-
-            <div className="mt-2">
-              <NutritionTargetFields
-                register={register}
-                errors={errors}
-                replacesAuto
-                open={targetOpen}
-                onOpenChange={setTargetOpen}
-              />
+              </NutritionTargetCard>
+              <NutritionTargetFields register={register} errors={errors} replacesAuto alwaysOpen />
             </div>
           </div>
         </div>
@@ -414,7 +363,7 @@ export default function AiMealSuggestion({ onCreated }) {
             <p className="flex items-start gap-2">
               <HeartPulse className="mt-0.5 size-4 shrink-0 text-warning" />
               <span>
-                Bạn chưa có chỉ số sức khỏe. Hãy cập nhật chiều cao và cân nặng để Bé Bông Cải lên thực đơn phù hợp với bạn.
+                Bạn chưa có chỉ số sức khỏe. Hãy cập nhật chiều cao và cân nặng để VeggiePal lên thực đơn phù hợp với bạn.
               </span>
             </p>
             <Link
@@ -446,7 +395,7 @@ export default function AiMealSuggestion({ onCreated }) {
           <p className="flex items-center gap-2 text-center text-xs text-subtle sm:text-left">
             <Wand2 className="h-4 w-4 shrink-0 text-brand" />
             {isCreating
-              ? "Bé Bông Cải đang cân đối 7 ngày × 3 bữa cho bạn, việc này có thể mất khoảng một phút."
+              ? "VeggiePal đang cân đối 7 ngày × 3 bữa cho bạn, việc này có thể mất khoảng một phút."
               : "Thuật toán AI tự động tối ưu hoá tỷ lệ Axit Amin hoàn chỉnh từ thực vật"}
           </p>
           <Button
@@ -456,7 +405,7 @@ export default function AiMealSuggestion({ onCreated }) {
             className="h-auto min-h-11 w-full whitespace-normal px-6 py-2.5 shadow-sm sm:w-auto"
           >
             {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-            {isCreating ? "Đang lên thực đơn..." : "Nhờ Bé Bông Cải Lên Thực Đơn Mới"}
+            {isCreating ? "Đang lên thực đơn..." : "Nhờ VeggiePal Lên Thực Đơn Mới"}
             {!isCreating && <ArrowRight className="size-4" />}
           </Button>
         </div>

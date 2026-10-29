@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'pantry_tab.dart';
+import '../../ingredient/presentation/ingredient_tab.dart';
 import 'plan_tab.dart';
-import 'recipes_tab.dart';
+import '../../recipe/presentation/recipes_tab.dart';
 
-/// TAB 4 - Thực đơn. Ba phần: Thực đơn (BMI, tạo/lưu/đổi món) | Công thức | Nguyên liệu của tôi.
+/// TAB 4 - Thực đơn. Ba phần: Thực đơn (BMI, tạo/đổi món/yêu thích) | Công thức | Nguyên liệu (tủ của tôi + danh mục).
 class MenuPlannerScreen extends StatelessWidget {
   const MenuPlannerScreen({super.key});
 
@@ -22,7 +22,7 @@ class MenuPlannerScreen extends StatelessWidget {
           child: TabBarView(children: [
             PlanTab(),
             RecipesTab(),
-            PantryTab(),
+            IngredientTab(),
           ]),
         ),
       ]),

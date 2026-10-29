@@ -1,17 +1,7 @@
 import { useState } from "react";
-import {
-  Bookmark,
-  Copy,
-  Check,
-  Sparkles,
-  ThumbsDown,
-  ThumbsUp,
-  TriangleAlert,
-  UserRound,
-} from "lucide-react";
+import { Copy, Check, Sparkles, UserRound } from "lucide-react";
 
 import ChatMarkdown from "@/features/chatbot/components/ChatMarkdown";
-import { FALLBACK_NOTICE } from "@/features/chatbot/data/mockChatData";
 import { cn } from "@/lib/utils";
 
 function ActionButton({ active, onClick, label, icon: Icon }) {
@@ -34,8 +24,6 @@ function ActionButton({ active, onClick, label, icon: Icon }) {
 export default function ChatMessage({ message }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
-  const [reaction, setReaction] = useState(null); // "up" | "down" | null
-  const [saved, setSaved] = useState(false);
 
   const handleCopy = async () => {
     try {
@@ -74,13 +62,6 @@ export default function ChatMessage({ message }) {
 
       <div className="max-w-[92%] min-w-0 rounded-2xl rounded-tl-sm bg-surface px-4 py-3 text-sm text-body sm:max-w-[85%]">
         <ChatMarkdown content={message.content} />
-
-        {message.isFallback && (
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs text-warning">
-            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{FALLBACK_NOTICE}</span>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center gap-0.5 pl-1">
@@ -88,24 +69,6 @@ export default function ChatMessage({ message }) {
           label="Sao chép"
           icon={copied ? Check : Copy}
           onClick={handleCopy}
-        />
-        <ActionButton
-          label="Hữu ích"
-          icon={ThumbsUp}
-          active={reaction === "up"}
-          onClick={() => setReaction((r) => (r === "up" ? null : "up"))}
-        />
-        <ActionButton
-          label="Không hữu ích"
-          icon={ThumbsDown}
-          active={reaction === "down"}
-          onClick={() => setReaction((r) => (r === "down" ? null : "down"))}
-        />
-        <ActionButton
-          label="Lưu"
-          icon={Bookmark}
-          active={saved}
-          onClick={() => setSaved((s) => !s)}
         />
       </div>
     </div>

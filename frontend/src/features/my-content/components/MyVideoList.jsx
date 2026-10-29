@@ -4,7 +4,6 @@ import { Eye, Loader2, PlaySquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/variants/button-variants";
 import { formatCompactNumber, formatTimeAgo } from "@/features/blog/utils/blogFormat";
 import StatusBadge from "@/features/my-content/components/StatusBadge";
 import {
@@ -19,6 +18,7 @@ import { describeVideoOutcome } from "@/features/video/utils/videoForm";
 import { cn } from "@/lib/utils";
 import ConfirmDialog from "@/shared/components/ConfirmDialog";
 import FallbackImage from "@/shared/components/FallbackImage";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 
 // Tab "Video": lọc theo trạng thái (GET /videos/me?status=) + danh sách "Xem thêm",
 // mỗi dòng có Sửa / Gửi duyệt / Xóa tùy trạng thái.
@@ -99,6 +99,7 @@ export default function MyVideoList() {
 }
 
 function VideoRow({ video }) {
+  const { openForm } = useContentForm();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const submitVideo = useSubmitVideo();
   const deleteVideo = useDeleteVideo();
@@ -188,13 +189,14 @@ function VideoRow({ video }) {
 
       <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
         {canEditVideo(video.status) && (
-          <Link
-            to={`/videos/${video.id}/edit`}
-            state={{ video }}
-            className={buttonVariants({ variant: "outline", size: "xs" })}
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => openForm("video", { id: video.id, video })}
           >
             Sửa
-          </Link>
+          </Button>
         )}
         {canSubmitVideo(video.status) && (
           <Button

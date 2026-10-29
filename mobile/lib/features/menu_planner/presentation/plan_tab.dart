@@ -3,21 +3,25 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../ingredient/data/pantry_controller.dart';
+import '../../profile/presentation/edit_profile_screen.dart';
 import '../data/health_sync.dart';
+import '../data/meal_plan_models.dart';
+import '../data/meal_plan_repository.dart';
 import '../data/menu_models.dart';
 import '../data/menu_repository.dart';
-import 'recipe_detail_screen.dart';
+import 'plan_sheets.dart';
+import 'plan_view.dart';
 
-/// Phần "Thực đơn" của tab Thực đơn: BMI + tạo/lưu thực đơn tuần + đổi món.
+/// Phần "Thực đơn" của tab Thực đơn: BMI + tạo thực đơn tuần bằng AI + xem/đổi món/yêu thích/phiên bản.
 /// Widget tree: ListView
-///   ├─ _HealthCard   (nhập chiều cao/cân nặng -> BMI + calo khuyến nghị)
-///   ├─ _PlanOptions  (mục tiêu + nguyên liệu sẵn có + nút tạo)
-///   └─ _WeekGrid     (bảng Thứ 2 -> Chủ nhật x Sáng/Trưa/Tối) + nút Lưu / Thực đơn của tôi
+///   ├─ _healthCard   (nhập chiều cao/cân nặng -> BMI)
+///   ├─ _options      (tên + mục tiêu + calo mục tiêu backend tính + nguyên liệu sẵn có + nút tạo)
+///   └─ PlanView      (thực đơn đang xem) + hàng nút Của tôi / Yêu thích / Phiên bản
 class PlanTab extends StatefulWidget {
   const PlanTab({super.key});
 
@@ -31,21 +35,47 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
 
   final _height = TextEditingController();
   final _weight = TextEditingController();
+  final _name = TextEditingController(text: _defaultName());
   final _ingredient = TextEditingController();
   final _ingredients = <String>[];
-  String _goal = 'MAINTENANCE';
+  PlanGoal _goal = PlanGoal.maintain;
   HealthInfo? _health;
-  WeekPlan? _plan;
+  MealPlan? _plan;
+  String _day = todayDayKey();
+  NutritionTargetInfo? _target;
+  ApiException? _targetError;
+  int _targetRequest = 0;
   bool _busy = false;
   UserRole? _lastRole;
   int? _lastHealthVersion;
 
   static String _num(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : '$v';
 
-  /// Nạp lại chỉ số mới nhất từ server khi đổi tài khoản (đăng nhập/đăng xuất)
-  /// hoặc khi Hồ sơ > Lịch sử sức khỏe vừa thay đổi.
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  /// Tên gợi ý: cả tuần T2 -> CN chứa hôm nay, ví dụ "Thực đơn 12/10 - 18/10".
+  static String _defaultName() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day - (now.weekday - 1));
+    final end = DateTime(start.year, start.month, start.day + 6);
+    String dm(DateTime d) => '${_two(d.day)}/${_two(d.month)}';
+    return 'Thực đơn ${dm(start)} - ${dm(end)}';
+  }
+
+  @override
+  void dispose() {
+    _height.dispose();
+    _weight.dispose();
+    _name.dispose();
+    _ingredient.dispose();
+    super.dispose();
+  }
+
+  /// Nạp lại chỉ số mới nhất, mục tiêu calo và thực đơn gần nhất khi đổi tài khoản
+  /// (đăng nhập/đăng xuất) hoặc khi Hồ sơ > Lịch sử sức khỏe vừa thay đổi.
   void _syncHealth(UserRole role, int healthVersion) {
     if (_lastRole == role && _lastHealthVersion == healthVersion) return;
+    final accountChanged = _lastRole != role;
     final loggedOut = role == UserRole.guest;
     _lastRole = role;
     _lastHealthVersion = healthVersion;
@@ -56,6 +86,8 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
         setState(() {
           _health = null;
           _plan = null;
+          _target = null;
+          _targetError = null;
           _height.clear();
           _weight.clear();
         });
@@ -74,7 +106,38 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
       } catch (e) {
         if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải được chỉ số sức khỏe');
       }
+      _loadTarget();
+      if (accountChanged) _loadLatestPlan();
     });
+  }
+
+  /// Hiện sẵn thực đơn gần nhất của tài khoản; lỗi ở bước này không làm phiền người dùng.
+  Future<void> _loadLatestPlan() async {
+    try {
+      final plans = await context.read<MealPlanRepository>().myPlans();
+      if (!mounted || plans.isEmpty || _plan != null) return;
+      _show(plans.first);
+    } catch (_) {}
+  }
+
+  /// Mục tiêu calo do backend tính theo hồ sơ + mục tiêu đang chọn; lỗi (thiếu hồ sơ...) hiện ngay dưới nút.
+  Future<void> _loadTarget() async {
+    if (!context.read<AuthController>().isLoggedIn) return;
+    final request = ++_targetRequest;
+    try {
+      final t = await context.read<MealPlanRepository>().nutritionTarget(_goal);
+      if (!mounted || request != _targetRequest) return;
+      setState(() {
+        _target = t;
+        _targetError = null;
+      });
+    } catch (e) {
+      if (!mounted || request != _targetRequest) return;
+      setState(() {
+        _target = null;
+        _targetError = e is ApiException ? e : ApiException(errorMessage(e));
+      });
+    }
   }
 
   Future<void> _run(Future<void> Function() job) async {
@@ -88,6 +151,14 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
     }
   }
 
+  /// Chọn thực đơn đang xem; mở sẵn ngày hôm nay nếu thực đơn có, không thì ngày đầu tiên.
+  void _show(MealPlan plan) {
+    setState(() {
+      _plan = plan;
+      _day = plan.dayOf(todayDayKey())?.day ?? (plan.days.isEmpty ? _day : plan.days.first.day);
+    });
+  }
+
   Future<void> _calcBmi() => _run(() async {
         final h = double.tryParse(_height.text), w = double.tryParse(_weight.text);
         if (h == null || w == null || h < 50 || w < 10) {
@@ -96,87 +167,93 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
         }
         final info = await context.read<MenuRepository>().saveHealth(h, w);
         if (mounted) setState(() => _health = info);
+        _loadTarget();
       });
 
-  Future<void> _generate() => _run(() async {
-        final plan = await context
-            .read<MenuRepository>()
-            .generate(_goal, _ingredients);
-        if (mounted) setState(() => _plan = plan);
-      });
-
-  Future<void> _save() => _run(() async {
-        final saved = await context.read<MenuRepository>().save(_plan!);
-        if (!mounted) return;
-        setState(() => _plan = saved); // có id -> đổi món được
-        showSnack(context, 'Đã lưu thực đơn vào tài khoản');
-      });
-
-  Future<void> _replaceMeal(int day, String mealType) => _run(() async {
-        final updated =
-            await context.read<MenuRepository>().replaceMeal(_plan!.planId!, day, mealType);
-        if (!mounted) return;
-        setState(() => _plan = updated);
-        showSnack(context,
-            'Đã đổi ${mealTypeLabel(mealType).toLowerCase()} ${AppStrings.weekDays[(day - 1).clamp(0, 6)]}');
-      });
-
-  void _openMeal(DayPlan day, Meal meal) {
-    final plan = _plan!;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => _MealSheet(
-        dayLabel: AppStrings.weekDays[(day.day - 1).clamp(0, 6)],
-        meal: meal,
-        canReplace: plan.planId != null,
-        onReplace: () {
-          Navigator.pop(ctx);
-          _replaceMeal(day.day, meal.mealType);
-        },
-        onOpenRecipe: meal.recipeId == null
-            ? null
-            : () {
-                Navigator.pop(ctx);
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => RecipeDetailScreen(recipeId: meal.recipeId!)));
-              },
-      ),
-    );
+  Future<void> _generate() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      showSnack(context, 'Vui lòng đặt tên cho thực đơn');
+      return;
+    }
+    await _run(() async {
+      final plan = await context
+          .read<MealPlanRepository>()
+          .generate(name: name, goal: _goal, ingredients: List.of(_ingredients));
+      if (!mounted) return;
+      _show(plan);
+      setState(() => _name.text = _defaultName());
+      showSnack(context, 'Đã tạo và lưu thực đơn');
+    });
   }
 
-  Future<void> _openSaved() => _run(() async {
-    final repo = context.read<MenuRepository>();
-    final list = await repo.savedPlans();
-    if (!mounted) return;
-    final picked = await showModalBottomSheet<SavedPlanInfo>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => ListView(
-        shrinkWrap: true,
-        children: [
-          const ListTile(title: Text('Thực đơn của tôi', style: TextStyle(fontWeight: FontWeight.w700))),
-          if (list.isEmpty) const ListTile(title: Text('Chưa có thực đơn nào được lưu')),
-          for (final p in list)
-            ListTile(
-              leading: Icon(Icons.calendar_month, color: context.cs.primary),
-              title: Text('Thực đơn ${p.goal}'),
-              subtitle: Text(p.createdAt),
-              onTap: () => Navigator.pop(context, p),
-            ),
-        ],
-      ),
-    );
-    if (picked == null) return;
-    final detail = await repo.planDetail(picked.id);
-    if (mounted) setState(() => _plan = detail);
-  });
+  Future<void> _toggleFavorite() => _run(() async {
+        final plan = _plan!;
+        await context.read<MealPlanRepository>().setFavorite(plan.id, !plan.isFavorite);
+        if (!mounted) return;
+        setState(() => _plan = plan.copyWith(isFavorite: !plan.isFavorite));
+        showSnack(context, plan.isFavorite ? 'Đã bỏ khỏi yêu thích' : 'Đã thêm vào yêu thích');
+      });
+
+  Future<void> _replaceMeal(PlanDay day, PlanMeal meal) => _run(() async {
+        final updated = await context.read<MealPlanRepository>().replaceMeal(_plan!, day.day, meal);
+        if (!mounted) return;
+        setState(() => _plan = updated);
+        showSnack(context, 'Đã đổi ${planMealLabel(meal.mealType).toLowerCase()} ${dayLongLabel(day.day)}');
+      });
+
+  void _openMeal(PlanDay day, PlanMeal meal) {
+    final readOnly = _plan!.viewingVersion != null;
+    showMealSheet(context,
+        day: day, meal: meal, onReplace: (readOnly || _busy) ? null : () => _replaceMeal(day, meal));
+  }
+
+  Future<void> _pickPlan(String title, String empty, Future<List<MealPlan>> Function() load) async {
+    final picked = await showPlanPicker(context, title: title, emptyText: empty, load: load);
+    if (picked != null && mounted) _show(picked);
+  }
+
+  Future<void> _pickVersion() async {
+    final plan = _plan!;
+    final repo = context.read<MealPlanRepository>();
+    final v = await showVersionPicker(context,
+        currentVersion: plan.viewingVersion == null ? plan.version : plan.viewingVersion!,
+        load: () => repo.versions(plan.id));
+    if (v == null || !mounted) return;
+    // Đang xem bản cũ thì lấy lại bản hiện tại làm gốc (giữ yêu thích, mục tiêu).
+    final current = plan.viewingVersion == null ? plan : await _currentOf(plan);
+    if (current == null || !mounted) return;
+    if (v.version == current.version) {
+      setState(() => _plan = current);
+    } else {
+      setState(() => _plan = v.asPlanOf(current));
+    }
+  }
+
+  Future<MealPlan?> _currentOf(MealPlan plan) async {
+    try {
+      return await context.read<MealPlanRepository>().plan(plan.id);
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e));
+      return null;
+    }
+  }
+
+  Future<void> _leaveVersion() async {
+    final current = await _currentOf(_plan!);
+    if (current != null && mounted) setState(() => _plan = current);
+  }
+
+  Future<void> _fixProfile() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+    _loadTarget();
+  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final auth = context.watch<AuthController>();
+    final repo = context.read<MealPlanRepository>();
     _syncHealth(auth.role, context.watch<HealthSync>().version);
 
     return ListView(
@@ -184,45 +261,43 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
       children: [
         _healthCard(),
         const SizedBox(height: 16),
-        _options(),
+        _options(auth.isLoggedIn),
+        if (auth.isLoggedIn) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+                child: OutlinedButton.icon(
+                    onPressed: () => _pickPlan('Thực đơn của tôi', 'Chưa có thực đơn nào được lưu', repo.myPlans),
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Của tôi'))),
+            const SizedBox(width: 12),
+            Expanded(
+                child: OutlinedButton.icon(
+                    onPressed: () => _pickPlan('Thực đơn yêu thích', 'Bạn chưa yêu thích thực đơn nào', repo.favorites),
+                    icon: const Icon(Icons.favorite_border),
+                    label: const Text('Yêu thích'))),
+          ]),
+        ],
         if (_plan != null) ...[
           const SectionHeader('Thực đơn tuần của bạn'),
-          _WeekGrid(_plan!, onMealTap: _openMeal),
-          const SizedBox(height: 8),
-          if (_plan!.allergenExclusions.isNotEmpty)
-            Text('Đã loại trừ nguyên liệu dị ứng: ${_plan!.allergenExclusions.join(', ')}',
-                style: TextStyle(fontSize: 12, color: context.textMuted)),
-          Text(
-              _plan!.planId == null
-                  ? 'Bấm vào một món để xem chi tiết. Lưu thực đơn để có thể đổi món.'
-                  : 'Bấm vào một món để xem chi tiết hoặc đổi sang món khác.',
-              style: TextStyle(fontSize: 12, color: context.textMuted)),
-          const SizedBox(height: 12),
-          if (auth.isLoggedIn)
-            Row(children: [
-              Expanded(
-                  child: FilledButton.icon(
-                      onPressed: (_busy || _plan!.planId != null) ? null : _save,
-                      icon: Icon(_plan!.planId != null ? LucideIcons.check : LucideIcons.save),
-                      label: Text(_plan!.planId != null ? 'Đã lưu' : 'Lưu thực đơn'))),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: OutlinedButton.icon(
-                      onPressed: _openSaved,
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Của tôi'))),
-            ])
-          else
-            Text('Đăng nhập để lưu và quản lý thực đơn cá nhân.',
-                style: TextStyle(color: context.textMuted)),
-        ] else if (auth.isLoggedIn)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: OutlinedButton.icon(
-                onPressed: _openSaved,
-                icon: const Icon(Icons.folder_open),
-                label: const Text('Thực đơn của tôi')),
+          PlanView(
+            plan: _plan!,
+            selectedDay: _day,
+            busy: _busy,
+            onSelectDay: (d) => setState(() => _day = d),
+            onMealTap: _openMeal,
+            onToggleFavorite: _toggleFavorite,
+            onLeaveVersion: _plan!.viewingVersion == null ? null : _leaveVersion,
           ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+              onPressed: _busy ? null : _pickVersion,
+              icon: const Icon(LucideIcons.history),
+              label: const Text('Lịch sử phiên bản')),
+          const SizedBox(height: 8),
+          Text('Bấm vào một món để xem công thức hoặc đổi sang món khác.',
+              style: TextStyle(fontSize: 12, color: context.textMuted)),
+        ],
       ],
     );
   }
@@ -264,7 +339,10 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
             const Divider(height: 28),
             Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
               _stat('BMI', h.bmi.toStringAsFixed(1), h.category),
-              _stat('Calo khuyến nghị', '${h.recommendedCalories}', 'kcal/ngày'),
+              if (_target != null)
+                _stat('Calo mục tiêu', '${_target!.targetCalories}', 'kcal/ngày')
+              else
+                _stat('Calo khuyến nghị', '${h.recommendedCalories}', 'kcal/ngày'),
             ]),
           ],
         ]),
@@ -279,7 +357,7 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
         Text(sub, style: const TextStyle(fontSize: 12)),
       ]);
 
-  Widget _options() {
+  Widget _options(bool loggedIn) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -287,15 +365,29 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
           Text('Tạo thực đơn tuần',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
-          FullWidthSegmented<String>(
-            options: const [
-              SegmentOption('WEIGHT_LOSS', 'Giảm cân'),
-              SegmentOption('MAINTENANCE', 'Giữ cân'),
-              SegmentOption('MUSCLE_GAIN', 'Tăng cơ'),
-            ],
-            selected: _goal,
-            onChanged: (v) => setState(() => _goal = v),
+          TextField(
+            controller: _name,
+            maxLength: 160,
+            decoration: const InputDecoration(
+                labelText: 'Tên thực đơn',
+                hintText: 'Ví dụ: Thực đơn tuần này',
+                prefixIcon: Icon(LucideIcons.tag),
+                counterText: ''),
           ),
+          const SizedBox(height: 12),
+          FullWidthSegmented<PlanGoal>(
+            options: [for (final g in PlanGoal.all) SegmentOption(g, g.label)],
+            selected: _goal,
+            onChanged: (v) {
+              setState(() => _goal = v);
+              _loadTarget();
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_goal.hint, style: TextStyle(fontSize: 12, color: context.textMuted)),
+          ),
+          _targetInfo(loggedIn),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
@@ -312,153 +404,108 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
             for (final i in _ingredients)
               InputChip(label: Text(i), onDeleted: () => setState(() => _ingredients.remove(i))),
           ]),
+          if (loggedIn && context.watch<PantryController>().items.isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _usePantry,
+                icon: const Icon(LucideIcons.refrigerator, size: 18),
+                label: const Text('Dùng nguyên liệu trong tủ'),
+              ),
+            ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _busy ? null : _generate,
+              onPressed: (_busy || !loggedIn) ? null : _generate,
               icon: _busy
                   ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.auto_awesome),
               label: const Text('Tạo thực đơn'),
             ),
           ),
+          if (!loggedIn)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('Đăng nhập để tạo và lưu thực đơn cá nhân.',
+                  style: TextStyle(color: context.textMuted)),
+            ),
         ]),
       ),
     );
   }
 
+  /// Calo mục tiêu backend tính được, hoặc lý do chưa tính được (thiếu chỉ số / hồ sơ / dưới 18 tuổi).
+  Widget _targetInfo(bool loggedIn) {
+    if (!loggedIn) return const SizedBox.shrink();
+    final t = _target;
+    final err = _targetError;
+    if (t != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(
+            'Mục tiêu: ${t.targetCalories} kcal/ngày (BMR ${t.bmr}, nhu cầu ${t.tdee} kcal)',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      );
+    }
+    if (err == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(err.message, style: const TextStyle(fontSize: 13, color: Colors.deepOrange)),
+        if (err.code == 6020 || err.code == 6010)
+          TextButton.icon(
+            onPressed: err.code == 6020 ? _fixProfile : null,
+            icon: const Icon(LucideIcons.userPen, size: 18),
+            label: Text(err.code == 6020 ? 'Cập nhật hồ sơ' : 'Nhập chiều cao, cân nặng ở trên'),
+          ),
+      ]),
+    );
+  }
+
+  /// Thêm nguyên liệu gõ tay; backend nhận tối đa [PantryController.maxForPlan] nguyên liệu, mỗi cái tối đa 100 ký tự.
   void _addIngredient() {
-    final t = _ingredient.text.trim();
+    final t = _ingredient.text.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (t.isEmpty) return;
+    if (t.length > 100) {
+      showSnack(context, 'Tên nguyên liệu tối đa 100 ký tự');
+      return;
+    }
+    if (_hasIngredient(t)) {
+      _ingredient.clear();
+      return;
+    }
+    if (_ingredients.length >= PantryController.maxForPlan) {
+      showSnack(context, 'Tối đa ${PantryController.maxForPlan} nguyên liệu mỗi thực đơn');
+      return;
+    }
     setState(() {
       _ingredients.add(t);
       _ingredient.clear();
     });
   }
-}
 
-/// Bảng 7 ngày x 3 bữa; cuộn ngang được trên màn hình hẹp.
-class _WeekGrid extends StatelessWidget {
-  final WeekPlan plan;
-  final void Function(DayPlan day, Meal meal)? onMealTap;
-  const _WeekGrid(this.plan, {this.onMealTap});
+  bool _hasIngredient(String name) =>
+      _ingredients.any((e) => e.toLowerCase() == name.toLowerCase());
 
-  @override
-  Widget build(BuildContext context) {
-    const types = ['BREAKFAST', 'LUNCH', 'DINNER'];
-    const heads = ['Ngày', 'Sáng', 'Trưa', 'Tối', 'Kcal'];
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Table(
-          defaultColumnWidth: const FixedColumnWidth(150),
-          columnWidths: const {0: FixedColumnWidth(72), 4: FixedColumnWidth(64)},
-          border: TableBorder.symmetric(inside: BorderSide(color: Theme.of(context).dividerColor)),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.3)),
-              children: [for (final h in heads) _cell(h, bold: true)],
-            ),
-            for (final d in plan.days)
-              TableRow(children: [
-                _cell(AppStrings.weekDays[(d.day - 1).clamp(0, 6)], bold: true),
-                for (final t in types)
-                  _cell(d.meal(t)?.name ?? '-',
-                      onTap: d.meal(t) == null || onMealTap == null
-                          ? null
-                          : () => onMealTap!(d, d.meal(t)!)),
-                _cell('${d.totalCalories}'),
-              ]),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _cell(String text, {bool bold = false, VoidCallback? onTap}) {
-    final child = Padding(
-      padding: const EdgeInsets.all(10),
-      child: Text(text,
-          style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
-    );
-    return onTap == null ? child : InkWell(onTap: onTap, child: child);
-  }
-}
-
-/// Chi tiết một bữa ăn trong thực đơn: dinh dưỡng, nguyên liệu, mở công thức, đổi món.
-class _MealSheet extends StatelessWidget {
-  final String dayLabel;
-  final Meal meal;
-  final bool canReplace;
-  final VoidCallback onReplace;
-  final VoidCallback? onOpenRecipe;
-  const _MealSheet({
-    required this.dayLabel,
-    required this.meal,
-    required this.canReplace,
-    required this.onReplace,
-    required this.onOpenRecipe,
-  });
-
-  Widget _macro(BuildContext context, String label, String value) => Expanded(
-        child: Column(children: [
-          Text(value,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.cs.primary)),
-          Text(label, style: TextStyle(fontSize: 12, color: context.textMuted)),
-        ]),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${mealTypeLabel(meal.mealType)} • $dayLabel',
-              style: TextStyle(fontSize: 12, color: context.cs.primary, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(meal.name,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
-          Row(children: [
-            _macro(context, 'kcal', '${meal.calories}'),
-            _macro(context, 'Đạm (g)', meal.protein.toStringAsFixed(1)),
-            _macro(context, 'Carb (g)', meal.carbs.toStringAsFixed(1)),
-            _macro(context, 'Béo (g)', meal.fat.toStringAsFixed(1)),
-          ]),
-          const SizedBox(height: 16),
-          const Text('Nguyên liệu', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(meal.ingredients.isEmpty ? 'Chưa có thông tin' : meal.ingredients,
-              style: const TextStyle(height: 1.4)),
-          const SizedBox(height: 20),
-          Row(children: [
-            if (onOpenRecipe != null) ...[
-              Expanded(
-                child: OutlinedButton.icon(
-                    onPressed: onOpenRecipe,
-                    icon: const Icon(LucideIcons.bookOpen),
-                    label: const Text('Xem công thức')),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: FilledButton.icon(
-                  onPressed: canReplace ? onReplace : null,
-                  icon: const Icon(LucideIcons.refreshCw),
-                  label: const Text('Đổi món')),
-            ),
-          ]),
-          if (!canReplace)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('Lưu thực đơn trước để có thể đổi món.',
-                  style: TextStyle(fontSize: 12, color: context.textMuted)),
-            ),
-        ]),
-      ),
-    );
+  /// Điền nguyên liệu trong tủ (còn hạn, sắp hết hạn trước) vào danh sách "nguyên liệu bạn có".
+  void _usePantry() {
+    final names = context.read<PantryController>().namesForPlan();
+    var added = 0;
+    setState(() {
+      for (final n in names) {
+        if (_ingredients.length >= PantryController.maxForPlan) break;
+        if (_hasIngredient(n)) continue;
+        _ingredients.add(n);
+        added++;
+      }
+    });
+    showSnack(
+        context,
+        added > 0
+            ? 'Đã thêm $added nguyên liệu từ tủ'
+            : names.isEmpty
+                ? 'Tủ không có nguyên liệu còn hạn'
+                : 'Các nguyên liệu trong tủ đã có trong danh sách');
   }
 }
