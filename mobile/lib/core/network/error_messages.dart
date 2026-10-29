@@ -45,7 +45,8 @@ const Map<int, String> errorMessagesVi = {
   2011: 'Vui lòng nhập tên nguyên liệu.',
   2020: 'Không tìm thấy thực đơn.',
   2021: 'Không đủ công thức an toàn để tạo thực đơn. Hãy thử bỏ bớt một vài dị ứng.',
-  2040: 'Không tìm thấy nhà hàng.',
+  5001: 'Toạ độ không hợp lệ.',
+  5002: 'Bán kính tìm kiếm phải lớn hơn 0 và tối đa 10 km.',
   // recipe-service
   4000: 'Vui lòng nhập tên nguyên liệu.',
   4001: 'Tên nguyên liệu tối đa 150 ký tự.',

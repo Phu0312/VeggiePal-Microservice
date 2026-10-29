@@ -1,71 +1,27 @@
 import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
+import 'places_models.dart';
 
-class Place {
-  final int id;
-  final String name;
-  final String address;
-  final String? description;
-  final String type;
-  final List<String> dishes;
-  final double distanceKm;
-  final String? imageUrl; // backend chưa có ảnh quán -> VegImage hiện placeholder
-
-  const Place({
-    required this.id,
-    required this.name,
-    required this.address,
-    required this.type,
-    required this.dishes,
-    required this.distanceKm,
-    this.imageUrl,
-    this.description,
-  });
-
-  /// Map từ RestaurantService.findNearby: supportedDishes là chuỗi ngăn cách bằng dấu phẩy.
-  factory Place.fromJson(Map<String, dynamic> j) {
-    final id = (j['id'] as num).toInt();
-    final dishes = '${j['supportedDishes'] ?? ''}'
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    return Place(
-      id: id,
-      name: '${j['name']}',
-      address: '${j['address'] ?? ''}',
-      description: j['description'] as String?,
-      type: '${j['type'] ?? ''}',
-      dishes: dishes,
-      distanceKm: (j['distanceKm'] as num?)?.toDouble() ?? 0,
-      imageUrl: j['imageUrl'] as String?,
-    );
-  }
-
-  bool matches(String kw) {
-    final k = kw.toLowerCase();
-    return name.toLowerCase().contains(k) ||
-        dishes.any((d) => d.toLowerCase().contains(k));
-  }
-}
-
+/// location-service: quán chay quanh một điểm (công khai, không cần đăng nhập).
+/// Mọi lỗi được ném lại cho UI hiển thị popup.
 class PlacesRepository {
   final ApiClient _api;
   PlacesRepository(this._api);
 
-  /// Vị trí mặc định (TP.HCM). Có thể thay bằng GPS (geolocator) sau này.
-  static const defaultLat = 10.7769, defaultLng = 106.7009;
-
-  // GET /restaurants/nearby?lat&lng&radiusKm&food= (công khai, backend đã sắp xếp món khớp lên đầu).
-  Future<List<Place>> nearby({String? food}) async {
+  // GET /restaurants/nearby?lat=&lng=&radiusKm=&veganOnly= : gần nhất trước, không phân trang.
+  // radiusKm phải trong (0, 10] (lỗi 5002), toạ độ phải hợp lệ (lỗi 5001).
+  Future<List<Place>> nearby({
+    required double lat,
+    required double lng,
+    int radiusKm = defaultRadiusKm,
+    bool veganOnly = false,
+  }) async {
     final r = await _api.get(Endpoints.restaurantsNearby, query: {
-      'lat': defaultLat,
-      'lng': defaultLng,
-      'radiusKm': 20,
-      if (food != null && food.isNotEmpty) 'food': food,
+      'lat': lat,
+      'lng': lng,
+      'radiusKm': radiusKm,
+      'veganOnly': veganOnly,
     });
-    return asList(r)
-        .map((e) => Place.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    return asList(r).map((e) => Place.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 }
