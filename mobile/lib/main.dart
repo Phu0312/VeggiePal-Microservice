@@ -74,8 +74,10 @@ class VeggiePalApp extends StatelessWidget {
             create: (c) => AuthController(
                 c.read<ApiClient>(), c.read<AuthRepository>(), store ?? SessionStore(),
                 initial: initialSession, onSessionExpired: _onSessionExpired)),
-        ChangeNotifierProvider<ChatController>(
-            create: (c) => ChatController(c.read<ChatRepository>())),
+        ChangeNotifierProxyProvider<AuthController, ChatController>(
+          create: (c) => ChatController(c.read<ChatRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
+        ),
         ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
         ChangeNotifierProxyProvider<AuthController, PantryController>(
