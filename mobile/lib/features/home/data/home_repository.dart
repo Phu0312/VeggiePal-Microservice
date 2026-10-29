@@ -9,9 +9,10 @@ class HomeRepository {
   final ApiClient _api;
   HomeRepository(this._api);
 
-  // GET /categories -> cây danh mục; làm phẳng cấp con để hiển thị chip ngang.
+  // GET /categories -> cây danh mục (cả FOOD_TYPE lẫn RECIPE_TYPE, bài viết gắn được với loại nào cũng
+  // được); làm phẳng cấp con để hiển thị chip ngang. Lọc bài theo categoryId là khớp đúng danh mục đó.
   Future<List<CategoryItem>> categories() async {
-    final r = await _api.get(Endpoints.categories, query: {'type': 'RECIPE_TYPE'});
+    final r = await _api.get(Endpoints.categories);
     final out = <CategoryItem>[];
     void walk(dynamic n) {
       for (final c in asList(n)) {
@@ -24,12 +25,14 @@ class HomeRepository {
     return out;
   }
 
-  // GET /blogs?keyword=&categoryId=&page=&size= (bài đã đăng, mới nhất trước) -> một trang cho bảng tin.
+  // GET /blogs?keyword=&categoryId=&sort=&page=&size= (bài đã đăng) -> một trang cho bảng tin.
+  // sort: '' = mới đăng trước, 'popular' = điểm bầu chọn cao, 'mostViewed' = nhiều lượt xem.
   Future<PageData<BlogItem>> blogsPage(
-      {String? keyword, int? categoryId, int page = 0, int size = 10}) async {
+      {String? keyword, int? categoryId, String sort = '', int page = 0, int size = 10}) async {
     final r = await _api.get(Endpoints.blogs, query: {
       if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
       if (categoryId != null) 'categoryId': categoryId,
+      if (sort.isNotEmpty) 'sort': sort,
       'page': page,
       'size': size,
     });
