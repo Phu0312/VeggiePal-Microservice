@@ -1074,6 +1074,7 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
 3. Open Profile > Health Profile and enter height (cm) and weight (kg).
 4. Open Profile > Personal Information and enter date of birth, gender and activity level; the meal planner needs them to compute the daily calorie target.
 5. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
+6. The Profile screen of the mobile app summarises the account: the current plan, the number of the user's blogs, recipes and videos, the latest BMI and a line chart of BMI or weight over the last six health records with the change since the first of them. It reminds the user to add any of date of birth, gender and activity level that is missing (or says that calorie targets are only available from age 18), and the allergy menu shows how many substances are avoided; the health history lists each record with the weight change since the previous one.
 
 **Figure VI.1. Registration and health profile workflow**
 
