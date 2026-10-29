@@ -80,6 +80,11 @@ class AuthController extends ChangeNotifier {
   Future<void> login(String email, String password, {bool remember = false}) async =>
       _apply(await _repo.login(email, password), remember: remember);
 
+  /// Đăng nhập bằng ID token của Google. Luồng Google không có ô "Ghi nhớ đăng nhập" nên luôn lưu phiên
+  /// (giống bản web).
+  Future<void> loginWithGoogle(String idToken, {bool remember = true}) async =>
+      _apply(await _repo.loginWithGoogle(idToken), remember: remember);
+
   Future<void> register(String email, String password, String name, String phone,
           {bool remember = false}) async =>
       _apply(await _repo.register(email, password, name, phone), remember: remember);

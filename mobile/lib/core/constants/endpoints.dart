@@ -21,6 +21,7 @@ class Endpoints {
   // ---- Identity ----
   static const login = '/auth/login';
   static const register = '/auth/register';
+  static const googleLogin = '/auth/google';
   static const me = '/users/me';
   static const myPassword = '/users/me/password';
   static const myAvatar = '/users/me/avatar';

@@ -15,6 +15,7 @@ import 'features/ai_nutrition/presentation/chat_controller.dart';
 import 'features/auth/data/auth_models.dart';
 import 'features/blog/data/blog_repository.dart';
 import 'features/auth/data/auth_repository.dart';
+import 'features/auth/data/google_auth.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/home/data/home_repository.dart';
 import 'features/home/data/recommendation_controller.dart';
@@ -50,9 +51,10 @@ final navigatorKey = GlobalKey<NavigatorState>();
 class VeggiePalApp extends StatelessWidget {
   final SessionStore? store;
   final AuthSession? initialSession;
-  final MapTiles mapTiles;
-  /// [mapTiles] cho phép test thay bộ tải ô bản đồ (mặc định dùng bộ tải của flutter_map).
-  const VeggiePalApp({super.key, this.store, this.initialSession, this.mapTiles = const MapTiles()});
+
+  /// Cho phép test thay nguồn ID token của Google.
+  final GoogleIdTokenSource? googleIdTokenSource;
+  const VeggiePalApp({super.key, this.store, this.initialSession, this.googleIdTokenSource});
 
   void _onSessionExpired() {
     final ctx = navigatorKey.currentContext;
@@ -68,8 +70,7 @@ class VeggiePalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<ApiClient>(create: (_) => ApiClient()),
-        Provider<LocationSource>(create: (_) => const GeolocatorSource()),
-        Provider<MapTiles>.value(value: mapTiles),
+        Provider<GoogleIdTokenSource>(create: (_) => googleIdTokenSource ?? GoogleSignInSource()),
         ProxyProvider<ApiClient, AuthRepository>(update: (_, api, _) => AuthRepository(api)),
         ProxyProvider<ApiClient, HomeRepository>(update: (_, api, _) => HomeRepository(api)),
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),
