@@ -4,6 +4,7 @@ import { useAutoLogout } from "@/features/auth/hooks/useAutoLogout";
 import ScrollToTop from "@/shared/components/ScrollToTop";
 
 import AppProvider from "./provider";
+import ContentFormHost from "./ContentFormHost";
 import AppRoutes from "./routes";
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
       <AppProvider>
         <ScrollToTop />
         <AppRoutes />
+        <ContentFormHost />
         <Toaster />
       </AppProvider>
     </div>

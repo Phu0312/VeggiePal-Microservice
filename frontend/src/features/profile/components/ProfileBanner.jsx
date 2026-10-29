@@ -1,18 +1,7 @@
 import { useNavigate, Link } from "react-router-dom";
-import {
-  Edit3,
-  Video,
-  Users,
-  Bookmark,
-  Activity,
-  Heart,
-  Crown,
-  History,
-} from "lucide-react";
+import { Edit3, Video, Activity, Crown, History } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useChallenge } from "@/features/blog/hooks/useChallenge";
-import { CHALLENGE_BADGE_NAME } from "@/features/blog/utils/challenge";
 import { useProfileStats } from "@/features/profile/hooks/useProfileStats";
 import { useMySubscription } from "@/features/payment/hooks/useMySubscription";
 import { formatDate } from "@/features/payment/utils/paymentFormat";
@@ -24,8 +13,6 @@ export default function ProfileBanner({ profile }) {
   const navigate = useNavigate();
   const stats = useProfileStats();
   const { subscription } = useMySubscription();
-  // Huy hiệu mở khóa khi hoàn thành thử thách 7 ngày ở trang Cộng đồng.
-  const { completed: hasChallengeBadge } = useChallenge();
 
   const displayName = profile?.fullName?.trim() || "Người dùng VeggiePal";
   const avatarUrl = profile?.avatarUrl || DEFAULT_AVATAR;
@@ -35,14 +22,11 @@ export default function ProfileBanner({ profile }) {
 
   return (
     <div className="mb-2">
-      {/* Cover Image — Giữ nguyên theo P3 */}
-      <div className="relative h-52 w-full overflow-hidden rounded-3xl shadow-sm sm:h-64 md:h-72">
-        <img
-          src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1600&q=80"
-          alt="Nature Cottage Cover"
-          className="h-full w-full object-cover"
-        />
-      </div>
+      {/* Ảnh bìa: nền gradient thương hiệu (không có ảnh bìa từ BE) */}
+      <div
+        aria-hidden
+        className="h-40 w-full rounded-3xl bg-gradient-to-br from-[#1b5e20] via-brand to-brand-2 shadow-sm sm:h-52"
+      />
 
       {/* Profile Card Container */}
       <div className="relative z-10 -mt-16 mx-2 rounded-3xl border border-border bg-card p-5 shadow-sm sm:-mt-20 sm:mx-6 sm:p-7">
@@ -62,16 +46,6 @@ export default function ProfileBanner({ profile }) {
             <div>
               <div className="mb-1 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 <h1 className="text-2xl font-bold text-ink">{displayName}</h1>
-                {/* Danh hiệu — Giữ nguyên theo P3 */}
-                <span className="rounded-full border border-brand/30 bg-brand-soft px-3 py-0.5 text-xs font-semibold text-brand">
-                  Đầu Bếp Chay Sáng Tạo
-                </span>
-                {hasChallengeBadge && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-chart-4/30 bg-chart-4/15 px-3 py-0.5 text-xs font-semibold text-chart-4">
-                    <Heart className="size-3 fill-current" />
-                    {CHALLENGE_BADGE_NAME}
-                  </span>
-                )}
                 {/* Gói thành viên hiện tại */}
                 <Link
                   to="/pricing"
@@ -88,12 +62,6 @@ export default function ProfileBanner({ profile }) {
                   @{profile.username}
                 </p>
               )}
-              {/* Bio — Giữ nguyên theo P3 */}
-              <p className="max-w-xl text-xs leading-relaxed text-body sm:text-sm">
-                • Đam mê sáng tạo món chay mục dưỡng WFPB &amp; ứng dụng AI nấu nướng 🌿
-                <br />
-                • Đồng hành cùng thói quen sống xanh không rác thải.
-              </p>
             </div>
           </div>
 
@@ -124,42 +92,19 @@ export default function ProfileBanner({ profile }) {
           </div>
         </div>
 
-        {/* 4 Stats */}
-        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-5 md:grid-cols-4">
-          {/* 1. Bài viết & Video lấy từ tổng thực tế /blogs/me và /recipes/me */}
+        {/* Thống kê: tổng thật từ /blogs/me, /recipes/me và bản ghi sức khỏe mới nhất */}
+        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-5">
           <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
               <Video className="h-5 w-5" />
             </div>
             <div>
               <div className="text-base font-bold text-ink">{totalPosts}</div>
-              <div className="text-xs text-subtle">Bài viết &amp; Video</div>
+              <div className="text-xs text-subtle">Bài viết &amp; Công thức</div>
             </div>
           </div>
 
-          {/* 2. Followers — Giữ nguyên theo P3 */}
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400">
-              <Users className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-base font-bold text-ink">3.8k</div>
-              <div className="text-xs text-subtle">Người theo dõi</div>
-            </div>
-          </div>
-
-          {/* 3. Lượt lưu — Giữ nguyên theo P3 */}
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">
-              <Bookmark className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-base font-bold text-ink">12.4k</div>
-              <div className="text-xs text-subtle">Lượt lưu công thức</div>
-            </div>
-          </div>
-
-          {/* 4. Thẻ BMI: lấy từ health record mới nhất */}
+          {/* Thẻ BMI: lấy từ health record mới nhất */}
           <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-400">
               <Activity className="h-5 w-5" />

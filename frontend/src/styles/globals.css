@@ -7,14 +7,17 @@
 
 /* Bảng màu thương hiệu VeggiePal (lấy từ file Figma VeggiePalApp). */
 @theme inline {
+    /* Tên biến `display-serif` giữ nguyên để không phải đổi class ở từng component,
+       nhưng font tiêu đề hiện là Plus Jakarta Sans (sans hình học, giống banner kính mờ). */
     --font-heading: var(--font-display-serif);
     --font-sans: 'Geist Variable', sans-serif;
-    --font-display-serif: 'Playfair Display', serif;
+    --font-display-serif: 'Plus Jakarta Sans', 'Geist Variable', system-ui, sans-serif;
     --font-home-sans: 'Inter', system-ui, sans-serif;
     --color-brand: var(--brand);
     --color-brand-foreground: var(--brand-foreground);
     --color-brand-soft: var(--brand-soft);
     --color-brand-2: var(--brand-2);
+    --color-brand-deep: var(--brand-deep);
     --color-warning: var(--warning);
     --color-danger: var(--danger);
     --color-ink: var(--ink);
@@ -64,19 +67,32 @@
 }
 
 :root {
-    /* Bảng màu thương hiệu VeggiePal (light). */
-    --brand: #1d9d5a;
+    /* Bảng màu thương hiệu VeggiePal (light) — cùng tông xanh lá với app mobile (AppColors). */
+    --brand: #2e7d32;
     --brand-foreground: #ffffff;
-    --brand-soft: #e7f7ec;
-    --brand-2: #0ea47a;
+    --brand-soft: #e6f2e3;
+    --brand-2: #8bc34a;
+    --brand-deep: #1b5e20;
     --warning: #f0883e;
     --danger: #ef6461;
-    --ink: #111c2d;
-    --body: #404940;
-    --subtle: #707a70;
-    --canvas: #f9f9ff;
-    --surface: #f5f8f3;
-    --surface-foreground: #111c2d;
+    --ink: #1b2b1c;
+    --body: #435346;
+    --subtle: #6b7a6c;
+    /* canvas trong suốt để nền gradient của <body> lộ ra ở các trang dùng bg-canvas. */
+    --canvas: transparent;
+    --surface: #eff5ec;
+    --surface-foreground: #1b2b1c;
+
+    /* Kính mờ: dùng qua class `glass` / `glass-strong` (xem @utility bên dưới). */
+    --glass-bg: rgb(255 255 255 / 0.55);
+    --glass-bg-strong: rgb(255 255 255 / 0.78);
+    --glass-border: rgb(255 255 255 / 0.7);
+    --glass-shadow: 0 8px 32px rgb(27 94 32 / 0.12);
+    --page-bg:
+        radial-gradient(60rem 38rem at 8% -8%, rgb(139 195 74 / 0.22), transparent 60%),
+        radial-gradient(50rem 36rem at 100% 8%, rgb(46 125 50 / 0.14), transparent 60%),
+        radial-gradient(46rem 32rem at 50% 110%, rgb(139 195 74 / 0.16), transparent 60%),
+        #f7f9f6;
 
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
@@ -84,8 +100,8 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
+    --primary: #2e7d32;
+    --primary-foreground: #ffffff;
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
@@ -98,12 +114,12 @@
     --ring: oklch(0.708 0 0);
     /* Chart 1–5 mang màu thật của các số liệu dinh dưỡng/hoạt động thay vì
        xám trung tính: carb-xanh lá, nước-xanh dương, vận động-tím, béo-cam, đạm-xanh nhạt. */
-    --chart-1: #1d9d5a;
+    --chart-1: #2e7d32;
     --chart-2: #2a9dd6;
     --chart-3: #8b5cf6;
     --chart-4: #f0883e;
     --chart-5: #5cb85c;
-    --radius: 0.625rem;
+    --radius: 0.75rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -117,50 +133,61 @@
 .dark {
     /* Bảng màu thương hiệu VeggiePal (dark) — nền xanh đậm thay vì xám
        trung tính, giữ đúng tinh thần "rau củ" thay vì dark mode chung chung. */
-    --brand: #34c37c;
-    --brand-foreground: #06170e;
-    --brand-soft: #16301f;
-    --brand-2: #22e0a5;
+    --brand: #66bb6a;
+    --brand-foreground: #08260b;
+    --brand-soft: #17321a;
+    --brand-2: #aed581;
+    --brand-deep: #a5d6a7;
     --warning: #ffa361;
     --danger: #ff8c89;
-    --ink: #eaf3ec;
-    --body: #c3d6c9;
-    --subtle: #93ac9e;
-    --canvas: #0a140f;
-    --surface: #12261a;
-    --surface-foreground: #eaf3ec;
+    --ink: #e6ede6;
+    --body: #c4d2c5;
+    --subtle: #a0b3a2;
+    --canvas: transparent;
+    --surface: #17261a;
+    --surface-foreground: #e6ede6;
 
-    --background: #0a140f;
-    --foreground: #eaf3ec;
-    --card: #10231a;
-    --card-foreground: #eaf3ec;
-    --popover: #10231a;
-    --popover-foreground: #eaf3ec;
-    --primary: #34c37c;
-    --primary-foreground: #06170e;
-    --secondary: #16301f;
-    --secondary-foreground: #eaf3ec;
-    --muted: #142a1c;
-    --muted-foreground: #93ac9e;
-    --accent: #16301f;
-    --accent-foreground: #eaf3ec;
+    --glass-bg: rgb(22 38 26 / 0.55);
+    --glass-bg-strong: rgb(18 32 22 / 0.78);
+    --glass-border: rgb(255 255 255 / 0.12);
+    --glass-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+    --page-bg:
+        radial-gradient(60rem 38rem at 8% -8%, rgb(102 187 106 / 0.16), transparent 60%),
+        radial-gradient(50rem 36rem at 100% 8%, rgb(139 195 74 / 0.08), transparent 60%),
+        radial-gradient(46rem 32rem at 50% 110%, rgb(46 125 50 / 0.18), transparent 60%),
+        #0e150f;
+
+    --background: #0e150f;
+    --foreground: #e6ede6;
+    --card: #162218;
+    --card-foreground: #e6ede6;
+    --popover: #162218;
+    --popover-foreground: #e6ede6;
+    --primary: #66bb6a;
+    --primary-foreground: #08260b;
+    --secondary: #1a2e1d;
+    --secondary-foreground: #e6ede6;
+    --muted: #182a1b;
+    --muted-foreground: #a0b3a2;
+    --accent: #1a2e1d;
+    --accent-foreground: #e6ede6;
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: #34c37c;
-    --chart-1: #34c37c;
+    --ring: #66bb6a;
+    --chart-1: #66bb6a;
     --chart-2: #4db8f0;
     --chart-3: #a78bfa;
     --chart-4: #ffa361;
     --chart-5: #7ed957;
-    --sidebar: #10231a;
-    --sidebar-foreground: #eaf3ec;
-    --sidebar-primary: #34c37c;
-    --sidebar-primary-foreground: #06170e;
-    --sidebar-accent: #16301f;
-    --sidebar-accent-foreground: #eaf3ec;
+    --sidebar: #162218;
+    --sidebar-foreground: #e6ede6;
+    --sidebar-primary: #66bb6a;
+    --sidebar-primary-foreground: #08260b;
+    --sidebar-accent: #1a2e1d;
+    --sidebar-accent-foreground: #e6ede6;
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: #34c37c;
+    --sidebar-ring: #66bb6a;
 }
 
 @layer base {
@@ -169,7 +196,10 @@
     }
 
     body {
-        @apply bg-background text-foreground;
+        @apply text-foreground;
+        background: var(--page-bg);
+        background-attachment: fixed;
+        background-color: var(--background);
     }
 
     html {
@@ -181,6 +211,31 @@
     h3 {
         @apply font-heading;
     }
+}
+
+/* Kính mờ: nền bán trong suốt + blur + viền sáng mảnh. */
+@utility glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    backdrop-filter: blur(18px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+@utility glass-strong {
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    backdrop-filter: blur(24px) saturate(1.6);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+/* Chữ gradient xanh lá cho từ nhấn trong tiêu đề banner. */
+@utility text-gradient-brand {
+    background: linear-gradient(90deg, var(--brand), var(--brand-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 @layer utilities {

@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail, Phone, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { useForm, useWatch } from "react-hook-form";
@@ -10,10 +10,6 @@ import { Button } from "@/components/ui/button";
 import GoogleSignInButton from "@/features/auth/components/GoogleSignInButton";
 import { registerSchema } from "@/features/auth/schema";
 import { register as registerUser } from "@/features/auth/api/authApi";
-
-import peopleIcon from "@/assets/svg/people.svg";
-import phoneIcon from "@/assets/svg/phone.svg";
-import mailIcon from "@/assets/svg/mail.svg";
 
 export default function RegisterForm({ onSwitchMode }) {
   const navigate = useNavigate();
@@ -85,11 +81,7 @@ export default function RegisterForm({ onSwitchMode }) {
               className="h-10 border-white/40"
               {...register("fullName")}
             />
-            <img
-              src={peopleIcon}
-              alt=""
-              className="pointer-events-none absolute right-0 top-1/2 size-4 -translate-y-1/2 brightness-0 invert opacity-80"
-            />
+            <UserRound className="pointer-events-none absolute right-0 top-1/2 size-4 -translate-y-1/2 text-white/80" />
           </div>
           {errors.fullName && (
             <span className="absolute left-0 top-full mt-1 text-xs leading-tight text-destructive">
@@ -113,11 +105,7 @@ export default function RegisterForm({ onSwitchMode }) {
               className="h-10 border-white/40"
               {...register("email")}
             />
-            <img
-              src={mailIcon}
-              alt=""
-              className="pointer-events-none absolute right-0 top-1/2 w-[17px] -translate-y-1/2 brightness-0 invert opacity-80"
-            />
+            <Mail className="pointer-events-none absolute right-0 top-1/2 size-[17px] -translate-y-1/2 text-white/80" />
           </div>
           {errors.email && (
             <span className="absolute left-0 top-full mt-1 text-xs leading-tight text-destructive">
@@ -141,11 +129,7 @@ export default function RegisterForm({ onSwitchMode }) {
               className="h-10 border-white/40"
               {...register("phone")}
             />
-            <img
-              src={phoneIcon}
-              alt=""
-              className="pointer-events-none absolute right-0 top-1/2 size-4 -translate-y-1/2 brightness-0 invert opacity-80"
-            />
+            <Phone className="pointer-events-none absolute right-0 top-1/2 size-4 -translate-y-1/2 text-white/80" />
           </div>
           {errors.phone && (
             <span className="absolute left-0 top-full mt-1 text-xs leading-tight text-destructive">

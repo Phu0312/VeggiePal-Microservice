@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 import AppHeader from "@/shared/components/AppHeader";
-import AppFooter from "@/shared/components/AppFooter";
 import Reveal from "@/shared/components/Reveal";
 import { Button } from "@/components/ui/button";
 import { useRequireLogin } from "@/features/auth/hooks/useRequireLogin";
@@ -89,7 +88,7 @@ export default function PricingScreen() {
               Nâng tầm trải nghiệm sống xanh &amp; thuần chay
             </h1>
             <p className="mx-auto max-w-2xl text-sm sm:text-base text-subtle">
-              Mở rộng giới hạn hỏi đáp trợ lý Bông Cải, lập thực đơn cá nhân hóa theo mục tiêu sức khỏe
+              Mở rộng giới hạn hỏi đáp trợ lý VeggiePal, lập thực đơn cá nhân hóa theo mục tiêu sức khỏe
               và tóm tắt video dinh dưỡng không giới hạn.
             </p>
           </div>
@@ -243,7 +242,6 @@ export default function PricingScreen() {
         </Reveal>
       </main>
 
-      <AppFooter />
 
       {/* Hộp thoại xác nhận đổi gói */}
       {confirmPlan && (

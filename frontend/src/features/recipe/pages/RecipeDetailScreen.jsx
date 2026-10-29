@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChefHat, Clock, Flame, Pencil, TriangleAlert, Users, Wheat } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/variants/button-variants";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import AuthorAvatar from "@/features/blog/components/AuthorAvatar";
 import { FALLBACK_AUTHOR_NAME, formatTimeAgo } from "@/features/blog/utils/blogFormat";
@@ -17,10 +16,10 @@ import {
   isAllergenIngredient,
   isNonVeganIngredient,
 } from "@/features/recipe/utils/recipeSafety";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
 import FallbackImage from "@/shared/components/FallbackImage";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 
 // Trang đọc một công thức (route /recipes/:recipeId), công khai với công thức đã đăng.
 // BE chỉ trả bản nháp/đang ẩn cho tác giả hoặc ADMIN (kèm token), người khác nhận 404. FE vẫn kiểm tra
@@ -76,12 +75,12 @@ export default function RecipeDetailScreen() {
         {body}
       </main>
 
-      <AppFooter />
     </div>
   );
 }
 
 function RecipeArticle({ recipe, author, nutrition, nutritionGap, canManage, isLoggedIn }) {
+  const { openForm } = useContentForm();
   const steps = sortSteps(recipe.steps);
   const ingredients = recipe.ingredients ?? [];
   const warnings = collectIngredientWarnings(recipe);
@@ -102,13 +101,15 @@ function RecipeArticle({ recipe, author, nutrition, nutritionGap, canManage, isL
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {showStatus && <StatusBadge info={getRecipeStatusInfo(recipe.status)} />}
           {canManage && (
-            <Link
-              to={`/recipes/${recipe.id}/edit`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => openForm("recipe", { id: recipe.id })}
             >
               <Pencil className="size-3.5" />
               Sửa
-            </Link>
+            </Button>
           )}
         </div>
       </div>

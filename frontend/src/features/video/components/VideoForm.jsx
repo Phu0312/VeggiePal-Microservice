@@ -1,5 +1,4 @@
 import { useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileVideo, Loader2, SquarePlay, UploadCloud } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -32,9 +31,8 @@ const errorClass = "mt-1.5 text-xs text-destructive";
  *   Lựa chọn "Lưu nháp" hoặc "Đăng video" (gửi kiểm duyệt ngay).
  * - Sửa: cập nhật tiêu đề, danh mục, mô tả (nguồn video giữ nguyên theo luật BE).
  */
-export default function VideoForm({ video, categories = [] }) {
+export default function VideoForm({ video, categories = [], onClose }) {
   const idPrefix = useId();
-  const navigate = useNavigate();
   const isEdit = Boolean(video);
 
   const [videoFile, setVideoFile] = useState(null);
@@ -105,11 +103,7 @@ export default function VideoForm({ video, categories = [] }) {
 
   const finish = (result, customMessage) => {
     notify(customMessage ?? describeVideoOutcome(result));
-    if (result.status === "PUBLISHED") {
-      navigate(`/videos/${result.id}`);
-    } else {
-      navigate("/my-content?tab=videos");
-    }
+    onClose();
   };
 
   const save = (publish) =>
@@ -411,7 +405,7 @@ export default function VideoForm({ video, categories = [] }) {
             type="button"
             variant="ghost"
             disabled={isSubmitting}
-            onClick={() => navigate("/my-content?tab=videos")}
+            onClick={onClose}
           >
             Hủy
           </Button>

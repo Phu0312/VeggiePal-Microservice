@@ -378,26 +378,21 @@ export function profileTargetIssue(profile, today = new Date()) {
   return age < ADULT_AGE ? "underage" : null;
 }
 
-/**
- * `healthGoal` gửi BE (bắt buộc không rỗng): nhãn của mục tiêu, kèm mô tả thêm của người dùng nếu có,
- * ví dụ "Giảm cân: ăn thanh đạm".
- */
-export function buildHealthGoalText(goalType, note) {
-  const label = goalLabel(goalType);
-  const extra = String(note ?? "").trim();
-  return extra ? `${label}: ${extra}` : label;
+/** `healthGoal` gửi BE (bắt buộc không rỗng): nhãn của mục tiêu, ví dụ "Giảm cân". */
+export function buildHealthGoalText(goalType) {
+  return goalLabel(goalType);
 }
 
 /**
  * Payload cho POST /ai/meal-plans từ giá trị form + nguyên liệu/khẩu vị đã chọn.
- * `healthNote` là mô tả thêm (tùy chọn). Không có ô mục tiêu nào được điền thì không gửi dailyNutritionTarget,
+ * Không có ô mục tiêu nào được điền thì không gửi dailyNutritionTarget,
  * BE sẽ tự tính theo hồ sơ + goalType.
  */
-export function buildGeneratePayload({ name, goalType, healthNote, preferences, ingredients, target }) {
+export function buildGeneratePayload({ name, goalType, preferences, ingredients, target }) {
   const payload = {
     name: name.trim(),
     goalType,
-    healthGoal: buildHealthGoalText(goalType, healthNote),
+    healthGoal: buildHealthGoalText(goalType),
     preferences: preferences.map((p) => p.trim()).filter(Boolean),
     availableIngredients: ingredients.map((i) => i.trim()).filter(Boolean),
   };

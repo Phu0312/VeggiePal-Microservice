@@ -3,13 +3,10 @@ import { ArrowLeft, PlaySquare } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/variants/button-variants";
 import AiSummaryCard from "@/features/video/components/AiSummaryCard";
-import CommentsHeader from "@/features/video/components/CommentsHeader";
-import NutritionFactsCard from "@/features/video/components/NutritionFactsCard";
 import SuggestedVideoList from "@/features/video/components/SuggestedVideoList";
 import VideoMetaHeader from "@/features/video/components/VideoMetaHeader";
 import VideoPlayerFrame from "@/features/video/components/VideoPlayerFrame";
 import { useVideo } from "@/features/video/hooks/useVideos";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
 import Reveal from "@/shared/components/Reveal";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
@@ -46,7 +43,6 @@ export default function VideoWatchScreen() {
             Về danh sách video
           </Link>
         </main>
-        <AppFooter />
       </div>
     );
   }
@@ -65,15 +61,9 @@ export default function VideoWatchScreen() {
             <Reveal>
               <AiSummaryCard video={video} />
             </Reveal>
-            <Reveal>
-              <CommentsHeader />
-            </Reveal>
           </div>
 
           <div className="flex flex-col gap-6">
-            <Reveal>
-              <NutritionFactsCard />
-            </Reveal>
             <Reveal>
               <SuggestedVideoList
                 currentVideoId={id}
@@ -84,7 +74,6 @@ export default function VideoWatchScreen() {
         </div>
       </main>
 
-      <AppFooter />
     </div>
   );
 }

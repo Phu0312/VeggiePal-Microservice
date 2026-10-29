@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Bell,
   Broccoli,
   ChevronDown,
   ChevronRight,
-  CircleHelp,
   CircleUserRound,
   FileText,
   Home,
   LogOut,
-  MessageSquareWarning,
+  Menu,
+  X,
   Map,
   ShieldCheck,
   Users,
@@ -23,7 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import logo from "@/assets/img/logo.png";
+import Logo from "@/shared/components/Logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -71,16 +70,17 @@ const NAV_ITEMS = [
   { id: "square-play", label: "Khám Phá Video", icon: SquarePlay, to: "/videos" },
   { id: "users", label: "Cộng Đồng", icon: Users, to: "/blog" },
   { id: "map", label: "Bản Đồ Xanh", icon: Map, to: "/map" },
-  { id: "broccoli", label: "Trợ Lý Bông Cải", icon: Broccoli, to: "/chatbot" },
+  { id: "broccoli", label: "Trợ Lý VeggiePal", icon: Broccoli, to: "/chatbot" },
 ];
 
-const PROFILE_MENU_ITEMS = [
-  { id: "help", label: "Trợ giúp và hỗ trợ", icon: CircleHelp },
-  { id: "report", label: "Báo cáo sự cố", icon: MessageSquareWarning },
-];
+// Trang con (vd /blog/5) cũng tính là đang ở mục cha (/blog).
+function isActivePath(pathname, to) {
+  return pathname === to || (to !== "/" && pathname.startsWith(`${to}/`));
+}
 
 export default function AppHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -93,11 +93,11 @@ export default function AppHeader() {
   const avatarUrl = profile?.avatarUrl ?? user?.avatarUrl;
 
   return (
-    <header className="sticky top-4 z-30 mb-4 px-6 sm:px-8">
-      <div className="mx-auto flex w-full max-w-[1560px] items-center justify-between gap-4 rounded-full border border-border bg-card/90 px-6 py-1 shadow-sm backdrop-blur lg:grid lg:grid-cols-[auto_1fr_auto]">
+    <header className="sticky top-3 z-30 mb-4 px-3 sm:top-4 sm:px-8">
+      <div className="glass-strong mx-auto flex w-full max-w-[1560px] items-center justify-between gap-4 rounded-full px-4 py-1.5 sm:px-6 lg:grid lg:grid-cols-[auto_1fr_auto]">
         <div className="flex items-center justify-start">
           <Link to="/" className="flex shrink-0 items-center gap-2">
-            <img src={logo} alt="VeggiePal" className="h-12 w-auto mt-1 mb-1" />
+            <Logo markClassName="size-9 sm:size-10" />
           </Link>
         </div>
 
@@ -107,12 +107,11 @@ export default function AppHeader() {
               key={id}
               to={to}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-display-serif text-sm font-medium transition xl:px-3.5 xl:py-2 xl:text-base",
+                "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-display-serif text-sm font-semibold transition xl:px-3.5 xl:py-2 xl:text-[15px]",
                 // Trang con (vd /blog/5) cũng tính là đang ở mục cha (/blog).
-                location.pathname === to ||
-                  (to !== "/" && location.pathname.startsWith(`${to}/`))
-                  ? "bg-brand-soft text-brand"
-                  : "text-subtle hover:bg-surface hover:text-ink"
+                isActivePath(location.pathname, to)
+                  ? "bg-brand text-brand-foreground shadow-sm"
+                  : "text-body hover:bg-brand-soft hover:text-brand"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -121,19 +120,18 @@ export default function AppHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center justify-end gap-3">
-          {isAuthenticated && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              aria-label="Thông báo"
-              className="relative"
-            >
-              <Bell className="size-5" />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-[#EF6461]" />
-            </Button>
-          )}
+        <div className="flex items-center justify-end gap-2 sm:gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label={navOpen ? "Đóng menu" : "Mở menu"}
+            aria-expanded={navOpen}
+            className="lg:hidden"
+            onClick={() => setNavOpen((open) => !open)}
+          >
+            {navOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </Button>
 
           {/* Khách: icon gói dịch vụ + chữ Đăng nhập / Đăng ký. */}
           {!isAuthenticated && (
@@ -275,23 +273,6 @@ export default function AppHeader() {
 
                 <DropdownMenuSeparator className="my-3" />
 
-                {PROFILE_MENU_ITEMS.map(({ id, label, icon: Icon }) => (
-                  <DropdownMenuItem
-                    key={id}
-                    className="cursor-pointer gap-3 rounded-xl px-1 py-2"
-                  >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#E8ECFB] text-ink dark:bg-brand-soft">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="flex-1 text-sm font-medium text-ink">
-                      {label}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-subtle" />
-                  </DropdownMenuItem>
-                ))}
-
-                <DropdownMenuSeparator className="my-3" />
-
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={logout}
@@ -310,7 +291,31 @@ export default function AppHeader() {
         </div>
       </div>
 
-      <ThemeToggle className="fixed bottom-6 right-6 z-40 size-11 border border-border bg-card text-ink shadow-lg hover:bg-brand-soft" />
+      {navOpen && (
+        <nav
+          aria-label="Menu chính"
+          className="glass-strong absolute inset-x-3 top-full mt-2 grid gap-1 sm:inset-x-8 rounded-3xl p-2 lg:hidden"
+        >
+          {NAV_ITEMS.map(({ id, label, icon: Icon, to }) => (
+            <Link
+              key={id}
+              to={to}
+              onClick={() => setNavOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-2xl px-4 py-3 font-display-serif text-sm font-semibold transition",
+                isActivePath(location.pathname, to)
+                  ? "bg-brand text-brand-foreground"
+                  : "text-body hover:bg-brand-soft hover:text-brand"
+              )}
+            >
+              <Icon className="size-4" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      <ThemeToggle className="fixed bottom-4 right-4 z-40 size-11 border border-border bg-card text-ink shadow-lg hover:bg-brand-soft sm:bottom-6 sm:right-6" />
     </header>
   );
 }
