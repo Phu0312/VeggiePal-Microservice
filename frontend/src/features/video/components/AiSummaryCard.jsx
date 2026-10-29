@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 
-import iconAiSummary from "@/assets/img/icon_video_page_1.png";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/variants/button-variants";
 import { useVideoRecipe } from "@/features/video/hooks/useVideoRecipe";
@@ -40,7 +39,9 @@ export default function AiSummaryCard({ video }) {
   return (
     <section id="ai-summary-card" className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
       <div className="flex items-center gap-2.5">
-        <img src={iconAiSummary} alt="" className="h-9 w-9 shrink-0" />
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+          <Sparkles className="size-5" />
+        </span>
         <div>
           <h2 className="text-sm font-bold text-ink sm:text-base">Tóm tắt công thức nấu ăn (AI Summary)</h2>
           <span className="text-[11px] font-medium text-subtle">

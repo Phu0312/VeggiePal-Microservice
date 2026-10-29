@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bowl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.45" stop-color="#2e7d32"/>
+      <stop offset="1" stop-color="#6aa84f"/>
+    </linearGradient>
+    <linearGradient id="leafL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.55" stop-color="#2e7d32"/>
+      <stop offset="1" stop-color="#7cb342"/>
+    </linearGradient>
+    <linearGradient id="leafR" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8bb83a"/>
+      <stop offset="1" stop-color="#e0c92e"/>
+    </linearGradient>
+  </defs>
+  <path d="M37.5 0.5C28 4 27 22 33 31C38 38 44 42 50 44.5C52 30 49 8 37.5 0.5Z" fill="url(#leafL)"/>
+  <path d="M62 4.5C74 9 72 24 64 33C59 39 54 42 50 45C49 28 52 12 62 4.5Z" fill="url(#leafR)"/>
+  <path fill-rule="evenodd" fill="url(#bowl)" d="M1.5 47H98.5A48.5 45 0 0 1 1.5 47ZM50 56A4 4 0 1 0 50 64A4 4 0 1 0 50 56Z"/>
+  <ellipse cx="50" cy="97" rx="24" ry="2.6" fill="#2e7d32" fill-opacity="0.18"/>
+</svg>

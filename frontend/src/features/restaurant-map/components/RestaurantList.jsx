@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Loader2, SearchX } from "lucide-react";
+import { Broccoli, Loader2, SearchX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import mascotWave from "@/assets/img/icon_map_page_1.png";
 import RestaurantCard from "@/features/restaurant-map/components/RestaurantCard";
 import {
   MAX_RADIUS_KM,
@@ -201,13 +200,8 @@ export default function RestaurantList({
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid size-15 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-soft">
-            <img
-              src={mascotWave}
-              alt=""
-              className="h-15 w-15 select-none object-contain"
-              draggable={false}
-            />
+          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand to-brand-2 text-white">
+            <Broccoli className="size-7" strokeWidth={1.6} />
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-bold leading-tight text-ink">

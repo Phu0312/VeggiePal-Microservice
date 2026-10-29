@@ -16,16 +16,17 @@ import {
 } from "@/features/blog/utils/blogFormat";
 import StatusBadge from "@/features/my-content/components/StatusBadge";
 import { canEditBlog, getBlogStatusInfo } from "@/features/my-content/utils/statusInfo";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
 import FallbackImage from "@/shared/components/FallbackImage";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 
 // Trang đọc một bài (route /blog/:blogId), công khai. Nội dung BE lưu là text thuần,
 // nên hiển thị bằng text (giữ xuống dòng) chứ không render HTML.
 // Chủ bài / ADMIN (kèm token) còn mở được bài chưa đăng: lúc đó hiện nhãn trạng thái và ẩn vote,
 // bình luận, bài liên quan vì những phần này chỉ dành cho bài đã đăng.
 export default function BlogDetailScreen() {
+  const { openForm } = useContentForm();
   const { blogId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,12 +77,13 @@ export default function BlogDetailScreen() {
                       {statusInfo.hint || "Bài viết này chưa được đăng công khai."}
                     </span>
                     {canEdit && (
-                      <Link
-                        to={`/blog/${blog.id}/edit`}
+                      <button
+                        type="button"
+                        onClick={() => openForm("blog", { id: blog.id })}
                         className="shrink-0 font-semibold text-brand underline-offset-2 hover:underline"
                       >
                         Sửa bài
-                      </Link>
+                      </button>
                     )}
                   </div>
                 )}
@@ -151,7 +153,6 @@ export default function BlogDetailScreen() {
         </div>
       </main>
 
-      <AppFooter />
     </div>
   );
 }
