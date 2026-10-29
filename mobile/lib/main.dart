@@ -26,6 +26,8 @@ import 'features/notifications/notification_controller.dart';
 import 'features/payment/data/payment_repository.dart';
 import 'features/payment/data/subscription_controller.dart';
 import 'features/places/data/places_repository.dart';
+import 'features/places/data/user_location.dart';
+import 'features/places/presentation/places_map.dart' show MapTiles;
 import 'features/recipe/data/recipe_repository.dart';
 import 'features/video/data/video_repository.dart';
 import 'features/profile/data/profile_repository.dart';
@@ -46,7 +48,9 @@ final navigatorKey = GlobalKey<NavigatorState>();
 class VeggiePalApp extends StatelessWidget {
   final SessionStore? store;
   final AuthSession? initialSession;
-  const VeggiePalApp({super.key, this.store, this.initialSession});
+  final MapTiles mapTiles;
+  /// [mapTiles] cho phép test thay bộ tải ô bản đồ (mặc định dùng bộ tải của flutter_map).
+  const VeggiePalApp({super.key, this.store, this.initialSession, this.mapTiles = const MapTiles()});
 
   void _onSessionExpired() {
     final ctx = navigatorKey.currentContext;
@@ -62,6 +66,8 @@ class VeggiePalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<ApiClient>(create: (_) => ApiClient()),
+        Provider<LocationSource>(create: (_) => const GeolocatorSource()),
+        Provider<MapTiles>.value(value: mapTiles),
         ProxyProvider<ApiClient, AuthRepository>(update: (_, api, _) => AuthRepository(api)),
         ProxyProvider<ApiClient, HomeRepository>(update: (_, api, _) => HomeRepository(api)),
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),

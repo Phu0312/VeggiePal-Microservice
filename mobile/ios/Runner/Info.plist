@@ -66,6 +66,8 @@
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>VeggiePal cần vị trí của bạn để tìm các quán chay gần đây.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>VeggiePal cần truy cập thư viện ảnh để bạn chọn ảnh đại diện.</string>
 		<key>UIStatusBarHidden</key>
