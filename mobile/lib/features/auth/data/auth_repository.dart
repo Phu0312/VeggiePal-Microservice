@@ -22,6 +22,14 @@ class AuthRepository {
     return AuthSession('${m['accessToken']}', AuthUser.fromLogin(m));
   }
 
+  /// POST /auth/google {idToken}: backend tự kiểm tra ID token, liên kết với tài khoản cùng email
+  /// (chưa có thì tạo mới, vai trò USER) và trả cùng dạng phản hồi như /auth/login.
+  Future<AuthSession> loginWithGoogle(String idToken) async {
+    final r = await _api.post(Endpoints.googleLogin, body: {'idToken': idToken});
+    final m = Map<String, dynamic>.from(r as Map);
+    return AuthSession('${m['accessToken']}', AuthUser.fromLogin(m));
+  }
+
   // GET /users/me -> thông tin hồ sơ (có avatarUrl).
   Future<Map<String, dynamic>> profile() async {
     final r = await _api.get(Endpoints.me);

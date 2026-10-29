@@ -20,8 +20,7 @@ const Map<int, String> errorMessagesVi = {
   1016: 'Ảnh đại diện không được vượt quá 2MB.',
   1017: 'Không tải được tệp lên, vui lòng thử lại sau.',
   1018: 'Dữ liệu không hợp lệ.',
-  1019: 'Tài khoản đã bị khoá hoặc ngừng hoạt động.',
-  1020: 'Người dùng đã ở trạng thái này.',
+  1019: 'Không xác thực được tài khoản Google. Vui lòng thử lại.',
   // nutrition-service
   2001: 'Vui lòng nhập chiều cao.',
   2002: 'Chiều cao phải từ 50 đến 250 cm, tối đa 1 chữ số thập phân.',
