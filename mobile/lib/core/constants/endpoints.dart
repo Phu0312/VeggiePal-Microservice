@@ -76,6 +76,9 @@ class Endpoints {
   static String videoRecipe(int videoId) => '/ai/videos/by-video/$videoId';
   static String videoJob(int id) => '/ai/videos/$id';
 
+  // ---- AI service: gợi ý nội dung ----
+  static const aiRecommendations = '/ai/recommendations';
+
   // ---- AI service: chatbot ----
   static const chatGuestSessions = '/ai/chat/guest-sessions';
   static const chatGuest = '/ai/chat/guest';

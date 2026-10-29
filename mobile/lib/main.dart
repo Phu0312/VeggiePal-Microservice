@@ -17,6 +17,8 @@ import 'features/blog/data/blog_repository.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/home/data/home_repository.dart';
+import 'features/home/data/recommendation_controller.dart';
+import 'features/home/data/recommendation_repository.dart';
 import 'features/ingredient/data/ingredient_repository.dart';
 import 'features/ingredient/data/pantry_controller.dart';
 import 'features/menu_planner/data/health_sync.dart';
@@ -78,6 +80,7 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, RecipeRepository>(update: (_, api, _) => RecipeRepository(api)),
         ProxyProvider<ApiClient, VideoRepository>(update: (_, api, _) => VideoRepository(api)),
         ProxyProvider<ApiClient, PaymentRepository>(update: (_, api, _) => PaymentRepository(api)),
+        ProxyProvider<ApiClient, RecommendationRepository>(update: (_, api, _) => RecommendationRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
         ProxyProvider<ApiClient, ProfileRepository>(update: (_, api, _) => ProfileRepository(api)),
         ProxyProvider<ApiClient, ChatRepository>(update: (_, api, _) => ChatRepository(api)),
@@ -91,6 +94,10 @@ class VeggiePalApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
+        ChangeNotifierProxyProvider<AuthController, RecommendationController>(
+          create: (c) => RecommendationController(c.read<RecommendationRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
         ChangeNotifierProxyProvider<AuthController, SubscriptionController>(
           create: (c) => SubscriptionController(c.read<PaymentRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
@@ -100,7 +107,7 @@ class VeggiePalApp extends StatelessWidget {
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
         ),
         ChangeNotifierProxyProvider<AuthController, NotificationController>(
-          create: (c) => NotificationController(c.read<HomeRepository>()),
+          create: (c) => NotificationController(c.read<HomeRepository>(), c.read<VideoRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
         ),
       ],
