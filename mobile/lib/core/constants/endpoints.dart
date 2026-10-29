@@ -26,9 +26,6 @@ class Endpoints {
   static const myPassword = '/users/me/password';
   static const myAvatar = '/users/me/avatar';
   static const usersBatch = '/users/batch';
-  static String adminUser(int id) => '/admin/users/$id';
-  static const adminUsers = '/admin/users';
-  static String adminUserStatus(int id) => '/admin/users/$id/status';
 
   // ---- Blog service ----
   static const blogs = '/blogs';
@@ -43,29 +40,70 @@ class Endpoints {
   static String commentReplies(int id) => '/comments/$id/replies';
   static String commentById(int id) => '/comments/$id';
   static const videos = '/videos';
+  static const myVideos = '/videos/me';
   static String videoById(int id) => '/videos/$id';
-  static String videoSummarize(int id) => '/videos/$id/summarize';
+  static String videoSubmit(int id) => '/videos/$id/submit';
   static const categories = '/categories';
   static const comments = '/comments';
-  static const moderationQueue = '/admin/moderation/queue';
-  static String moderationReview(int id) => '/admin/moderation/$id/review';
 
   // ---- Nutrition service ----
   static const allergens = '/nutrition/allergens';
   static const myAllergies = '/nutrition/me/allergies';
-  static String allergiesOfUser(int userId) => '/nutrition/allergies/user/$userId';
   static const healthRecords = '/nutrition/me/health-records';
   static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
-  static const mealPlans = '/nutrition/meal-plans';
-  static const mealPlanGenerate = '/nutrition/meal-plans/generate';
-  static String mealPlanReplace(int id) => '/nutrition/meal-plans/$id/replace-meal';
-  static const recipes = '/nutrition/recipes';
-  static String recipeById(int id) => '/nutrition/recipes/$id';
-  static const myIngredients = '/nutrition/me/ingredients';
-  static String myIngredientById(int id) => '/nutrition/me/ingredients/$id';
+  // ---- AI service: thực đơn tuần ----
+  static const aiMealPlans = '/ai/meal-plans';
+  static String aiMealPlan(int id) => '/ai/meal-plans/$id';
+  static String aiMealPlanReplace(int id) => '/ai/meal-plans/$id/replace';
+  static String aiMealPlanFavorite(int id) => '/ai/meal-plans/$id/favorite';
+  static const aiMealPlanFavorites = '/ai/meal-plans/favorites';
+  static String aiMealPlanVersions(int id) => '/ai/meal-plans/$id/versions';
+  static const aiNutritionTarget = '/ai/meal-plans/nutrition-target';
+
+  // ---- Recipe service ----
+  static const recipes = '/recipes';
+  static const myRecipes = '/recipes/me';
+  static String recipeById(int id) => '/recipes/$id';
+  static String recipePublish(int id) => '/recipes/$id/publish';
+  static const ingredients = '/ingredients';
+  static String ingredientById(int id) => '/ingredients/$id';
+
   static const restaurantsNearby = '/restaurants/nearby';
+  // ---- AI service: bóc tách công thức từ video ----
+  static const videoJobs = '/ai/videos';
+  static const videoProcess = '/ai/videos/process';
+  static const videoProcessExisting = '/ai/videos/process-existing';
+  static String videoRecipe(int videoId) => '/ai/videos/by-video/$videoId';
+  static String videoJob(int id) => '/ai/videos/$id';
+
+  // ---- AI service: gợi ý nội dung ----
+  static const aiRecommendations = '/ai/recommendations';
+
+  // ---- AI service: chatbot ----
+  static const chatGuestSessions = '/ai/chat/guest-sessions';
   static const chatGuest = '/ai/chat/guest';
   static const chat = '/ai/chat';
-  static const aiMetrics = '/admin/ai/metrics';
+  static const chatConversations = '/ai/chat/conversations';
+  static String chatConversation(int id) => '/ai/chat/conversations/$id';
+
+  // ---- Payment service: gói thành viên và thanh toán PayOS ----
+  static const paymentPlans = '/payments/plans';
+  static const paymentCheckout = '/payments/checkout';
+  static String paymentOrder(int id) => '/payments/orders/$id';
+  static String paymentOrderCancel(int id) => '/payments/orders/$id/cancel';
+  static const paymentHistory = '/payments/history';
+  static const mySubscription = '/subscriptions/me';
+
+  // ---- Quản trị ----
+  static const aiModeration = '/ai/admin/moderation';
+  static String aiModerationCase(int id) => '/ai/admin/moderation/$id';
+  static const aiUsageSummary = '/ai/admin/monitoring/summary';
+  static const aiUsageLogs = '/ai/admin/monitoring/logs/search';
+  static const aiModels = '/ai/admin/monitoring/models';
+  static const aiLimits = '/ai/admin/monitoring/limits';
+  static const adminPaymentSummary = '/admin/payments/summary';
+  static const adminPaymentStatistics = '/admin/payments/statistics';
+  static const adminPaymentRevenue = '/admin/payments/revenue';
+  static const adminPaymentOrders = '/admin/payments/orders';
 }

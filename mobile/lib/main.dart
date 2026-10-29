@@ -18,11 +18,21 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/auth/data/google_auth.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/home/data/home_repository.dart';
+import 'features/home/data/recommendation_controller.dart';
+import 'features/home/data/recommendation_repository.dart';
+import 'features/ingredient/data/ingredient_repository.dart';
+import 'features/ingredient/data/pantry_controller.dart';
 import 'features/menu_planner/data/health_sync.dart';
-import 'features/menu_planner/data/meal_repository.dart';
+import 'features/menu_planner/data/meal_plan_repository.dart';
 import 'features/menu_planner/data/menu_repository.dart';
 import 'features/notifications/notification_controller.dart';
+import 'features/payment/data/payment_repository.dart';
+import 'features/payment/data/subscription_controller.dart';
 import 'features/places/data/places_repository.dart';
+import 'features/places/data/user_location.dart';
+import 'features/places/presentation/places_map.dart' show MapTiles;
+import 'features/recipe/data/recipe_repository.dart';
+import 'features/video/data/video_repository.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'navigation/main_navigation_screen.dart';
 
@@ -66,7 +76,12 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),
         ProxyProvider<ApiClient, MenuRepository>(update: (_, api, _) => MenuRepository(api)),
         ProxyProvider<ApiClient, BlogRepository>(update: (_, api, _) => BlogRepository(api)),
-        ProxyProvider<ApiClient, MealRepository>(update: (_, api, _) => MealRepository(api)),
+        ProxyProvider<ApiClient, IngredientRepository>(update: (_, api, _) => IngredientRepository(api)),
+        ProxyProvider<ApiClient, MealPlanRepository>(update: (_, api, _) => MealPlanRepository(api)),
+        ProxyProvider<ApiClient, RecipeRepository>(update: (_, api, _) => RecipeRepository(api)),
+        ProxyProvider<ApiClient, VideoRepository>(update: (_, api, _) => VideoRepository(api)),
+        ProxyProvider<ApiClient, PaymentRepository>(update: (_, api, _) => PaymentRepository(api)),
+        ProxyProvider<ApiClient, RecommendationRepository>(update: (_, api, _) => RecommendationRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
         ProxyProvider<ApiClient, ProfileRepository>(update: (_, api, _) => ProfileRepository(api)),
         ProxyProvider<ApiClient, ChatRepository>(update: (_, api, _) => ChatRepository(api)),
@@ -74,12 +89,26 @@ class VeggiePalApp extends StatelessWidget {
             create: (c) => AuthController(
                 c.read<ApiClient>(), c.read<AuthRepository>(), store ?? SessionStore(),
                 initial: initialSession, onSessionExpired: _onSessionExpired)),
-        ChangeNotifierProvider<ChatController>(
-            create: (c) => ChatController(c.read<ChatRepository>())),
+        ChangeNotifierProxyProvider<AuthController, ChatController>(
+          create: (c) => ChatController(c.read<ChatRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
+        ),
         ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
+        ChangeNotifierProxyProvider<AuthController, RecommendationController>(
+          create: (c) => RecommendationController(c.read<RecommendationRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthController, SubscriptionController>(
+          create: (c) => SubscriptionController(c.read<PaymentRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthController, PantryController>(
+          create: (_) => PantryController(),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
+        ),
         ChangeNotifierProxyProvider<AuthController, NotificationController>(
-          create: (c) => NotificationController(c.read<HomeRepository>()),
+          create: (c) => NotificationController(c.read<HomeRepository>(), c.read<VideoRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
         ),
       ],

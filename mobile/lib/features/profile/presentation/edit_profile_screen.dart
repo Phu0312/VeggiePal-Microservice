@@ -13,7 +13,8 @@ import '../../auth/presentation/auth_controller.dart';
 import '../data/profile_models.dart';
 import '../data/profile_repository.dart';
 
-/// Sửa thông tin cá nhân: họ tên, số điện thoại, ngày sinh và ảnh đại diện.
+/// Sửa thông tin cá nhân: họ tên, số điện thoại, ngày sinh, giới tính, mức vận động và ảnh đại diện
+/// (ngày sinh, giới tính, mức vận động để backend tính calo mục tiêu cho thực đơn).
 /// Dữ liệu được nạp từ GET /users/me, lưu bằng PATCH /users/me, ảnh bằng POST /users/me/avatar.
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -28,6 +29,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phone = TextEditingController();
   UserProfile? _profile;
   DateTime? _dob;
+  String? _gender;
+  String? _activity;
   bool _loading = true;
   bool _loadFailed = false;
   bool _saving = false;
@@ -59,6 +62,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _name.text = p.fullName;
         _phone.text = p.phone ?? '';
         _dob = p.dateOfBirth;
+        _gender = p.gender;
+        _activity = p.activityLevel;
       });
     } catch (e) {
       if (mounted) {
@@ -91,6 +96,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             fullName: _name.text.trim(),
             phone: _phone.text.trim(),
             dateOfBirth: _dob == null ? null : isoDate(_dob!),
+            gender: _gender,
+            activityLevel: _activity,
           );
       auth.updateUser(fullName: p.fullName);
       if (!mounted) return;
@@ -167,6 +174,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           child: Text(_dob == null ? 'Chọn ngày sinh' : fmtDate(_dob!),
                               style: TextStyle(color: _dob == null ? context.textMuted : null)),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _gender,
+                        decoration: const InputDecoration(
+                            labelText: 'Giới tính', prefixIcon: Icon(LucideIcons.users)),
+                        items: [
+                          for (final e in genderLabels.entries)
+                            DropdownMenuItem(value: e.key, child: Text(e.value)),
+                        ],
+                        onChanged: (v) => setState(() => _gender = v),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _activity,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                            labelText: 'Mức độ vận động', prefixIcon: Icon(LucideIcons.activity)),
+                        items: [
+                          for (final e in activityLabels.entries)
+                            DropdownMenuItem(value: e.key, child: Text(e.value)),
+                        ],
+                        onChanged: (v) => setState(() => _activity = v),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(

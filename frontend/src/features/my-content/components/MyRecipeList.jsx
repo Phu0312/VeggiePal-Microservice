@@ -13,6 +13,7 @@ import { useMyRecipes } from "@/features/recipe/hooks/useMyRecipes";
 import { totalMinutes } from "@/features/recipe/utils/recipeNutrition";
 import ConfirmDialog from "@/shared/components/ConfirmDialog";
 import FallbackImage from "@/shared/components/FallbackImage";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 
 // Tab "Công thức": công thức của tôi ở mọi trạng thái (GET /recipes/me), "Xem thêm".
 export default function MyRecipeList() {
@@ -86,6 +87,7 @@ export default function MyRecipeList() {
 }
 
 function RecipeRow({ recipe }) {
+  const { openForm } = useContentForm();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const publishRecipe = usePublishRecipe();
   const deleteRecipe = useDeleteRecipe();
@@ -151,12 +153,14 @@ function RecipeRow({ recipe }) {
         >
           Xem
         </Link>
-        <Link
-          to={`/recipes/${recipe.id}/edit`}
-          className={buttonVariants({ variant: "outline", size: "xs" })}
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          onClick={() => openForm("recipe", { id: recipe.id })}
         >
           Sửa
-        </Link>
+        </Button>
         {canPublishRecipe(recipe.status) && (
           <Button type="button" size="xs" disabled={publishRecipe.isPending} onClick={handlePublish}>
             {publishRecipe.isPending && <Loader2 className="size-3 animate-spin" />}

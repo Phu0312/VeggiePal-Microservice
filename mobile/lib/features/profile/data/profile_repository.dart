@@ -23,13 +23,20 @@ class ProfileRepository {
     return UserProfile.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
-  // PATCH /users/me {fullName, phone, dateOfBirth}; phone "" = xoá số điện thoại.
+  // PATCH /users/me {fullName, phone, dateOfBirth, gender, activityLevel}; phone "" = xoá số điện thoại,
+  // trường null/không gửi = giữ nguyên.
   Future<UserProfile> updateProfile(
-      {required String fullName, required String phone, String? dateOfBirth}) async {
+      {required String fullName,
+      required String phone,
+      String? dateOfBirth,
+      String? gender,
+      String? activityLevel}) async {
     final r = await _api.patch(Endpoints.me, body: {
       'fullName': fullName,
       'phone': phone,
       if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+      if (gender != null) 'gender': gender,
+      if (activityLevel != null) 'activityLevel': activityLevel,
     });
     return UserProfile.fromJson(Map<String, dynamic>.from(r as Map));
   }
@@ -85,12 +92,6 @@ class ProfileRepository {
     return asList(r)
         .map((e) => Allergen.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
-  }
-
-  // GET /nutrition/allergies/user/{userId} (công khai) -> mã chất gây dị ứng của một người dùng.
-  Future<List<String>> allergenCodesOfUser(int userId) async {
-    final r = await _api.get(Endpoints.allergiesOfUser(userId));
-    return asList(r).map((e) => '$e').toList();
   }
 
   // ---------------- nutrition-service: sức khỏe ----------------

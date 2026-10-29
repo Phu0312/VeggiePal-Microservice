@@ -1,4 +1,4 @@
-import { Bookmark, Share2 } from "lucide-react";
+import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { extractYouTubeId } from "@/features/video/utils/videoForm";
@@ -38,10 +38,6 @@ export default function VideoPlayerFrame({ video }) {
     }
   };
 
-  const handleBookmark = () => {
-    toast.info("Tính năng lưu video yêu thích đang được phát triển.");
-  };
-
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-3xl bg-black shadow-lg">
       {video.sourceType === "YOUTUBE" ? (
@@ -66,14 +62,6 @@ export default function VideoPlayerFrame({ video }) {
 
       {/* Nút thao tác nhanh trên góc */}
       <div className="absolute right-4 top-4 flex items-center gap-2 z-10 pointer-events-auto">
-        <button
-          type="button"
-          onClick={handleBookmark}
-          aria-label="Lưu video"
-          className="grid size-9 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80 backdrop-blur-sm"
-        >
-          <Bookmark className="size-4" />
-        </button>
         <button
           type="button"
           onClick={handleShare}

@@ -49,8 +49,17 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
       _send(() => _dio.get(path, queryParameters: query));
 
-  Future<dynamic> post(String path, {Object? body, Map<String, String>? headers}) =>
-      _send(() => _dio.post(path, data: body, options: Options(headers: headers)));
+  /// [onSendProgress] báo tiến độ tải tệp lên; [receiveTimeout] nới thời gian chờ phản hồi cho các yêu cầu
+  /// backend xử lý lâu (vd tải video lên kho lưu trữ).
+  Future<dynamic> post(String path,
+          {Object? body,
+          Map<String, String>? headers,
+          ProgressCallback? onSendProgress,
+          Duration? receiveTimeout}) =>
+      _send(() => _dio.post(path,
+          data: body,
+          onSendProgress: onSendProgress,
+          options: Options(headers: headers, receiveTimeout: receiveTimeout)));
 
   Future<dynamic> put(String path, {Object? body}) =>
       _send(() => _dio.put(path, data: body));

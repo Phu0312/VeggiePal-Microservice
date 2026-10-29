@@ -1,5 +1,4 @@
 import { useId } from "react";
-import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Trash2 } from "lucide-react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
@@ -36,9 +35,8 @@ const cardClass = "flex flex-col gap-5 rounded-3xl border border-border bg-card 
  * - Sửa (`recipe` là RecipeResponse): "Lưu thay đổi" (không đổi trạng thái);
  *   công thức chưa đăng có thêm "Lưu và đăng".
  */
-export default function RecipeForm({ recipe }) {
+export default function RecipeForm({ recipe, onClose }) {
   const idPrefix = useId();
-  const navigate = useNavigate();
   const isEdit = Boolean(recipe);
   const canPublish = !isEdit || recipe.status !== "PUBLISHED";
 
@@ -90,7 +88,7 @@ export default function RecipeForm({ recipe }) {
         } else {
           toast.success(isEdit ? "Đã cập nhật công thức" : "Đã lưu bản nháp");
         }
-        navigate("/my-content?tab=recipes");
+        onClose();
       } catch (error) {
         setError("root", { message: error.message });
       }
@@ -300,7 +298,7 @@ export default function RecipeForm({ recipe }) {
       )}
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" disabled={isSubmitting} onClick={() => navigate(-1)}>
+        <Button type="button" variant="ghost" disabled={isSubmitting} onClick={onClose}>
           Hủy
         </Button>
         <Button

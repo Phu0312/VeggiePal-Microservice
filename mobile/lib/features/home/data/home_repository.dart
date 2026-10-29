@@ -3,7 +3,7 @@ import '../../../core/network/api_client.dart';
 import '../../blog/data/blog_models.dart';
 import 'home_models.dart';
 
-/// Gọi blog-service: danh mục, video, bài viết (đọc công khai, ghi cần JWT).
+/// Gọi blog-service: danh mục, bài viết (đọc công khai, ghi cần JWT).
 /// Mọi lỗi được ném lại cho UI hiển thị popup.
 class HomeRepository {
   final ApiClient _api;
@@ -22,18 +22,6 @@ class HomeRepository {
     }
     walk(r);
     return out;
-  }
-
-  // GET /videos?keyword=&categoryId= (chỉ trả video PUBLISHED).
-  Future<List<VideoItem>> videos({String? keyword, int? categoryId}) async {
-    final r = await _api.get(Endpoints.videos, query: {
-      if (keyword != null && keyword.isNotEmpty) 'keyword': keyword,
-      if (categoryId != null) 'categoryId': categoryId,
-      'size': 10,
-    });
-    return asList(r)
-        .map((e) => VideoItem.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
   }
 
   // GET /blogs?keyword=&categoryId=&page=&size= (bài đã đăng, mới nhất trước) -> một trang cho bảng tin.
@@ -93,16 +81,5 @@ class HomeRepository {
       'publish': publish,
     });
     return BlogItem.fromJson(Map<String, dynamic>.from(r as Map));
-  }
-
-  // POST /videos (video lưu bằng URL, không upload file).
-  Future<void> createVideo(String title, String url, String? thumb, int? categoryId) async {
-    await _api.post(Endpoints.videos, body: {
-      'title': title,
-      'videoUrl': url,
-      'thumbnailUrl': thumb,
-      'categoryId': categoryId,
-      'publish': true,
-    });
   }
 }
