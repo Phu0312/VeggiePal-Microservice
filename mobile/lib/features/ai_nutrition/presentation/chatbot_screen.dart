@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../payment/data/subscription_controller.dart';
+import '../../payment/presentation/upgrade_dialog.dart';
 import '../data/chat_models.dart';
 import 'chat_controller.dart';
 import 'chat_markdown.dart';
@@ -50,6 +52,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (_input.text.isEmpty) _input.text = text.trim();
     if (outcome.guestQuotaExceeded) {
       await _showQuotaDialog();
+    } else if (outcome.memberQuotaExceeded) {
+      await showUpgradeDialog(context, outcome.error!, title: 'Hết lượt hỏi hôm nay');
     } else {
       await showErrorDialog(context, outcome.error!, title: 'Trợ lý AI không phản hồi');
     }
@@ -86,9 +90,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     final chat = context.watch<ChatController>();
+    final chatPerDay = context.watch<SubscriptionController>().subscription?.chatPerDay;
 
     return Column(children: [
-      _TopBar(chat),
+      _TopBar(chat, chat.quotaLabelFor(limit: chatPerDay)),
       Expanded(
         child: chat.loadingMessages
             ? const Center(child: CircularProgressIndicator())
@@ -151,7 +156,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 /// Thanh trên cùng. Khách: lượt dùng thử. Thành viên: nút lịch sử, tên cuộc trò chuyện + lượt còn lại, nút cuộc mới.
 class _TopBar extends StatelessWidget {
   final ChatController chat;
-  const _TopBar(this.chat);
+  final String quotaLabel;
+  const _TopBar(this.chat, this.quotaLabel);
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +167,7 @@ class _TopBar extends StatelessWidget {
         width: double.infinity,
         color: bg,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Text(chat.quotaLabel, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        child: Text(quotaLabel, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       );
     }
     return Container(
@@ -179,7 +185,7 @@ class _TopBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            Text(chat.quotaLabel, style: TextStyle(fontSize: 12, color: context.textMuted)),
+            Text(quotaLabel, style: TextStyle(fontSize: 12, color: context.textMuted)),
           ]),
         ),
         IconButton(

@@ -10,6 +10,9 @@ import '../../../core/network/api_client.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../core/widgets/paged_list_view.dart';
+import '../../payment/data/payment_models.dart';
+import '../../payment/data/subscription_controller.dart';
+import '../../payment/presentation/upgrade_dialog.dart';
 import '../data/video_models.dart';
 import '../data/video_repository.dart';
 import 'extraction_view.dart';
@@ -117,12 +120,15 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
       _list.currentState?.reload();
     } catch (e) {
       if (mounted) {
-        showErrorDialog(
-            context,
-            e is ApiException && e.code == 6003
-                ? 'Bạn đã hết lượt bóc tách video của gói hiện tại (gói FREE chưa có lượt). Hãy nâng cấp gói để dùng tính năng này.'
-                : errorMessage(e),
-            title: 'Không gửi được video');
+        if (e is ApiException && e.code == 6003) {
+          showUpgradeDialog(
+              context,
+              'Bạn đã hết lượt bóc tách video của gói hiện tại (gói FREE chưa có lượt). '
+              'Hãy nâng cấp gói để dùng tính năng này.',
+              title: 'Hết lượt bóc tách video');
+        } else {
+          showErrorDialog(context, errorMessage(e), title: 'Không gửi được video');
+        }
       }
     } finally {
       if (mounted) {
@@ -132,6 +138,16 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
         });
       }
     }
+  }
+
+  /// Giới hạn tệp và hạn mức bóc tách còn theo gói hiện tại.
+  String _limitHint(BuildContext context) {
+    final base = 'Tệp video tối đa 100MB, dài tối đa ${VideoLimits.jobMaxMinutes} phút.';
+    final sub = context.watch<SubscriptionController>().subscription;
+    if (sub == null) return base;
+    return sub.videosPerMonth > 0
+        ? '$base ${planName(sub.planCode)}: ${sub.videosPerMonth} lượt mỗi tháng.'
+        : '$base ${planName(sub.planCode)} chưa có lượt bóc tách, hãy nâng cấp gói.';
   }
 
   @override
@@ -154,8 +170,7 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
                           style: TextStyle(fontWeight: FontWeight.w600))),
                 ]),
                 const SizedBox(height: 6),
-                Text('Tệp video tối đa 100MB, dài tối đa ${VideoLimits.jobMaxMinutes} phút.',
-                    style: TextStyle(fontSize: 12.5, color: context.textMuted)),
+                Text(_limitHint(context), style: TextStyle(fontSize: 12.5, color: context.textMuted)),
                 const SizedBox(height: 12),
                 if (_uploading) ...[
                   LinearProgressIndicator(value: _progress),
