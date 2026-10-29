@@ -8,44 +8,6 @@ class CategoryItem {
       (j['id'] as num).toInt(), '${j['name']}', '${j['type'] ?? 'FOOD_TYPE'}');
 }
 
-class VideoItem {
-  final int id;
-  final String title;
-  final String? thumbnailUrl;
-  final String? videoUrl;
-  final int durationSeconds;
-  final int viewCount;
-  final int voteScore;
-  final String? categoryName;
-
-  const VideoItem({
-    required this.id,
-    required this.title,
-    this.thumbnailUrl,
-    this.videoUrl,
-    this.durationSeconds = 0,
-    this.viewCount = 0,
-    this.voteScore = 0,
-    this.categoryName,
-  });
-
-  factory VideoItem.fromJson(Map<String, dynamic> j) => VideoItem(
-        id: (j['id'] as num).toInt(),
-        title: '${j['title']}',
-        thumbnailUrl: j['thumbnailUrl'] as String?,
-        videoUrl: j['videoUrl'] as String?,
-        durationSeconds: (j['durationSeconds'] as num?)?.toInt() ?? 0,
-        viewCount: (j['viewCount'] as num?)?.toInt() ?? 0,
-        voteScore: (j['voteScore'] as num?)?.toInt() ?? 0,
-        categoryName: j['categoryName'] as String?,
-      );
-
-  String get durationText {
-    final m = durationSeconds ~/ 60, s = durationSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-}
-
 class BlogItem {
   final int id;
   final String title;

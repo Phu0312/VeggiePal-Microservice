@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show ProgressCallback;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,7 +29,11 @@ class FakeApi extends ApiClient {
   }
 
   @override
-  Future<dynamic> post(String path, {Object? body, Map<String, String>? headers}) async {
+  Future<dynamic> post(String path,
+      {Object? body,
+      Map<String, String>? headers,
+      ProgressCallback? onSendProgress,
+      Duration? receiveTimeout}) async {
     calls.add('POST $path');
     bodies.add(body);
     if (path == Endpoints.chatGuestSessions) {
