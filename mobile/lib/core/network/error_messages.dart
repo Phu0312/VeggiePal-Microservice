@@ -85,12 +85,17 @@ const Map<int, String> errorMessagesVi = {
   3040: 'Giá trị bầu chọn không hợp lệ.',
   3041: 'Bạn không thể bầu chọn cho bài viết của chính mình.',
   3042: 'Thiếu danh sách bài viết.',
-  3050: 'Video không tồn tại.',
-  3051: 'Vui lòng nhập tiêu đề video.',
-  3052: 'Vui lòng nhập đường dẫn video.',
-  3053: 'Video đang ở trạng thái không cho phép thực hiện thao tác này.',
-  3060: 'Không tìm thấy yêu cầu kiểm duyệt.',
-  3061: 'Thao tác kiểm duyệt không hợp lệ.',
+  3050: 'Dịch vụ kiểm duyệt AI tạm thời không khả dụng. Vui lòng thử lại sau.',
+  3051: 'Dịch vụ kiểm duyệt AI trả về kết quả không hợp lệ. Vui lòng thử lại.',
+  3060: 'Video không tồn tại.',
+  3061: 'Vui lòng nhập tiêu đề video.',
+  3062: 'Tiêu đề video tối đa 150 ký tự.',
+  3063: 'Mô tả video tối đa 5000 ký tự.',
+  3064: 'Hãy chọn đúng một nguồn video: tệp MP4 hoặc link YouTube.',
+  3065: 'Video phải là tệp MP4.',
+  3066: 'Video vượt quá dung lượng cho phép (tối đa 30MB).',
+  3067: 'Link YouTube không hợp lệ.',
+  3068: 'Video đang ở trạng thái không cho phép thực hiện thao tác này.',
 };
 
 /// Thông báo hiển thị cho người dùng: tiếng Việt theo mã lỗi nếu có, ngược lại dùng thông báo gốc của BE.

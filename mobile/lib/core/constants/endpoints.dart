@@ -42,8 +42,9 @@ class Endpoints {
   static String commentReplies(int id) => '/comments/$id/replies';
   static String commentById(int id) => '/comments/$id';
   static const videos = '/videos';
+  static const myVideos = '/videos/me';
   static String videoById(int id) => '/videos/$id';
-  static String videoSummarize(int id) => '/videos/$id/summarize';
+  static String videoSubmit(int id) => '/videos/$id/submit';
   static const categories = '/categories';
   static const comments = '/comments';
   static const moderationQueue = '/admin/moderation/queue';
@@ -73,6 +74,13 @@ class Endpoints {
   static const ingredients = '/ingredients';
 
   static const restaurantsNearby = '/restaurants/nearby';
+  // ---- AI service: bóc tách công thức từ video ----
+  static const videoJobs = '/ai/videos';
+  static const videoProcess = '/ai/videos/process';
+  static const videoProcessExisting = '/ai/videos/process-existing';
+  static String videoRecipe(int videoId) => '/ai/videos/by-video/$videoId';
+  static String videoJob(int id) => '/ai/videos/$id';
+
   // ---- AI service: chatbot ----
   static const chatGuestSessions = '/ai/chat/guest-sessions';
   static const chatGuest = '/ai/chat/guest';
