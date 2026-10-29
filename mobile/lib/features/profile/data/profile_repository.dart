@@ -94,12 +94,6 @@ class ProfileRepository {
         .toList();
   }
 
-  // GET /nutrition/allergies/user/{userId} (công khai) -> mã chất gây dị ứng của một người dùng.
-  Future<List<String>> allergenCodesOfUser(int userId) async {
-    final r = await _api.get(Endpoints.allergiesOfUser(userId));
-    return asList(r).map((e) => '$e').toList();
-  }
-
   // ---------------- nutrition-service: sức khỏe ----------------
 
   // GET /nutrition/me/health-records?page&size -> mới nhất trước.

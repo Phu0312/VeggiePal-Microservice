@@ -25,9 +25,6 @@ class Endpoints {
   static const myPassword = '/users/me/password';
   static const myAvatar = '/users/me/avatar';
   static const usersBatch = '/users/batch';
-  static String adminUser(int id) => '/admin/users/$id';
-  static const adminUsers = '/admin/users';
-  static String adminUserStatus(int id) => '/admin/users/$id/status';
 
   // ---- Blog service ----
   static const blogs = '/blogs';
@@ -47,13 +44,10 @@ class Endpoints {
   static String videoSubmit(int id) => '/videos/$id/submit';
   static const categories = '/categories';
   static const comments = '/comments';
-  static const moderationQueue = '/admin/moderation/queue';
-  static String moderationReview(int id) => '/admin/moderation/$id/review';
 
   // ---- Nutrition service ----
   static const allergens = '/nutrition/allergens';
   static const myAllergies = '/nutrition/me/allergies';
-  static String allergiesOfUser(int userId) => '/nutrition/allergies/user/$userId';
   static const healthRecords = '/nutrition/me/health-records';
   static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
@@ -72,6 +66,7 @@ class Endpoints {
   static String recipeById(int id) => '/recipes/$id';
   static String recipePublish(int id) => '/recipes/$id/publish';
   static const ingredients = '/ingredients';
+  static String ingredientById(int id) => '/ingredients/$id';
 
   static const restaurantsNearby = '/restaurants/nearby';
   // ---- AI service: bóc tách công thức từ video ----
@@ -87,5 +82,16 @@ class Endpoints {
   static const chat = '/ai/chat';
   static const chatConversations = '/ai/chat/conversations';
   static String chatConversation(int id) => '/ai/chat/conversations/$id';
-  static const aiMetrics = '/admin/ai/metrics';
+
+  // ---- Quản trị ----
+  static const aiModeration = '/ai/admin/moderation';
+  static String aiModerationCase(int id) => '/ai/admin/moderation/$id';
+  static const aiUsageSummary = '/ai/admin/monitoring/summary';
+  static const aiUsageLogs = '/ai/admin/monitoring/logs/search';
+  static const aiModels = '/ai/admin/monitoring/models';
+  static const aiLimits = '/ai/admin/monitoring/limits';
+  static const adminPaymentSummary = '/admin/payments/summary';
+  static const adminPaymentStatistics = '/admin/payments/statistics';
+  static const adminPaymentRevenue = '/admin/payments/revenue';
+  static const adminPaymentOrders = '/admin/payments/orders';
 }
