@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
-import { toast } from "sonner";
+import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useRequireLogin } from "@/features/auth/hooks/useRequireLogin";
@@ -33,10 +32,6 @@ export default function VideoMetaHeader({ video, author }) {
   }
 
   const authorName = author?.fullName ?? "Thành viên VeggiePal";
-
-  const handleVoteNotice = () => {
-    toast.info("Tính năng bình chọn video đang được phát triển.");
-  };
 
   // Nút AI theo trạng thái công thức của video (xem useVideoRecipe): đã có kết quả thì cuộn tới thẻ AI (khách và thành viên đều xem được), chưa có thì bóc tách (trừ 1 lượt của thành viên), YouTube thì khóa, khách thì mời đăng nhập để bóc tách.
   const aiStatus = recipe.status;
@@ -95,29 +90,6 @@ export default function VideoMetaHeader({ video, author }) {
             {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
             {aiLabel}
           </Button>
-        </div>
-
-        {/* Nút thích / không thích tĩnh (BE chưa hỗ trợ targetType=VIDEO) */}
-        <div className="flex items-center rounded-full border border-border bg-card">
-          <button
-            type="button"
-            onClick={handleVoteNotice}
-            title="Bình chọn video (sắp có)"
-            className="flex items-center gap-1.5 rounded-l-full px-3.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-surface"
-          >
-            <ThumbsUp className="size-3.5" />
-            Thích
-          </button>
-          <div className="h-4 w-px bg-border" />
-          <button
-            type="button"
-            onClick={handleVoteNotice}
-            title="Bình chọn video (sắp có)"
-            aria-label="Không thích"
-            className="rounded-r-full px-3 py-1.5 text-ink transition hover:bg-surface"
-          >
-            <ThumbsDown className="size-3.5" />
-          </button>
         </div>
       </div>
 

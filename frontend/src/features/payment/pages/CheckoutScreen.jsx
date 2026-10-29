@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import AppHeader from "@/shared/components/AppHeader";
-import AppFooter from "@/shared/components/AppFooter";
 import { Button } from "@/components/ui/button";
 import { useOrder, useCheckout, useCancelOrder } from "@/features/payment/hooks";
 import { paymentKeys } from "@/features/payment/queryKeys";
@@ -90,7 +89,6 @@ function Shell({ children }) {
       <main className="mx-auto flex w-full max-w-xl flex-col items-center px-4 py-8 sm:px-6 sm:py-12">
         {children}
       </main>
-      <AppFooter />
     </div>
   );
 }

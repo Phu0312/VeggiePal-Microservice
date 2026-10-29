@@ -31,6 +31,7 @@ const fixLinkClass =
  * - `overridden`: người dùng đang tự đặt mục tiêu riêng nên thẻ này chỉ để tham khảo.
  * - `onUseTarget(target)`: điền mục tiêu gợi ý vào các ô "tự đặt riêng" để chỉnh tiếp (nút chỉ hiện khi có hàm này).
  * - `onClearTarget()`: xóa mục tiêu riêng để quay lại mục tiêu tự tính (nút chỉ hiện khi đang `overridden`).
+ * - `children`: phần form đặt ở đầu thẻ (vd. ô "Tên thực đơn").
  * Form cha cũng gọi `useNutritionTarget` cùng khóa để biết khi nào BE chắc chắn từ chối; React Query dùng chung một
  * lần gọi API cho cả hai nơi.
  */
@@ -42,12 +43,14 @@ export default function NutritionTargetCard({
   overridden = false,
   onUseTarget,
   onClearTarget,
+  children,
 }) {
   const { data, isPending, isFetching, error } = useNutritionTarget(goalType, enabled && !profileIssue);
   const lines = targetRangeLines(data?.target);
 
   return (
     <section className="rounded-2xl bg-card p-4 ring-1 ring-border" aria-live="polite">
+      {children && <div className="mb-4 border-b border-border pb-4">{children}</div>}
       <h4 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Calculator className="size-4 text-brand" />
         Mục tiêu dinh dưỡng gợi ý cho bạn

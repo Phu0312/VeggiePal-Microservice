@@ -391,7 +391,7 @@ export default function TodayMeals({
             </AlertDialogMedia>
             <AlertDialogTitle>Đổi món và tính lại khẩu phần?</AlertDialogTitle>
             <AlertDialogDescription>
-              Khi đổi món, Bé Bông Cải tính lại khẩu phần của các bữa để vẫn đạt mục tiêu calo. Khẩu phần bạn đã tự chỉnh
+              Khi đổi món, VeggiePal tính lại khẩu phần của các bữa để vẫn đạt mục tiêu calo. Khẩu phần bạn đã tự chỉnh
               (nếu có) sẽ bị đặt lại.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -431,7 +431,7 @@ function EmptyState() {
       </span>
       <h3 className="text-base font-bold text-ink">Bạn chưa có thực đơn nào</h3>
       <p className="max-w-md text-sm text-subtle">
-        Chọn nguyên liệu, đặt mục tiêu rồi nhờ Bé Bông Cải lên thực đơn 7 ngày cho bạn nhé.
+        Chọn nguyên liệu, đặt mục tiêu rồi nhờ VeggiePal lên thực đơn 7 ngày cho bạn nhé.
       </p>
       <a
         href="#ai-suggestion"
