@@ -31,12 +31,3 @@ class HealthInfo {
     return (base * factor / 10).round() * 10;
   }
 }
-
-/// Tên bữa ăn tiếng Việt (BREAKFAST/LUNCH/DINNER/ANY).
-String mealTypeLabel(String type) => switch (type.toUpperCase()) {
-      'BREAKFAST' => 'Bữa sáng',
-      'LUNCH' => 'Bữa trưa',
-      'DINNER' => 'Bữa tối',
-      'ANY' => 'Mọi bữa',
-      _ => type,
-    };

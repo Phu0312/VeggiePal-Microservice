@@ -56,8 +56,6 @@ class Endpoints {
   static const healthRecords = '/nutrition/me/health-records';
   static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
-  static const recipes = '/nutrition/recipes';
-  static String recipeById(int id) => '/nutrition/recipes/$id';
   static const myIngredients = '/nutrition/me/ingredients';
   static String myIngredientById(int id) => '/nutrition/me/ingredients/$id';
   // ---- AI service: thực đơn tuần ----
@@ -70,7 +68,11 @@ class Endpoints {
   static const aiNutritionTarget = '/ai/meal-plans/nutrition-target';
 
   // ---- Recipe service ----
-  static String recipeDetail(int id) => '/recipes/$id';
+  static const recipes = '/recipes';
+  static const myRecipes = '/recipes/me';
+  static String recipeById(int id) => '/recipes/$id';
+  static String recipePublish(int id) => '/recipes/$id/publish';
+  static const ingredients = '/ingredients';
 
   static const restaurantsNearby = '/restaurants/nearby';
   static const chatGuest = '/ai/chat/guest';

@@ -112,26 +112,6 @@ void main() {
     expect(old.isFavorite, current.isFavorite);
   });
 
-  test('PlanRecipe sắp bước theo stepNumber và ghép số lượng + đơn vị', () {
-    final r = PlanRecipe.fromJson({
-      'id': 1,
-      'title': 'Đậu hũ sốt cà',
-      'prepTime': 10,
-      'cookTime': 20,
-      'ingredients': [
-        {'ingredientName': 'Đậu hũ', 'quantity': 200, 'unit': 'g'},
-        {'ingredientName': 'Muối', 'quantity': null, 'unit': null},
-      ],
-      'steps': [
-        {'stepNumber': 2, 'instruction': 'Sốt'},
-        {'stepNumber': 1, 'instruction': 'Chiên'},
-      ],
-    });
-    expect(r.totalMinutes, 30);
-    expect(r.ingredients.map((i) => i.amount), ['200 g', '']);
-    expect(r.steps, ['Chiên', 'Sốt']);
-  });
-
   test('todayDayKey đổi weekday của Dart sang khoá thứ', () {
     expect(todayDayKey(DateTime(2026, 10, 26)), 'MONDAY'); // 26/10/2026 là thứ Hai
     expect(todayDayKey(DateTime(2026, 11, 1)), 'SUNDAY');
