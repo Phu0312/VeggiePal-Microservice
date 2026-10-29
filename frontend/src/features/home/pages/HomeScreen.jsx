@@ -4,7 +4,6 @@ import AppFooter from "@/shared/components/AppFooter";
 import HomeHero from "@/features/home/components/HomeHero";
 import TrendingRecipesSection from "@/features/home/components/TrendingRecipesSection";
 import AiRecommendationsSection from "@/features/home/components/AiRecommendationsSection";
-import NutritionLookupSection from "@/features/home/components/NutritionLookupSection";
 
 export default function HomeScreen() {
   return (
@@ -35,7 +34,6 @@ export default function HomeScreen() {
 
       <TrendingRecipesSection />
       <AiRecommendationsSection />
-      <NutritionLookupSection />
       <AppFooter />
     </div>
   );

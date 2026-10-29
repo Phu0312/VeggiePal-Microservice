@@ -1,11 +1,11 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { Activity, CreditCard, ExternalLink, FolderTree, LayoutDashboard, LogOut, Salad, ShieldAlert, ShieldCheck } from "lucide-react";
 
-import logo from "@/assets/img/logo.png";
 import { Button } from "@/components/ui/button";
 import { usePendingModerationCases } from "@/features/admin/moderation/hooks/useModeration";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { cn } from "@/lib/utils";
+import Logo from "@/shared/components/Logo";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 
 const NAV_ITEMS = [
@@ -33,10 +33,10 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-dvh bg-canvas">
-      <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
+      <header className="sticky top-0 z-30 glass-strong rounded-none border-x-0 border-t-0">
         <div className="mx-auto flex w-full max-w-[1400px] items-center gap-3 px-4 py-2 sm:px-6">
           <Link to="/admin" className="flex shrink-0 items-center gap-2">
-            <img src={logo} alt="VeggiePal" className="h-10 w-auto" />
+            <Logo markClassName="size-9" />
             <span className="hidden items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand sm:flex">
               <ShieldCheck className="size-3.5" />
               Quản trị

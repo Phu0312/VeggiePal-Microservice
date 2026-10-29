@@ -1,5 +1,4 @@
 import { useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -33,9 +32,8 @@ const notify = ({ tone, message }) =>
  * `categories` là danh sách phẳng { id, name } của danh mục đang hoạt động.
  * Ảnh bìa tải lên bằng endpoint riêng sau khi bài đã có id.
  */
-export default function BlogForm({ blog, categories }) {
+export default function BlogForm({ blog, categories, onClose }) {
   const idPrefix = useId();
-  const navigate = useNavigate();
   const isEdit = Boolean(blog);
   const [thumbnailFile, setThumbnailFile] = useState(null);
 
@@ -76,7 +74,7 @@ export default function BlogForm({ blog, categories }) {
 
   const finish = (result, message) => {
     notify(message ?? describeBlogOutcome(result));
-    navigate(result.status === "PUBLISHED" ? `/blog/${result.id}` : "/my-content");
+    onClose();
   };
 
   const save = (publish) =>
@@ -105,7 +103,7 @@ export default function BlogForm({ blog, categories }) {
           const draft = await createBlog.mutateAsync({ ...payload, publish: false });
           if (!(await uploadThumbnailSafely(draft.id))) {
             toast.info("Bài được lưu dưới dạng bản nháp, bạn có thể gửi duyệt lại sau.");
-            navigate("/my-content");
+            onClose();
             return;
           }
           finish(await submitBlog.mutateAsync(draft.id));
@@ -219,7 +217,7 @@ export default function BlogForm({ blog, categories }) {
       </section>
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" disabled={isSubmitting} onClick={() => navigate(-1)}>
+        <Button type="button" variant="ghost" disabled={isSubmitting} onClick={onClose}>
           Hủy
         </Button>
         {isEdit ? (

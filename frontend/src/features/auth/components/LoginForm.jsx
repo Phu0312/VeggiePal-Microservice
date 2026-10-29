@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,6 @@ import { loginSchema } from "@/features/auth/schema";
 import { login } from "@/features/auth/api/authApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { resolvePostLoginPath } from "@/features/auth/utils/roleRedirect";
-
-import mailIcon from "@/assets/svg/mail.svg";
 
 export default function LoginForm({ onSwitchMode }) {
   const navigate = useNavigate();
@@ -74,11 +72,7 @@ export default function LoginForm({ onSwitchMode }) {
               aria-invalid={Boolean(errors.email)}
               {...register("email")}
             />
-            <img
-              src={mailIcon}
-              alt=""
-              className="pointer-events-none absolute right-0 top-1/2 w-[17px] -translate-y-1/2 brightness-0 invert opacity-80"
-            />
+            <Mail className="pointer-events-none absolute right-0 top-1/2 size-[17px] -translate-y-1/2 text-white/80" />
           </div>
           {errors.email && <span className="text-xs text-destructive">{errors.email.message}</span>}
         </div>
@@ -111,7 +105,7 @@ export default function LoginForm({ onSwitchMode }) {
           )}
         </div>
 
-        <div className="flex items-center justify-between text-[13px]">
+        <div className="flex items-center text-[13px]">
           <label className="flex items-center gap-2 font-medium text-white/75">
             <input
               type="checkbox"
@@ -120,13 +114,6 @@ export default function LoginForm({ onSwitchMode }) {
             />
             Ghi nhớ đăng nhập
           </label>
-          <button
-            type="button"
-            onClick={() => navigate("/forgot-password")}
-            className="font-semibold text-white/90 transition hover:text-white hover:underline"
-          >
-            Quên mật khẩu?
-          </button>
         </div>
 
         <Button

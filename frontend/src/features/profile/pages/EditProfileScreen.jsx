@@ -1,14 +1,12 @@
 import { useLocation } from "react-router-dom";
 
 import AppHeader from "@/shared/components/AppHeader";
-import AppFooter from "@/shared/components/AppFooter";
 import Reveal from "@/shared/components/Reveal";
 
 import EditProfileHeader from "@/features/profile/components/EditProfileHeader";
 import EditAvatarCard from "@/features/profile/components/EditAvatarCard";
 import EditPersonalInfoCard from "@/features/profile/components/EditPersonalInfoCard";
 import EditPasswordCard from "@/features/profile/components/EditPasswordCard";
-import EditQuoteCard from "@/features/profile/components/EditQuoteCard";
 import EditHealthCard from "@/features/profile/components/EditHealthCard";
 import EditAllergyCard from "@/features/profile/components/EditAllergyCard";
 import EditActionBar from "@/features/profile/components/EditActionBar";
@@ -55,7 +53,6 @@ export default function EditProfileScreen() {
 
             <Reveal><EditPersonalInfoCard personal={personal} /></Reveal>
             <Reveal><EditPasswordCard /></Reveal>
-            <Reveal><EditQuoteCard /></Reveal>
           </div>
 
           {/* Cột phải (8/12) */}
@@ -77,7 +74,6 @@ export default function EditProfileScreen() {
         </Reveal>
       </main>
 
-      <AppFooter />
     </div>
   );
 }

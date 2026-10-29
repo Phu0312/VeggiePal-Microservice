@@ -7,9 +7,6 @@ import AskBroccoliCard from "@/features/blog/components/AskBroccoliCard";
 import BlogFilterBar from "@/features/blog/components/BlogFilterBar";
 import BlogPostCard from "@/features/blog/components/BlogPostCard";
 import CommunityHero from "@/features/blog/components/CommunityHero";
-import LeaderboardCard from "@/features/blog/components/LeaderboardCard";
-import TrendingTopicsCard from "@/features/blog/components/TrendingTopicsCard";
-import WeeklyChallengeCard from "@/features/blog/components/WeeklyChallengeCard";
 import { useMyVotes } from "@/features/blog/hooks/useBlogVotes";
 import { useBlogFeed } from "@/features/blog/hooks/useBlogs";
 import {
@@ -17,14 +14,12 @@ import {
   parseFeedFilters,
   toFeedSearchParams,
 } from "@/features/blog/utils/feedFilters";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
 import Reveal from "@/shared/components/Reveal";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
 
-// Trang Cộng đồng (route /blog). Bài viết lấy từ API thật (GET /blogs); bảng vàng,
-// chủ đề, thử thách... BE chưa có API nên vẫn dùng mock trong features/blog/data/mockBlog.js.
-// Trên mobile bài viết lên trước, hai cột phụ xuống dưới (order-*); từ lg trở lên là 3 cột.
+// Trang Cộng đồng (route /blog). Bài viết lấy từ API thật (GET /blogs).
+// Trên mobile bài viết lên trước, cột phụ xuống dưới (order-*); từ lg trở lên là 2 cột.
 export default function BlogScreen() {
   // Bộ lọc nằm trên URL (?q=&sort=&category=) để quay lại từ trang chi tiết vẫn giữ nguyên.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,13 +62,8 @@ export default function BlogScreen() {
           <CommunityHero />
         </Reveal>
 
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[250px_minmax(0,1fr)_300px]">
-          <aside className="order-2 flex flex-col gap-6 lg:order-1 lg:sticky lg:top-24">
-            <LeaderboardCard />
-            <TrendingTopicsCard />
-          </aside>
-
-          <div className="order-1 flex flex-col gap-6 lg:order-2">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="order-1 flex flex-col gap-6">
             <BlogFilterBar key={filterBarKey} filters={filters} onChange={updateFilters} />
 
             {isError ? (
@@ -138,14 +128,12 @@ export default function BlogScreen() {
             )}
           </div>
 
-          <aside className="order-3 flex flex-col gap-6 lg:sticky lg:top-24">
-            <WeeklyChallengeCard />
+          <aside className="order-2 flex flex-col gap-6 lg:sticky lg:top-24">
             <AskBroccoliCard />
           </aside>
         </div>
       </main>
 
-      <AppFooter />
     </div>
   );
 }

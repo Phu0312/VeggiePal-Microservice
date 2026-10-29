@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { BookOpen, ChefHat, Plus, Sparkles, Video as VideoIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/variants/button-variants";
 import MyBlogList from "@/features/my-content/components/MyBlogList";
 import MyRecipeList from "@/features/my-content/components/MyRecipeList";
 import MyVideoJobList from "@/features/my-content/components/MyVideoJobList";
 import MyVideoList from "@/features/my-content/components/MyVideoList";
 import UploadVideoJobDialog from "@/features/video/components/UploadVideoJobDialog";
 import { cn } from "@/lib/utils";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 
 const TABS = [
   { id: "blogs", label: "Bài viết", icon: BookOpen },
@@ -32,12 +31,13 @@ export default function MyContentScreen() {
   const tab = TABS.some(({ id }) => id === currentTab) ? currentTab : "blogs";
   const setTab = (id) => setSearchParams(id === "blogs" ? {} : { tab: id }, { replace: true });
 
-  const getCreateLink = () => {
-    if (tab === "videos") return { to: "/videos/new", label: "Đăng video" };
-    if (tab === "recipes") return { to: "/recipes/new", label: "Tạo công thức" };
-    return { to: "/blog/new", label: "Viết bài mới" };
+  const { openForm } = useContentForm();
+  const getCreateAction = () => {
+    if (tab === "videos") return { kind: "video", label: "Đăng video" };
+    if (tab === "recipes") return { kind: "recipe", label: "Tạo công thức" };
+    return { kind: "blog", label: "Viết bài mới" };
   };
-  const createLink = getCreateLink();
+  const createAction = getCreateAction();
 
   return (
     <div className="min-h-dvh">
@@ -58,13 +58,10 @@ export default function MyContentScreen() {
               Bóc tách video
             </Button>
           ) : (
-            <Link
-              to={createLink.to}
-              className={buttonVariants({ variant: "default", size: "md" })}
-            >
+            <Button type="button" size="md" onClick={() => openForm(createAction.kind)}>
               <Plus className="size-4" />
-              {createLink.label}
-            </Link>
+              {createAction.label}
+            </Button>
           )}
         </div>
 
@@ -102,7 +99,6 @@ export default function MyContentScreen() {
 
       <UploadVideoJobDialog open={uploadOpen} onOpenChange={setUploadOpen} />
 
-      <AppFooter />
     </div>
   );
 }
