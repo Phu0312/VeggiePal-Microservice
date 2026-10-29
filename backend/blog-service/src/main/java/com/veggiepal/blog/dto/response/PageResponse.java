@@ -20,4 +20,8 @@ public class PageResponse<T> {
     long totalElements;
 
     int totalPages;
+
+    public List<T> getContent() {
+        return items;
+    }
 }

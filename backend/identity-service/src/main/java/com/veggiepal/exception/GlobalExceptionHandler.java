@@ -7,6 +7,7 @@ import jakarta.validation.ConstraintViolation;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -40,6 +41,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorCode.UNCATEGORIZED_EXCEPTION.getStatusCode())
                 .body(apiResponse);
+    }
+
+    @ExceptionHandler(value = AccessDeniedException.class)
+    void handlingAccessDenied(
+            AccessDeniedException exception
+    ) throws AccessDeniedException {
+        throw exception;
     }
 
     @ExceptionHandler(value = AppException.class)

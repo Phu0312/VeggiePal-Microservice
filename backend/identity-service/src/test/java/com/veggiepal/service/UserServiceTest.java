@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import com.veggiepal.dto.request.LoginRequest;
 import com.veggiepal.dto.response.LoginResponse;
 import com.veggiepal.entity.User;
 import com.veggiepal.enums.Role;
@@ -52,6 +53,43 @@ class UserServiceTest {
 
     @InjectMocks
     UserService userService;
+
+    @Test
+    void login_activeUser_returnsToken() {
+        User existing = existingUser(true, UserStatus.ACTIVE);
+        when(userRepository.findByEmail("an@gmail.com")).thenReturn(Optional.of(existing));
+        when(passwordEncoder.matches("secret123", "own-hash")).thenReturn(true);
+        when(jwtService.generateToken(existing)).thenReturn("app-token");
+
+        LoginResponse response = userService.login(new LoginRequest(" An@Gmail.com ", "secret123"));
+
+        assertThat(response.getAccessToken()).isEqualTo("app-token");
+        assertThat(response.getUserId()).isEqualTo(7L);
+    }
+
+    @Test
+    void login_blockedUser_throwsUserBlocked() {
+        User existing = existingUser(true, UserStatus.BLOCKED);
+        when(userRepository.findByEmail("an@gmail.com")).thenReturn(Optional.of(existing));
+        when(passwordEncoder.matches("secret123", "own-hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.login(new LoginRequest("an@gmail.com", "secret123")))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.USER_BLOCKED));
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    void login_inactiveUser_throwsUserBlocked() {
+        User existing = existingUser(true, UserStatus.INACTIVE);
+        when(userRepository.findByEmail("an@gmail.com")).thenReturn(Optional.of(existing));
+        when(passwordEncoder.matches("secret123", "own-hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.login(new LoginRequest("an@gmail.com", "secret123")))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.USER_BLOCKED));
+        verifyNoInteractions(jwtService);
+    }
 
     @Test
     void loginWithGoogle_newEmail_createsActiveVerifiedUser() {
@@ -118,12 +156,14 @@ class UserServiceTest {
         when(googleTokenVerifier.verify(ID_TOKEN)).thenReturn(googleJwt("an@gmail.com", true, "An Nguyen"));
         when(userRepository.findByEmail("an@gmail.com")).thenReturn(Optional.of(existing));
         when(passwordEncoder.encode(anyString())).thenReturn("random-hash");
-        when(jwtService.generateToken(existing)).thenReturn("app-token");
 
-        userService.loginWithGoogle(ID_TOKEN);
+        assertThatThrownBy(() -> userService.loginWithGoogle(ID_TOKEN))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.USER_BLOCKED));
 
         assertThat(existing.getStatus()).isEqualTo(UserStatus.BLOCKED);
         assertThat(existing.getPasswordHash()).isEqualTo("random-hash");
+        verifyNoInteractions(jwtService);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.veggiepal.blog.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -20,6 +21,15 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 
     Page<Video> findByStatusAndCategoryId(ContentStatus status, Long categoryId, Pageable pageable);
 
+    Page<Video> findByStatusAndAuthorId(ContentStatus status, Long authorId, Pageable pageable);
+
+    Page<Video> findByStatusAndCategoryIdAndAuthorId(
+            ContentStatus status,
+            Long categoryId,
+            Long authorId,
+            Pageable pageable
+    );
+
     Page<Video> findByAuthorId(Long authorId, Pageable pageable);
 
     Page<Video> findByAuthorIdAndStatus(Long authorId, ContentStatus status, Pageable pageable);
@@ -28,8 +38,46 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
 
     boolean existsByCategoryId(Long categoryId);
 
+    long countByStatus(ContentStatus status);
+
+    @Query("""
+            select v.authorId as authorId,
+                   count(v) as videoCount,
+                   coalesce(sum(v.viewCount), 0) as totalViews,
+                   coalesce(sum(v.voteScore), 0) as totalLikes
+            from Video v
+            where v.status = :status
+            group by v.authorId
+            """)
+    List<CreatorAggregate> aggregateCreators(@Param("status") ContentStatus status);
+
+    @Query("""
+            select v.category.id as categoryId,
+                   v.category.name as categoryName,
+                   count(v) as postCount
+            from Video v
+            where v.status = :status
+            group by v.category.id, v.category.name
+            """)
+    List<BlogRepository.CategoryAggregate> countByCategory(@Param("status") ContentStatus status);
+
     /** Atomic, like BlogRepository.incrementViewCount: concurrent readers must not lose views. */
     @Modifying
     @Query("update Video v set v.viewCount = v.viewCount + 1 where v.id = :id")
     void incrementViewCount(@Param("id") Long id);
+
+    /** Atomic vote score adjustment for concurrent video votes. */
+    @Modifying
+    @Query("update Video v set v.voteScore = v.voteScore + :delta where v.id = :id")
+    void addVoteScore(@Param("id") Long id, @Param("delta") int delta);
+
+    interface CreatorAggregate {
+        Long getAuthorId();
+
+        Long getVideoCount();
+
+        Long getTotalViews();
+
+        Long getTotalLikes();
+    }
 }

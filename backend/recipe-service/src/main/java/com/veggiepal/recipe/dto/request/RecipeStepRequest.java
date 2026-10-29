@@ -3,6 +3,7 @@ package com.veggiepal.recipe.dto.request;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -14,10 +15,11 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RecipeStepRequest {
 
-    @NotNull
-    @Min(1)
+    @NotNull(message = "STEP_NUMBER_REQUIRED")
+    @Min(value = 1, message = "INVALID_STEP_NUMBER")
     Integer stepNumber;
 
-    @NotBlank
+    @NotBlank(message = "STEP_INSTRUCTION_REQUIRED")
+    @Size(max = 2000, message = "INVALID_STEP_INSTRUCTION")
     String instruction;
 }

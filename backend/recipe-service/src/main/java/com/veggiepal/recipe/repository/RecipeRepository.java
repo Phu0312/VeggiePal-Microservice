@@ -1,8 +1,11 @@
 package com.veggiepal.recipe.repository;
 
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,6 +18,8 @@ public interface RecipeRepository
         extends JpaRepository<Recipe, Long> {
 
     boolean existsByTitle(String title);
+
+    Optional<Recipe> findByIdAndStatus(Long id, RecipeStatus status);
 
     Page<Recipe> findByUserId(
             Long userId,
@@ -53,4 +58,8 @@ public interface RecipeRepository
 
             Pageable pageable
     );
+
+    @Modifying
+    @Query("update Recipe r set r.likeCount = case when (r.likeCount + :delta) < 0 then 0 else (r.likeCount + :delta) end where r.id = :id")
+    void addLikeCount(@Param("id") Long id, @Param("delta") int delta);
 }
