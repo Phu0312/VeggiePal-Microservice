@@ -16,11 +16,13 @@ import '../data/home_models.dart';
 import '../data/home_repository.dart';
 import 'blog_detail_screen.dart';
 import 'create_content_sheet.dart';
+import 'home_highlights.dart';
 import 'post_card.dart';
 
 /// TAB 1 - Trang chủ: bảng tin bài viết xếp theo chiều dọc (mới nhất trước), cuộn xuống tự tải thêm.
 /// Widget tree: Scaffold(FAB cho thành viên)
 ///   └─ RefreshIndicator └─ ListView
+///        ├─ HomeHighlights (Món chay mới + Gợi ý của AI)
 ///        ├─ VegSearchBar
 ///        ├─ Danh mục (ListView ngang của ChoiceChip)
 ///        └─ Danh sách PostCard (tác giả, tiêu đề + ảnh bìa, thích / không thích / bình luận)
@@ -38,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scroll = ScrollController();
 
   final _videoFeed = GlobalKey<VideoFeedState>();
+  final _highlights = GlobalKey<HomeHighlightsState>();
   bool _showVideos = false; // false = bảng tin bài viết, true = bảng tin video
   List<CategoryItem> _categories = [];
   List<BlogItem> _blogs = [];
@@ -266,12 +269,14 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _showVideos
               ? VideoFeed(key: _videoFeed, categories: _categories)
               : RefreshIndicator(
-            onRefresh: _load,
+            // Kéo để làm mới: bảng tin, công thức mới và gợi ý của AI.
+            onRefresh: () => Future.wait([_load(), _highlights.currentState?.reload() ?? Future<void>.value()]),
             child: ListView(
               controller: _scroll,
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 100),
               children: [
+                HomeHighlights(key: _highlights),
                 VegSearchBar(
                   controller: _search,
                   hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
