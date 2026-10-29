@@ -64,6 +64,12 @@ class HomeRepository {
         .toList();
   }
 
+  // GET /blogs/me?size=1 -> chỉ lấy tổng số bài viết của tôi (totalElements của PageResponse).
+  Future<int> myBlogsTotal() async {
+    final r = await _api.get(Endpoints.myBlogs, query: {'size': 1});
+    return r is Map ? (r['totalElements'] as num?)?.toInt() ?? asList(r).length : asList(r).length;
+  }
+
   // GET /blogs/{id} -> có thêm nội dung đầy đủ.
   Future<BlogItem> blogDetail(BlogItem summary) async {
     final r = await _api.get(Endpoints.blogById(summary.id));

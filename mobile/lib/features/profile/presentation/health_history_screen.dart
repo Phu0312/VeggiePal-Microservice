@@ -89,7 +89,10 @@ class _HealthHistoryScreenState extends State<HealthHistoryScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                         itemCount: _records.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _RecordCard(_records[i], onEdit: () => _openEditor(_records[i])),
+                        itemBuilder: (_, i) => _RecordCard(_records[i],
+                            // Danh sách mới nhất trước nên bản ghi kế tiếp là bản ghi cũ hơn.
+                            previous: i + 1 < _records.length ? _records[i + 1] : null,
+                            onEdit: () => _openEditor(_records[i])),
                       ),
                     ),
     );
@@ -98,8 +101,18 @@ class _HealthHistoryScreenState extends State<HealthHistoryScreen> {
 
 class _RecordCard extends StatelessWidget {
   final HealthRecord r;
+  final HealthRecord? previous;
   final VoidCallback onEdit;
-  const _RecordCard(this.r, {required this.onEdit});
+  const _RecordCard(this.r, {this.previous, required this.onEdit});
+
+  /// "↓ 0.5 kg so với lần trước" / "↑ ..." / "không đổi"; null nếu chưa có lần trước.
+  String? get _weightChange {
+    final p = previous;
+    if (p == null) return null;
+    final d = double.parse((r.weightKg - p.weightKg).toStringAsFixed(1));
+    if (d == 0) return 'Cân nặng không đổi so với lần trước';
+    return '${d < 0 ? '↓' : '↑'} ${d.abs()} kg so với lần trước';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +132,8 @@ class _RecordCard extends StatelessWidget {
               Text(category, style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
               Text('${r.heightCm} cm  •  ${r.weightKg} kg'),
+              if (_weightChange != null)
+                Text(_weightChange!, style: TextStyle(fontSize: 12.5, color: context.textMuted)),
               if (r.recordedAt != null)
                 Text(fmtDateTime(r.recordedAt!),
                     style: TextStyle(fontSize: 12, color: context.textMuted)),
