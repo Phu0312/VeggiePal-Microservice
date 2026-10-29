@@ -30,6 +30,12 @@ const Map<int, String> errorMessagesVi = {
   2005: 'Chưa có chỉ số sức khỏe nào.',
   2006: 'Thiếu danh sách dị ứng.',
   2007: 'Chất gây dị ứng không tồn tại.',
+  // ai-service
+  6003: 'Bạn đã hết lượt sử dụng tính năng AI theo gói hiện tại.',
+  6004: 'Dịch vụ AI tạm thời không khả dụng. Vui lòng thử lại sau.',
+  6005: 'Dịch vụ AI chưa được cấu hình.',
+  6006: 'Một dịch vụ liên quan đang tạm thời không khả dụng. Vui lòng thử lại sau.',
+  6007: 'AI trả về kết quả không hợp lệ. Vui lòng thử lại.',
   // meal-service / ai-service / restaurant
   2010: 'Không tìm thấy nguyên liệu.',
   2011: 'Vui lòng nhập tên nguyên liệu.',
