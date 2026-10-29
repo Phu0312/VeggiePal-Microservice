@@ -83,6 +83,14 @@ class Endpoints {
   static const chatConversations = '/ai/chat/conversations';
   static String chatConversation(int id) => '/ai/chat/conversations/$id';
 
+  // ---- Payment service: gói thành viên và thanh toán PayOS ----
+  static const paymentPlans = '/payments/plans';
+  static const paymentCheckout = '/payments/checkout';
+  static String paymentOrder(int id) => '/payments/orders/$id';
+  static String paymentOrderCancel(int id) => '/payments/orders/$id/cancel';
+  static const paymentHistory = '/payments/history';
+  static const mySubscription = '/subscriptions/me';
+
   // ---- Quản trị ----
   static const aiModeration = '/ai/admin/moderation';
   static String aiModerationCase(int id) => '/ai/admin/moderation/$id';
