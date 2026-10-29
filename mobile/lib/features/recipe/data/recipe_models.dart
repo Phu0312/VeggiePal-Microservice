@@ -215,35 +215,6 @@ class Recipe {
   List<String> get nonVeganNames => [for (final i in ingredients) if (i.isNonVegan) i.name];
 }
 
-/// Nguyên liệu trong danh mục chung (recipe-service: IngredientResponse), dùng để chọn khi tạo công thức.
-class Ingredient {
-  final int id;
-  final String name;
-  final String? description;
-  final double calories, protein;
-  final bool vegan;
-  final bool allergen;
-  const Ingredient({
-    required this.id,
-    required this.name,
-    this.description,
-    this.calories = 0,
-    this.protein = 0,
-    this.vegan = false,
-    this.allergen = false,
-  });
-
-  factory Ingredient.fromJson(Map<String, dynamic> j) => Ingredient(
-        id: (j['id'] as num).toInt(),
-        name: '${j['name'] ?? ''}',
-        description: j['description'] as String?,
-        calories: _dbl(j['caloriesPer100g']) ?? 0,
-        protein: _dbl(j['proteinPer100g']) ?? 0,
-        vegan: j['vegan'] == true,
-        allergen: j['allergen'] == true,
-      );
-}
-
 /// Dữ liệu một nguyên liệu trong form (số lượng còn là chuỗi người dùng gõ).
 class RecipeIngredientDraft {
   final int ingredientId;
