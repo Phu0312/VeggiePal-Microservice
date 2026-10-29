@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'pantry_tab.dart';
 import 'plan_tab.dart';
-import 'recipes_tab.dart';
+import '../../recipe/presentation/recipes_tab.dart';
 
 /// TAB 4 - Thực đơn. Ba phần: Thực đơn (BMI, tạo/lưu/đổi món) | Công thức | Nguyên liệu của tôi.
 class MenuPlannerScreen extends StatelessWidget {
