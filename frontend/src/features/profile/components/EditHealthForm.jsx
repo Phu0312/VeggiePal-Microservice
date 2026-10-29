@@ -145,7 +145,7 @@ export default function EditHealthForm({
           className="basis-full flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2 text-xs text-warning"
         >
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-          Bổ sung các mục được đánh dấu bên dưới để Bé Bông Cải tính được nhu cầu calo cho thực đơn của bạn.
+          Bổ sung các mục được đánh dấu bên dưới để VeggiePal tính được nhu cầu calo cho thực đơn của bạn.
         </p>
       )}
 

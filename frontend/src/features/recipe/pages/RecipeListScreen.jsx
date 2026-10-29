@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ChefHat, Loader2, Plus, Search, X } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { ChefHat, Loader2, Plus, Search, Soup, Timer, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/variants/button-variants";
 import RecipeCard, { RecipeCardSkeleton } from "@/features/recipe/components/RecipeCard";
 import { useRecipeNutrition } from "@/features/recipe/hooks/useRecipeNutrition";
 import { useRecipeFeed } from "@/features/recipe/hooks/useRecipes";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
+import GlassBanner, { GlassChip, GlassPanel } from "@/shared/components/GlassBanner";
 import Reveal from "@/shared/components/Reveal";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
 
 const PAGE_SIZE = 12;
@@ -19,6 +19,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 // tìm theo từ khóa (BE tìm trong tên và mô tả). Từ khóa nằm trên URL (?q=) để chia sẻ/quay lại được.
 export default function RecipeListScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { openForm } = useContentForm();
   const keyword = (searchParams.get("q") ?? "").trim();
 
   const [text, setText] = useState(keyword);
@@ -59,25 +60,53 @@ export default function RecipeListScreen() {
       <AppHeader />
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand">
-              <ChefHat className="size-3.5" />
-              Công thức
-            </p>
-            <h1 className="mt-1 font-heading text-3xl font-bold text-ink">Công Thức Món Chay</h1>
-            {!isPending && !isError && (
-              <p className="mt-1 text-sm text-subtle">
-                {keyword ? `${total} kết quả cho “${keyword}”` : `${total} công thức đã đăng`}
+        <GlassBanner>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
+            <div className="flex max-w-2xl flex-col items-start gap-4">
+              <GlassChip icon={ChefHat}>Công thức</GlassChip>
+              <h1 className="font-heading text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
+                Công Thức <span className="text-gradient-brand">Món Chay</span>
+              </h1>
+              <p className="max-w-md text-sm leading-relaxed text-body sm:text-base">
+                Khám phá những món chay thanh lành do cộng đồng VeggiePal chia sẻ, từ bữa sáng nhẹ nhàng
+                đến mâm cơm đủ đầy.
               </p>
-            )}
+              {/* Mở popup; khách chưa đăng nhập được đưa sang trang đăng nhập rồi quay lại. */}
+              <Button
+                type="button"
+                variant="gradient"
+                size="md"
+                className="shadow-md"
+                onClick={() => openForm("recipe")}
+              >
+                <Plus className="size-4" />
+                Chia sẻ công thức
+              </Button>
+            </div>
+
+            <GlassPanel className="flex w-full max-w-sm items-center gap-4">
+              <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand to-brand-2 text-white shadow-md">
+                <Soup className="size-9" strokeWidth={1.6} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                  Kho công thức
+                </p>
+                <p className="font-heading text-base font-bold text-ink">
+                  {isPending || isError
+                    ? "VeggiePal"
+                    : keyword
+                      ? `${total} kết quả cho “${keyword}”`
+                      : `${total} công thức đã đăng`}
+                </p>
+                <p className="flex items-center gap-1 text-xs text-subtle">
+                  <Timer className="size-3.5" />
+                  Mới nhất hiển thị trước
+                </p>
+              </div>
+            </GlassPanel>
           </div>
-          {/* /recipes/new cần đăng nhập: khách bấm sẽ được đưa sang trang đăng nhập rồi quay lại. */}
-          <Link to="/recipes/new" className={buttonVariants({ variant: "default", size: "md" })}>
-            <Plus className="size-4" />
-            Chia sẻ công thức
-          </Link>
-        </div>
+        </GlassBanner>
 
         <form onSubmit={handleSubmit} role="search" className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-subtle" />
@@ -87,7 +116,7 @@ export default function RecipeListScreen() {
             onChange={handleChange}
             placeholder="Tìm công thức theo tên hoặc mô tả..."
             aria-label="Tìm công thức"
-            className="h-11 w-full rounded-full border border-border bg-card pl-10 pr-10 text-sm text-ink outline-none transition placeholder:text-subtle focus:border-brand/40 focus:ring-2 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden"
+            className="glass-strong h-11 w-full rounded-full pl-10 pr-10 text-sm text-ink outline-none transition placeholder:text-subtle focus:border-brand/40 focus:ring-2 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden"
           />
           {text && (
             <button
@@ -160,7 +189,6 @@ export default function RecipeListScreen() {
         )}
       </main>
 
-      <AppFooter />
     </div>
   );
 }

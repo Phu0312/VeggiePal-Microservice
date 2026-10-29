@@ -118,7 +118,7 @@ export async function createMealPlan(payload) {
   try {
     res = await apiClient.post("/ai/meal-plans", payload, { timeout: CREATE_TIMEOUT_MS });
   } catch (error) {
-    throw networkError(error, "Bé Bông Cải lên thực đơn hơi lâu, bạn thử lại sau một lát nhé");
+    throw networkError(error, "VeggiePal lên thực đơn hơi lâu, bạn thử lại sau một lát nhé");
   }
   return unwrap(res, "Tạo thực đơn thất bại");
 }

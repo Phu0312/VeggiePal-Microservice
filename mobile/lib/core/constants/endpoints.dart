@@ -56,15 +56,28 @@ class Endpoints {
   static const healthRecords = '/nutrition/me/health-records';
   static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
-  static const mealPlans = '/nutrition/meal-plans';
-  static const mealPlanGenerate = '/nutrition/meal-plans/generate';
-  static String mealPlanReplace(int id) => '/nutrition/meal-plans/$id/replace-meal';
-  static const recipes = '/nutrition/recipes';
-  static String recipeById(int id) => '/nutrition/recipes/$id';
-  static const myIngredients = '/nutrition/me/ingredients';
-  static String myIngredientById(int id) => '/nutrition/me/ingredients/$id';
+  // ---- AI service: thực đơn tuần ----
+  static const aiMealPlans = '/ai/meal-plans';
+  static String aiMealPlan(int id) => '/ai/meal-plans/$id';
+  static String aiMealPlanReplace(int id) => '/ai/meal-plans/$id/replace';
+  static String aiMealPlanFavorite(int id) => '/ai/meal-plans/$id/favorite';
+  static const aiMealPlanFavorites = '/ai/meal-plans/favorites';
+  static String aiMealPlanVersions(int id) => '/ai/meal-plans/$id/versions';
+  static const aiNutritionTarget = '/ai/meal-plans/nutrition-target';
+
+  // ---- Recipe service ----
+  static const recipes = '/recipes';
+  static const myRecipes = '/recipes/me';
+  static String recipeById(int id) => '/recipes/$id';
+  static String recipePublish(int id) => '/recipes/$id/publish';
+  static const ingredients = '/ingredients';
+
   static const restaurantsNearby = '/restaurants/nearby';
+  // ---- AI service: chatbot ----
+  static const chatGuestSessions = '/ai/chat/guest-sessions';
   static const chatGuest = '/ai/chat/guest';
   static const chat = '/ai/chat';
+  static const chatConversations = '/ai/chat/conversations';
+  static String chatConversation(int id) => '/ai/chat/conversations/$id';
   static const aiMetrics = '/admin/ai/metrics';
 }
