@@ -11,13 +11,17 @@ import '../../../core/widgets/header_actions.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/profile_models.dart';
+import '../data/profile_overview.dart';
 import '../data/profile_repository.dart';
 
 /// Sửa thông tin cá nhân: họ tên, số điện thoại, ngày sinh, giới tính, mức vận động và ảnh đại diện
 /// (ngày sinh, giới tính, mức vận động để backend tính calo mục tiêu cho thực đơn).
 /// Dữ liệu được nạp từ GET /users/me, lưu bằng PATCH /users/me, ảnh bằng POST /users/me/avatar.
+/// [highlightFields] (tên trường của GET /users/me: dateOfBirth | gender | activityLevel) là các trường backend báo
+/// thiếu khi tính calo; mỗi trường được nhắc cho tới khi người dùng điền.
 class EditProfileScreen extends StatefulWidget {
-  const EditProfileScreen({super.key});
+  final Set<String> highlightFields;
+  const EditProfileScreen({super.key, this.highlightFields = const {}});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -73,6 +77,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Nhắc dưới ô còn trống mà backend cần để tính calo (chỉ khi được yêu cầu làm nổi trường đó).
+  Widget? _need(String field, bool empty) => widget.highlightFields.contains(field) && empty
+      ? Padding(
+          padding: const EdgeInsets.only(top: 4, left: 4),
+          child: Text('Cần bổ sung để tính nhu cầu calo',
+              style: const TextStyle(fontSize: 12, color: Colors.deepOrange)),
+        )
+      : null;
+
+  /// Cảnh báo dưới ô ngày sinh khi người dùng chưa đủ 18 tuổi (backend không tính calo, lỗi 6021).
+  Widget? _underage() {
+    final d = _dob;
+    if (d == null) return null;
+    final issue = CalorieProfileIssue.of(
+        UserProfile(id: 0, email: '', fullName: '', role: 'USER', status: 'ACTIVE', dateOfBirth: d));
+    return issue.underage
+        ? const Padding(
+            padding: EdgeInsets.only(top: 4, left: 4),
+            child: Text('Thực đơn tính theo calo mục tiêu chỉ dành cho người từ 18 tuổi trở lên.',
+                style: TextStyle(fontSize: 12, color: Colors.deepOrange)),
+          )
+        : null;
   }
 
   Future<void> _pickDob() async {
@@ -175,6 +203,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               style: TextStyle(color: _dob == null ? context.textMuted : null)),
                         ),
                       ),
+                      ?_need('dateOfBirth', _dob == null),
+                      ?_underage(),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: _gender,
@@ -186,6 +216,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ],
                         onChanged: (v) => setState(() => _gender = v),
                       ),
+                      ?_need('gender', _gender == null),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         initialValue: _activity,
@@ -198,6 +229,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ],
                         onChanged: (v) => setState(() => _activity = v),
                       ),
+                      ?_need('activityLevel', _activity == null),
                       const SizedBox(height: 12),
                       TextFormField(
                         initialValue: p.email,
