@@ -65,9 +65,10 @@ class SectionHeader extends StatelessWidget {
 class VegSearchBar extends StatelessWidget {
   final String hint;
   final ValueChanged<String> onSubmitted;
+  final ValueChanged<String>? onChanged;
   final TextEditingController? controller;
   const VegSearchBar(
-      {super.key, required this.hint, required this.onSubmitted, this.controller});
+      {super.key, required this.hint, required this.onSubmitted, this.onChanged, this.controller});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -79,6 +80,7 @@ class VegSearchBar extends StatelessWidget {
           backgroundColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surface),
           leading: const Icon(Icons.search),
           onSubmitted: onSubmitted,
+          onChanged: onChanged,
         ),
       );
 }
