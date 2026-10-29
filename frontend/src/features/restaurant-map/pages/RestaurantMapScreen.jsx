@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
 import MapBanner from "@/features/restaurant-map/components/MapBanner";
 import MapFrame from "@/features/restaurant-map/components/MapFrame";
@@ -116,7 +115,6 @@ export default function RestaurantMapScreen() {
         </section>
       </main>
 
-      <AppFooter />
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { Eye, Heart, ImageOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/variants/button-variants";
 import { useDeleteBlog, useSubmitBlog } from "@/features/blog/hooks/useBlogMutations";
 import { useMyBlogs } from "@/features/blog/hooks/useMyBlogs";
 import { formatCompactNumber, formatTimeAgo } from "@/features/blog/utils/blogFormat";
@@ -19,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import ConfirmDialog from "@/shared/components/ConfirmDialog";
 import FallbackImage from "@/shared/components/FallbackImage";
+import { useContentForm } from "@/shared/hooks/useContentForm";
 
 // Tab "Bài viết": lọc theo trạng thái (GET /blogs/me?status=) + danh sách "Xem thêm",
 // mỗi dòng có Sửa / Gửi duyệt / Xóa tùy trạng thái.
@@ -91,6 +91,7 @@ export default function MyBlogList() {
 }
 
 function BlogRow({ post }) {
+  const { openForm } = useContentForm();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const submitBlog = useSubmitBlog();
   const deleteBlog = useDeleteBlog();
@@ -169,12 +170,14 @@ function BlogRow({ post }) {
 
       <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
         {canEditBlog(post.status) && (
-          <Link
-            to={`/blog/${post.id}/edit`}
-            className={buttonVariants({ variant: "outline", size: "xs" })}
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => openForm("blog", { id: post.id })}
           >
             Sửa
-          </Link>
+          </Button>
         )}
         {canSubmitBlog(post.status) && (
           <Button type="button" size="xs" disabled={submitBlog.isPending} onClick={handleSubmit}>

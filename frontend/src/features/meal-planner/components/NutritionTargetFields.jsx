@@ -17,11 +17,74 @@ const ROWS = [
  * Điền thì BE dùng đúng khoảng này thay hẳn mục tiêu tự tính; chất bỏ trống thì không bị giới hạn.
  * Nhập quá chặt thì BE vẫn lên thực đơn nhưng đánh dấu ngày calo không đạt (targetMet=false), TodayMeals sẽ cảnh báo.
  * `replacesAuto`: form này có mục tiêu tự tính ở trên (thẻ NutritionTargetCard) nên nhắc rằng điền ở đây là thay nó.
+ * `alwaysOpen`: hiển thị sẵn, không có nút thu gọn (bỏ qua `open` / `onOpenChange`).
  * `open` / `onOpenChange`: tùy chọn, để form cha mở phần này (vd sau khi điền sẵn từ mục tiêu gợi ý); bỏ trống thì
  * tự mở / đóng như thẻ <details> bình thường.
  */
-export default function NutritionTargetFields({ register, errors, replacesAuto = false, open, onOpenChange }) {
+export default function NutritionTargetFields({ register, errors, replacesAuto = false, alwaysOpen = false, open, onOpenChange }) {
   const idPrefix = useId();
+
+  const body = (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs leading-relaxed text-subtle">
+        {replacesAuto && "Điền bất kỳ ô nào thì mục tiêu bạn đặt sẽ thay hẳn mục tiêu tự tính ở trên. "}
+        Điền khoảng bạn muốn, thực đơn sẽ chọn món và khẩu phần để mỗi ngày nằm trong khoảng đó. Bỏ trống ô nào thì
+        ô đó không bị giới hạn. Nếu khoảng quá chặt so với các món hiện có, ngày nào không đạt calo sẽ được báo lại
+        ngay trên thực đơn.
+      </p>
+
+      {ROWS.map((row) => {
+        const minName = `min${row.key}`;
+        const maxName = `max${row.key}`;
+        return (
+          <div key={row.key} className="grid grid-cols-[6.5rem_1fr_1fr] items-start gap-2 sm:grid-cols-[8rem_1fr_1fr]">
+            <span className="pt-2.5 text-xs font-semibold text-ink">
+              {row.label} <span className="font-normal text-subtle">({row.unit})</span>
+            </span>
+            <div>
+              <input
+                id={`${idPrefix}-${minName}`}
+                type="text"
+                inputMode="decimal"
+                placeholder={`Từ ${row.placeholder[0]}`}
+                aria-label={`${row.label} tối thiểu`}
+                aria-invalid={Boolean(errors[minName])}
+                className={inputClass}
+                {...register(minName)}
+              />
+              {errors[minName] && <p className="mt-1 text-xs text-destructive">{errors[minName].message}</p>}
+            </div>
+            <div>
+              <input
+                id={`${idPrefix}-${maxName}`}
+                type="text"
+                inputMode="decimal"
+                placeholder={`Đến ${row.placeholder[1]}`}
+                aria-label={`${row.label} tối đa`}
+                aria-invalid={Boolean(errors[maxName])}
+                className={inputClass}
+                {...register(maxName)}
+              />
+              {errors[maxName] && <p className="mt-1 text-xs text-destructive">{errors[maxName].message}</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // Luôn hiển thị (không thu gọn): dùng trong form tạo thực đơn.
+  if (alwaysOpen) {
+    return (
+      <section className="rounded-2xl bg-card p-4 ring-1 ring-border">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Target className="size-4 text-brand" />
+          {replacesAuto ? "Tự đặt mục tiêu dinh dưỡng riêng" : "Mục tiêu dinh dưỡng mỗi ngày"}
+        </h4>
+        <div className="mt-3">{body}</div>
+      </section>
+    );
+  }
 
   return (
     <details
@@ -32,56 +95,10 @@ export default function NutritionTargetFields({ register, errors, replacesAuto =
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
         <Target className="size-4 text-brand" />
         {replacesAuto ? "Tự đặt mục tiêu dinh dưỡng riêng" : "Mục tiêu dinh dưỡng mỗi ngày"}
-        <span className="text-xs font-normal text-subtle">(không bắt buộc)</span>
         <ChevronDown className="ml-auto size-4 text-subtle transition group-open:rotate-180" />
       </summary>
 
-      <div className="flex flex-col gap-3 border-t border-border px-4 pb-4 pt-3">
-        <p className="text-xs leading-relaxed text-subtle">
-          {replacesAuto && "Điền bất kỳ ô nào thì mục tiêu bạn đặt sẽ thay hẳn mục tiêu tự tính ở trên. "}
-          Điền khoảng bạn muốn, thực đơn sẽ chọn món và khẩu phần để mỗi ngày nằm trong khoảng đó. Bỏ trống ô nào thì
-          ô đó không bị giới hạn. Nếu khoảng quá chặt so với các món hiện có, ngày nào không đạt calo sẽ được báo lại
-          ngay trên thực đơn.
-        </p>
-
-        {ROWS.map((row) => {
-          const minName = `min${row.key}`;
-          const maxName = `max${row.key}`;
-          return (
-            <div key={row.key} className="grid grid-cols-[6.5rem_1fr_1fr] items-start gap-2 sm:grid-cols-[8rem_1fr_1fr]">
-              <span className="pt-2.5 text-xs font-semibold text-ink">
-                {row.label} <span className="font-normal text-subtle">({row.unit})</span>
-              </span>
-              <div>
-                <input
-                  id={`${idPrefix}-${minName}`}
-                  type="text"
-                  inputMode="decimal"
-                  placeholder={`Từ ${row.placeholder[0]}`}
-                  aria-label={`${row.label} tối thiểu`}
-                  aria-invalid={Boolean(errors[minName])}
-                  className={inputClass}
-                  {...register(minName)}
-                />
-                {errors[minName] && <p className="mt-1 text-xs text-destructive">{errors[minName].message}</p>}
-              </div>
-              <div>
-                <input
-                  id={`${idPrefix}-${maxName}`}
-                  type="text"
-                  inputMode="decimal"
-                  placeholder={`Đến ${row.placeholder[1]}`}
-                  aria-label={`${row.label} tối đa`}
-                  aria-invalid={Boolean(errors[maxName])}
-                  className={inputClass}
-                  {...register(maxName)}
-                />
-                {errors[maxName] && <p className="mt-1 text-xs text-destructive">{errors[maxName].message}</p>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <div className="border-t border-border px-4 pb-4 pt-3">{body}</div>
     </details>
   );
 }

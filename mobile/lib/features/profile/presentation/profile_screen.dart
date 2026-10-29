@@ -3,10 +3,18 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/format.dart';
 import '../../../core/widgets/header_actions.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../blog/presentation/my_blogs_screen.dart';
+import '../../payment/data/subscription_controller.dart';
+import '../../payment/data/payment_models.dart';
+import '../../payment/presentation/payment_history_screen.dart';
+import '../../payment/presentation/pricing_screen.dart';
+import '../../recipe/presentation/my_recipes_screen.dart';
+import '../../video/presentation/my_videos_screen.dart';
+import '../../video/presentation/video_jobs_screen.dart';
 import 'allergies_screen.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -15,6 +23,15 @@ import 'health_history_screen.dart';
 /// TAB 5 - Hồ sơ. Khách: lời mời đăng nhập. Thành viên: thẻ tài khoản + các mục quản lý cá nhân.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  /// "Gói Plus, đến 28/11/2026" hoặc gợi ý nâng cấp khi đang dùng gói FREE.
+  String _planSubtitle(BuildContext context) {
+    final s = context.watch<SubscriptionController>().subscription;
+    if (s == null) return 'Xem và nâng cấp gói';
+    if (!s.isPaid) return '${planName(s.planCode)} • nâng cấp để có thêm lượt sử dụng';
+    final until = s.expiresAt;
+    return until == null ? planName(s.planCode) : '${planName(s.planCode)} • đến ${fmtDate(until)}';
+  }
 
   void _open(BuildContext context, Widget page) =>
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
@@ -83,6 +100,21 @@ class ProfileScreen extends StatelessWidget {
             const Divider(height: 1),
             _MenuTile(LucideIcons.fileText, 'Bài viết của tôi', 'Viết bài, sửa, gửi duyệt, xem trạng thái',
                 () => _open(context, const MyBlogsScreen())),
+            const Divider(height: 1),
+            _MenuTile(LucideIcons.chefHat, 'Công thức của tôi', 'Tạo, sửa, đăng công thức món chay',
+                () => _open(context, const MyRecipesScreen())),
+            const Divider(height: 1),
+            _MenuTile(LucideIcons.video, 'Video của tôi', 'Đăng video, sửa, gửi duyệt, xem trạng thái',
+                () => _open(context, const MyVideosScreen())),
+            const Divider(height: 1),
+            _MenuTile(LucideIcons.sparkles, 'Bóc tách công thức từ video', 'AI lấy nguyên liệu và các bước từ video nấu ăn',
+                () => _open(context, const VideoJobsScreen())),
+            const Divider(height: 1),
+            _MenuTile(LucideIcons.crown, 'Gói thành viên', _planSubtitle(context),
+                () => _open(context, const PricingScreen())),
+            const Divider(height: 1),
+            _MenuTile(LucideIcons.receipt, 'Lịch sử thanh toán', 'Các đơn đã mua và đang chờ thanh toán',
+                () => _open(context, const PaymentHistoryScreen())),
             const Divider(height: 1),
             _MenuTile(LucideIcons.keyRound, 'Đổi mật khẩu', null,
                 () => _open(context, const ChangePasswordScreen())),

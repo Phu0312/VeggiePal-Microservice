@@ -10,15 +10,19 @@ import '../../blog/data/blog_models.dart';
 import '../../blog/data/blog_repository.dart';
 import '../../profile/data/profile_models.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../video/presentation/video_form_screen.dart';
+import '../../video/presentation/video_widgets.dart';
 import '../data/home_models.dart';
 import '../data/home_repository.dart';
 import 'blog_detail_screen.dart';
 import 'create_content_sheet.dart';
+import 'home_highlights.dart';
 import 'post_card.dart';
 
 /// TAB 1 - Trang chủ: bảng tin bài viết xếp theo chiều dọc (mới nhất trước), cuộn xuống tự tải thêm.
 /// Widget tree: Scaffold(FAB cho thành viên)
 ///   └─ RefreshIndicator └─ ListView
+///        ├─ HomeHighlights (Món chay mới + Gợi ý của AI)
 ///        ├─ VegSearchBar
 ///        ├─ Danh mục (ListView ngang của ChoiceChip)
 ///        └─ Danh sách PostCard (tác giả, tiêu đề + ảnh bìa, thích / không thích / bình luận)
@@ -35,6 +39,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final _search = TextEditingController();
   final _scroll = ScrollController();
 
+  final _videoFeed = GlobalKey<VideoFeedState>();
+  final _highlights = GlobalKey<HomeHighlightsState>();
+  bool _showVideos = false; // false = bảng tin bài viết, true = bảng tin video
   List<CategoryItem> _categories = [];
   List<BlogItem> _blogs = [];
   int? _categoryId;
@@ -236,64 +243,86 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: canPost
           ? FloatingActionButton.extended(
               onPressed: () async {
+                if (_showVideos) {
+                  final saved = await Navigator.of(context)
+                      .push<Object>(MaterialPageRoute(builder: (_) => const VideoFormScreen()));
+                  if (saved != null) _videoFeed.currentState?.reload();
+                  return;
+                }
                 final posted = await showCreateContentSheet(context, _categories);
                 if (posted == true) _load();
               },
-              icon: const Icon(Icons.add),
-              label: const Text('Đăng bài'),
+              icon: Icon(_showVideos ? Icons.video_call : Icons.add),
+              label: Text(_showVideos ? 'Đăng video' : 'Đăng bài'),
             )
           : null,
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          controller: _scroll,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 100),
-          children: [
-            VegSearchBar(
-              controller: _search,
-              hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
-              onSubmitted: (_) => _load(),
-            ),
-            _buildCategories(),
-            const SizedBox(height: 8),
-            if (_loading)
-              const Padding(
-                  padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
-            else if (_loadFailed)
-              RetryView(onRetry: _load)
-            else if (_blogs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(48),
-                child: Center(
-                    child: Text('Chưa có bài viết phù hợp', style: TextStyle(color: context.textMuted))),
-              )
-            else ...[
-              for (final b in _blogs)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: PostCard(
-                    blog: b,
-                    author: _authors[b.authorId],
-                    myVote: _myVotes[b.id],
-                    score: _scores[b.id] ?? b.voteScore,
-                    commentCount: _commentCounts[b.id],
-                    onOpen: () => _open(b),
-                    onVote: (v) => _vote(b, v),
-                  ),
-                ),
-              if (_loadingMore)
-                const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
-              else if (!_hasMore)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                      child: Text('Bạn đã xem hết bài viết', style: TextStyle(color: context.textMuted))),
-                ),
-            ],
-          ],
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: FullWidthSegmented<bool>(
+            options: const [SegmentOption(false, 'Bài viết'), SegmentOption(true, 'Video')],
+            selected: _showVideos,
+            onChanged: (v) => setState(() => _showVideos = v),
+          ),
         ),
-      ),
+        Expanded(
+          child: _showVideos
+              ? VideoFeed(key: _videoFeed, categories: _categories)
+              : RefreshIndicator(
+            // Kéo để làm mới: bảng tin, công thức mới và gợi ý của AI.
+            onRefresh: () => Future.wait([_load(), _highlights.currentState?.reload() ?? Future<void>.value()]),
+            child: ListView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 100),
+              children: [
+                HomeHighlights(key: _highlights),
+                VegSearchBar(
+                  controller: _search,
+                  hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
+                  onSubmitted: (_) => _load(),
+                ),
+                _buildCategories(),
+                const SizedBox(height: 8),
+                if (_loading)
+                  const Padding(
+                      padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+                else if (_loadFailed)
+                  RetryView(onRetry: _load)
+                else if (_blogs.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(48),
+                    child: Center(
+                        child: Text('Chưa có bài viết phù hợp', style: TextStyle(color: context.textMuted))),
+                  )
+                else ...[
+                  for (final b in _blogs)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: PostCard(
+                        blog: b,
+                        author: _authors[b.authorId],
+                        myVote: _myVotes[b.id],
+                        score: _scores[b.id] ?? b.voteScore,
+                        commentCount: _commentCounts[b.id],
+                        onOpen: () => _open(b),
+                        onVote: (v) => _vote(b, v),
+                      ),
+                    ),
+                  if (_loadingMore)
+                    const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
+                  else if (!_hasMore)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                          child: Text('Bạn đã xem hết bài viết', style: TextStyle(color: context.textMuted))),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ]),
     );
   }
 

@@ -10,7 +10,6 @@ import MealPlannerScreen from "@/features/meal-planner/pages/MealPlannerScreen";
 import RestaurantMapScreen from "@/features/restaurant-map/pages/RestaurantMapScreen";
 import VideoHomeScreen from "@/features/video/pages/VideoHomeScreen";
 import VideoWatchScreen from "@/features/video/pages/VideoWatchScreen";
-import VideoFormScreen from "@/features/video/pages/VideoFormScreen";
 import ProfileScreen from "@/features/profile/pages/ProfileScreen";
 import EditProfileScreen from "@/features/profile/pages/EditProfileScreen";
 import ChatbotScreen from "@/features/chatbot/pages/ChatbotScreen";
@@ -23,10 +22,8 @@ import AdminAiMonitoringScreen from "@/features/admin/pages/AdminAiMonitoringScr
 import AdminPaymentsScreen from "@/features/admin/pages/AdminPaymentsScreen";
 import AdminModerationScreen from "@/features/admin/pages/AdminModerationScreen";
 import AdminIngredientsScreen from "@/features/admin/pages/AdminIngredientsScreen";
-import BlogFormScreen from "@/features/blog/pages/BlogFormScreen";
 import RecipeListScreen from "@/features/recipe/pages/RecipeListScreen";
 import RecipeDetailScreen from "@/features/recipe/pages/RecipeDetailScreen";
-import RecipeFormScreen from "@/features/recipe/pages/RecipeFormScreen";
 import MyContentScreen from "@/features/my-content/pages/MyContentScreen";
 import PricingScreen from "@/features/payment/pages/PricingScreen";
 import CheckoutScreen from "@/features/payment/pages/CheckoutScreen";
@@ -53,48 +50,14 @@ export default function AppRoutes() {
           </RedirectIfAuthenticated>
         }
       />
-      <Route path="/forgot-password" element={<AuthScreen />} />
-      <Route path="/verify-otp" element={<AuthScreen />} />
       <Route path="/" element={<HomeScreen />} />
 
       {/* Blog công khai với khách (BE cho GET /blogs không cần token) */}
       <Route path="/blog" element={<BlogScreen />} />
-      <Route
-        path="/blog/new"
-        element={
-          <ProtectedRoute>
-            <BlogFormScreen />
-          </ProtectedRoute>
-        }
-      />
       <Route path="/blog/:blogId" element={<BlogDetailScreen />} />
-      <Route
-        path="/blog/:blogId/edit"
-        element={
-          <ProtectedRoute>
-            <BlogFormScreen />
-          </ProtectedRoute>
-        }
-      />
 
-      <Route
-        path="/recipes/new"
-        element={
-          <ProtectedRoute>
-            <RecipeFormScreen />
-          </ProtectedRoute>
-        }
-      />
       <Route path="/recipes" element={<RecipeListScreen />} />
       <Route path="/recipes/:recipeId" element={<RecipeDetailScreen />} />
-      <Route
-        path="/recipes/:recipeId/edit"
-        element={
-          <ProtectedRoute>
-            <RecipeFormScreen />
-          </ProtectedRoute>
-        }
-      />
 
       <Route
         path="/meal-planner"
@@ -115,22 +78,6 @@ export default function AppRoutes() {
 
       {/* Video công khai với khách (BE cho GET /videos và GET /videos/:id không cần token) */}
       <Route path="/videos" element={<VideoHomeScreen />} />
-      <Route
-        path="/videos/new"
-        element={
-          <ProtectedRoute>
-            <VideoFormScreen />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/videos/:videoId/edit"
-        element={
-          <ProtectedRoute>
-            <VideoFormScreen />
-          </ProtectedRoute>
-        }
-      />
       <Route path="/videos/:videoId" element={<VideoWatchScreen />} />
 
       {/* --- NHÓM PROFILE --- */}

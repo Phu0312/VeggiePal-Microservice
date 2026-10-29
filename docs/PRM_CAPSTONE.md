@@ -305,16 +305,17 @@ flowchart LR
 |---|---|---|---|
 | FR-01 | Account & Auth | identity-service | Registration with BCrypt-hashed passwords (cost 10); login issues an HS256 JWT (claims `userId`, `role`, valid 24 hours); Google sign-in with a verified Google ID token; profile update, password change and avatar upload to Cloudinary; each account carries a status (`PENDING`, `ACTIVE`, `INACTIVE`, `BLOCKED`) and a role (`USER`, `ADMIN`). |
 | FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest chat is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
-| FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. |
+| FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. Community videos follow the same status workflow: a signed-in user posts a video from exactly one source, a YouTube link or an `.mp4` file of at most 30 MB stored on Cloudinary (a category is required); `publish=true` runs moderation immediately, drafts are submitted later, and an edit changes only title, description and category. |
 | FR-04 | Comments & votes | blog-service | Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` / `-1` / `0`) enforced by a unique constraint; the blog `vote_score` is updated with an atomic SQL increment. |
-| FR-05 | Recipe & restaurant search | recipe-service, location-service | Recipe browsing and keyword search; ingredient catalog; nearby restaurant search within a requested radius, ordered by distance computed by MySQL `ST_Distance_Sphere`. |
-| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned and favorited. |
-| FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. |
-| FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs: FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts ingredients, steps and nutrition highlights as structured JSON. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
+| FR-05 | Recipe & restaurant search | recipe-service, location-service | Public browsing of published recipes with keyword search and paging; public ingredient catalog (keyword search, `vegan` and `allergen` filters, paging, nutrition per 100 g). Signed-in users create recipes (always saved as `DRAFT`, with catalog ingredients, quantity, unit and numbered steps), edit them, publish them (`DRAFT` to `PUBLISHED`, without moderation) and delete them (soft delete to `ARCHIVED`, so old meal plans still show the dish); drafts and hidden recipes are readable only by their owner and administrators. Each ingredient is returned with its nutrition per 100 g and its `allergen` and `vegan` flags, from which the clients compute nutrition per serving (only for gram, kg and mg units) and show allergen warnings. Nearby restaurant search (`GET /restaurants/nearby`, public) within a requested radius of at most 10 km (error 5002 otherwise; error 5001 for invalid coordinates), with an optional `veganOnly` filter, ordered by distance computed by MySQL `ST_Distance_Sphere`; each result carries name, address, coordinates, phone number, rating, the vegan-only flag, an optional image and the distance. |
+| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned and favorited. |
+| FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. Each reply returns `remainingRequests`. Signed-in users list, reopen, continue and delete their conversations (`/ai/chat/conversations`); the clients show the reply as formatted text (headings, lists, tables) and keep guest messages only in memory. |
+| FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs: FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts a recipe title, ingredients (name and quantity) and numbered steps as structured JSON. A user can submit a video file (`POST /ai/videos/process`) or ask for a published uploaded video (`POST /ai/videos/process-existing`; the result is shared and readable without quota through `GET /ai/videos/by-video/{id}`; YouTube videos are not supported). Job history is listed at `GET /ai/videos`; results are kept for 30 days. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
-| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). |
-| FR-11 | Admin operations | ai-service, payment-service, blog-service, recipe-service | AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
-| FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
+| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`GET /ai/admin/moderation`, oldest first). An administrator approves or rejects a case (`PUT /ai/admin/moderation/{id}`, optional reason; the decision is applied to the original blog, video or comment in blog-service) or dismisses it (`DELETE`, which only closes the case and leaves the content unchanged). A case that was already handled returns error 6013. |
+| FR-11 | Admin operations | ai-service, payment-service, blog-service, recipe-service | AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management (create, edit, delete). The web and mobile admin clients cover these screens; neither manages user accounts because identity-service exposes no administrator endpoint for them. |
+| FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Clients poll `GET /payments/orders/{id}` until the order is PAID, can cancel a pending order (`POST /payments/orders/{id}/cancel`) and list past orders (`GET /payments/history`); the current plan comes from `GET /subscriptions/me`. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
+| FR-13 | Home feed & AI recommendations | ai-service, blog-service, recipe-service | The home screen of the clients shows the newest published recipes, a community feed of published blogs and videos, and, for signed-in users, AI recommendations (`GET /ai/recommendations?interest=&limit=`, limit 1 to 10, default 6): the LLM ranks the latest published blogs and recipes (up to 20 of each) and returns each pick with a short reason and the original item; it costs AI tokens but no plan quota, and fails with 6003 once the daily token budget is used. The mobile app caches the result for 5 minutes. There is no notification service: the mobile app derives notifications locally by polling the status of the user's own blogs and videos (`GET /blogs/me`, `GET /videos/me`) every 60 seconds and reporting changes such as approved, rejected or taken down. |
 
 ### 4. Non-Functional Requirements (NFR)
 
@@ -848,7 +849,7 @@ sequenceDiagram
 
 1. The client sends `POST /api/ai/meal-plans` with a Bearer token (public gateway path; the service route is `/ai/meal-plans`).
 2. ai-service calls recipe-service for the recipe list and calls nutrition-service with the user's token to read the user's allergens and latest health record.
-3. If the request has no daily nutrition target, ai-service computes one from the user's profile and health record (BMR/TDEE adjusted by the goal type: weight loss, muscle gain or maintenance) and validates it.
+3. If the request has no daily nutrition target, ai-service computes one from the user's profile and health record (BMR/TDEE adjusted by the goal type: lose, maintain or gain weight) and validates it.
 4. ai-service reserves one meal-plan unit from the user's monthly quota (plan limits are read from payment-service; an unavailable lookup is treated as the FREE plan).
 5. The validator removes every recipe that contains a declared allergen and ranks the remaining recipes so that those matching more of the user's available ingredients come first.
 6. ai-service asks the Groq LLM (default model `openai/gpt-oss-20b`) to build a plan from these real recipe IDs. If the call fails, a deterministic planner is used instead.
@@ -950,6 +951,7 @@ All clients use the gateway at `http://localhost:9080`; the aggregated Swagger U
 | AI chat | `/api/ai/chat/guest-sessions`, guest chat, member chat, conversations | Guest session or JWT |
 | AI meal plans | `POST /api/ai/meal-plans`, `GET /api/ai/meal-plans`, `/nutrition-target`, `/favorites`, `/{id}/versions`, `/{id}/preview-edit`, `/{id}/edit`, `/{id}/replace` | JWT |
 | AI video | `POST /api/ai/videos/process` (multipart), job status endpoints | JWT |
+| AI recommendations | `GET /api/ai/recommendations` | JWT |
 | AI moderation and monitoring | `/api/ai/moderation/check`, `/ai/admin/moderation`, `/ai/admin/monitoring/**` | Service call / ADMIN |
 | Payments | `GET /api/payments/plans`, `POST /api/payments/checkout`, `/api/payments/orders/{id}`, `/history`, `GET /api/subscriptions/me`, `POST /api/payments/webhook/payos` | JWT; webhook is public but signature-verified |
 | Internal | `/internal/subscriptions/{userId}` (not routed through the gateway) | Internal service token |
@@ -1070,7 +1072,8 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
 1. Open the VeggiePal application.
 2. Register with full name, email, an optional phone number and a password of at least 6 characters (typed twice in the mobile app), or choose "Continue with Google". Google sign-in sends the Google ID token to `POST /auth/google`, which links the account with the same email or creates a new `USER` account; the mobile app keeps that session on the device, as the web app does.
 3. Open Profile > Health Profile and enter height (cm) and weight (kg).
-4. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
+4. Open Profile > Personal Information and enter date of birth, gender and activity level; the meal planner needs them to compute the daily calorie target.
+5. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
 
 **Figure VI.1. Registration and health profile workflow**
 
@@ -1083,25 +1086,26 @@ flowchart TD
     D --> E
     E --> F["Profile > Health Profile"]
     F --> G["Enter height and weight<br/>(BMI computed by server)"]
-    G --> H["Select allergens"]
+    G --> G2["Enter date of birth, gender,<br/>activity level"]
+    G2 --> H["Select allergens"]
     H --> I["Saved in nutrition-service"]
 ```
 
-*Figure VI.1 shows the first-use workflow: authenticate, store the token, then enter body measurements and allergens, which later drive meal planning.*
+*Figure VI.1 shows the first-use workflow: authenticate, store the token, then enter body measurements, the profile details used for the calorie target, and allergens, which later drive meal planning.*
 
 #### 3.2. Workflow 2: Generating a 7-Day Personalized Meal Plan
 
 1. Navigate to Menu Planner > Generate Plan.
-2. Select a goal (weight loss, muscle gain or maintenance) and optionally list preferences and ingredients you have on hand.
-3. The system computes the nutrition target, excludes recipes containing your allergens, and shows a plan with breakfast, lunch and dinner for seven days.
-4. Open any recipe to see its ingredient quantities and cooking steps. Plans can be edited, a single meal can be replaced, and plans can be favorited.
+2. Name the plan, select a goal (lose, maintain or gain weight) and optionally list the ingredients you have on hand. The web app also accepts preferences and a custom nutrition target. The mobile app shows the daily calorie target that the server computes for the chosen goal, or the reason it cannot (missing health record, incomplete profile, under 18). It also keeps a pantry on the device (Menu Planner > Ingredients), where ingredients are picked from the catalog; one tap copies the pantry items that have not expired into the ingredient list, items closest to expiry first, up to the 30 ingredients the server accepts.
+3. The system computes the nutrition target, excludes recipes containing your allergens, saves the plan and shows breakfast, lunch and dinner for seven days, with the nutrition totals of each day and a warning on days that miss the calorie target.
+4. Open any meal to see its ingredient quantities and cooking steps. A single meal can be replaced and plans can be favorited. The mobile app also lists your plans and favorites and opens older versions of a plan read-only; manual editing of a plan is available on the web app only.
 
 **Figure VI.2. Meal plan workflow**
 
 ```mermaid
 flowchart TD
-    A["Menu Planner > Generate Plan"] --> B["Choose goal<br/>weight loss / muscle gain / maintenance"]
-    B --> C["Optional: preferences and<br/>ingredients on hand"]
+    A["Menu Planner > Generate Plan"] --> B["Name the plan, choose goal<br/>lose / maintain / gain weight"]
+    B --> C["Optional: ingredients on hand<br/>(web also: preferences, target)"]
     C --> D["Submit"]
     D --> E{"Monthly plan quota left?"}
     E -- "No" --> F["Show quota exceeded<br/>offer PLUS / PRO upgrade"]
@@ -1115,9 +1119,10 @@ flowchart TD
 
 #### 3.3. Workflow 3: Finding Nearby Vegan Restaurants via GPS
 
-1. Open the Places / Map tab and allow location access.
-2. The app asks location-service for restaurants within the chosen radius.
-3. Results are ordered by distance, which is computed by MySQL `ST_Distance_Sphere`, together with their rating and a vegan-only flag.
+1. Open the Places tab. The app starts around the centre of Ho Chi Minh City; tapping "My location" asks for location access and, once granted, searches around the device position (a permission already granted is reused without asking). If access is denied or location services are off, the app keeps the default centre and explains how to enable it.
+2. The app asks location-service for restaurants within the chosen radius (1, 3, 5 or 10 km) and, optionally, only strictly vegan ones.
+3. Results are ordered by distance, which is computed by MySQL `ST_Distance_Sphere`, together with their rating and a vegan-only flag. The user can filter the loaded list by name or address (accent-insensitive), sort by rating, and switch between a list and an OpenStreetMap map that shows the search radius, the user position and one pin per restaurant.
+4. A restaurant opens a detail sheet with its photo, address and phone number, and buttons to get directions (Google Maps), call, copy the address or show it on the map.
 
 **Figure VI.3. Nearby restaurant discovery workflow**
 
@@ -1143,10 +1148,10 @@ sequenceDiagram
 
 #### 3.4. Workflow 4: Upgrading to a PLUS or PRO Subscription via VietQR PayOS
 
-1. Navigate to Profile > Subscription.
-2. Select PLUS or PRO and choose to pay with PayOS.
-3. Scan the dynamic VietQR code with any Vietnamese banking app.
-4. After PayOS confirms the payment through the webhook, the subscription is activated for 30 days.
+1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan.
+2. Select PLUS or PRO. Choosing a different paid plan than the current one asks for confirmation first, because the new plan replaces the current one.
+3. The app creates the order (`POST /payments/checkout`; an unexpired pending order of the same plan is reused) and shows the dynamic VietQR code with the amount, account and transfer content. Scan it with any Vietnamese banking app. The app polls the order every 2.5 seconds, shows a countdown, offers to recreate an expired code and lets the user cancel a pending order.
+4. After PayOS confirms the payment through the webhook, the order becomes PAID and the subscription is activated for 30 days; paying again for the active plan adds 30 days to its expiry. When a quota is used up (error 6003 in ai-service), the app offers a shortcut to this screen. Past orders are listed under Profile > Payment history.
 
 | Plan | Price | Chat per day | Meal plans per month | Videos per month |
 |---|---|---|---|---|

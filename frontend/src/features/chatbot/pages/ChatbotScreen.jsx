@@ -4,7 +4,6 @@ import { Info, Loader2, TriangleAlert, X } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/variants/button-variants";
 import AppHeader from "@/shared/components/AppHeader";
-import AppFooter from "@/shared/components/AppFooter";
 import { useChatbot } from "@/features/chatbot/hooks/useChatbot";
 import { useMySubscription } from "@/features/payment/hooks/useMySubscription";
 import { PLAN_DETAILS } from "@/features/payment/utils/paymentFormat";
@@ -184,7 +183,6 @@ export default function ChatbotScreen() {
         </div>
       </main>
 
-      <AppFooter />
     </div>
   );
 }

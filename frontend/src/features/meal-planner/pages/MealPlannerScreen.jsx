@@ -1,12 +1,9 @@
 import { useState } from "react";
 
 import { useAuthStore } from "@/features/auth/store/authStore";
-import AdviceCard from "@/features/meal-planner/components/AdviceCard";
 import AiMealSuggestion from "@/features/meal-planner/components/AiMealSuggestion";
 import HeroBanner from "@/features/meal-planner/components/HeroBanner";
-import AppFooter from "@/shared/components/AppFooter";
 import AppHeader from "@/shared/components/AppHeader";
-import MacroBalanceCard from "@/features/meal-planner/components/MacroBalanceCard";
 import StatsGrid from "@/features/meal-planner/components/StatsGrid";
 import TodayMeals from "@/features/meal-planner/components/TodayMeals";
 import { useMealPlans } from "@/features/meal-planner/hooks/useMealPlans";
@@ -16,7 +13,6 @@ import Reveal from "@/shared/components/Reveal";
 const EMPTY_PLANS = [];
 
 // Trang thực đơn (/meal-planner): tạo thực đơn 7 ngày bằng AI (ai-service) và xem/đổi món theo ngày.
-// Thẻ Nước & Vận Động vẫn là dữ liệu mẫu (BE chưa có), xem data/mockMealPlanner.js.
 // Yêu thích là theo cả thực đơn (nút trong TodayMeals).
 export default function MealPlannerScreen() {
   const user = useAuthStore((s) => s.user);
@@ -74,16 +70,8 @@ export default function MealPlannerScreen() {
           onSelectPlan={handleSelectPlan}
           onSelectDay={setSelectedDayKey}
         />
-
-        <Reveal>
-          <section id="macro-balance" className="grid scroll-mt-28 grid-cols-1 gap-6 lg:grid-cols-2">
-            <MacroBalanceCard totals={activeDay?.nutritionTotals ?? null} />
-            <AdviceCard />
-          </section>
-        </Reveal>
       </main>
 
-      <AppFooter />
     </div>
   );
 }

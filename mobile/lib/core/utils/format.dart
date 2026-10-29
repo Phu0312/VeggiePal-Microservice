@@ -18,3 +18,17 @@ String timeAgo(DateTime t) {
   if (d.inDays <= 30) return '${d.inDays} ngày trước';
   return fmtDate(t);
 }
+
+/// "1.250.000 ₫"
+String formatVnd(num amount) {
+  final s = amount.round().abs().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+    buf.write(s[i]);
+  }
+  return '${amount < 0 ? '-' : ''}$buf ₫';
+}
+
+/// "12.450" (ngăn cách hàng nghìn bằng dấu chấm)
+String formatCount(num n) => formatVnd(n).replaceAll(' ₫', '');

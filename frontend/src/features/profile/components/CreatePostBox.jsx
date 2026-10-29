@@ -1,12 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
+import { useContentForm } from '@/shared/hooks/useContentForm';
 
 const DEFAULT_AVATAR =
   'https://ui-avatars.com/api/?name=User&background=10b981&color=fff&size=256';
 
 export default function CreatePostBox({ profile }) {
   const navigate = useNavigate();
+  const { openForm } = useContentForm();
 
   const displayName = profile?.fullName?.trim();
   const avatarUrl = profile?.avatarUrl || DEFAULT_AVATAR;
@@ -31,7 +33,7 @@ export default function CreatePostBox({ profile }) {
         <input
           type="text"
           readOnly
-          onClick={() => navigate('/recipes/new')}
+          onClick={() => openForm('recipe')}
           placeholder={placeholderText}
           className="flex-1 bg-surface border border-border rounded-full px-4 py-2.5 text-xs text-body focus:outline-none focus:border-brand cursor-pointer placeholder:text-subtle"
         />
