@@ -17,8 +17,7 @@ import '../data/blog_repository.dart';
 /// - Tạo: POST /blogs (publish=false lưu nháp, publish=true kiểm duyệt ngay), rồi POST /blogs/{id}/thumbnail.
 /// - Sửa: PUT /blogs/{id} (bài đã qua kiểm duyệt sẽ bị kiểm duyệt lại); bản nháp có thêm "Lưu và gửi duyệt"
 ///   (POST /blogs/{id}/submit).
-/// Giới hạn của BE: chỉ GET /blogs/{id} của bài đã ĐĂNG mới trả nội dung, nên với bài chưa đăng
-/// (nháp, chờ duyệt, bị từ chối) người dùng phải nhập lại nội dung khi sửa.
+/// Khi sửa, nội dung hiện tại được nạp bằng GET /blogs/{id} (chủ bài xem được cả bài nháp, chờ duyệt, bị từ chối).
 class BlogEditorScreen extends StatefulWidget {
   final BlogItem? existing; // null = viết bài mới
   const BlogEditorScreen({super.key, this.existing});
@@ -40,7 +39,6 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
 
   bool get _isEdit => widget.existing != null;
   String? get _status => widget.existing?.status;
-  bool get _contentAvailable => !_isEdit || _status == 'PUBLISHED';
 
   @override
   void initState() {
@@ -64,7 +62,7 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
       final home = context.read<HomeRepository>();
       final cats = await home.categories();
       BlogItem? full;
-      if (_isEdit && _status == 'PUBLISHED') full = await home.blogDetail(widget.existing!);
+      if (_isEdit) full = await home.blogDetail(widget.existing!);
       if (!mounted) return;
       setState(() {
         _cats = cats;
@@ -203,24 +201,6 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
                     child: Column(children: [
                       _cover(),
                       const SizedBox(height: 16),
-                      if (_isEdit && !_contentAvailable)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                              color: context.cs.primaryContainer,
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Icon(LucideIcons.info, size: 18, color: context.cs.onPrimaryContainer),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                  'Bài viết chưa được đăng nên hệ thống không trả lại nội dung cũ. Vui lòng nhập lại nội dung.',
-                                  style: TextStyle(fontSize: 13, color: context.cs.onPrimaryContainer)),
-                            ),
-                          ]),
-                        ),
                       TextFormField(
                         controller: _title,
                         textInputAction: TextInputAction.next,
@@ -248,6 +228,11 @@ class _BlogEditorScreenState extends State<BlogEditorScreen> {
                         controller: _content,
                         minLines: 8,
                         maxLines: 20,
+                        buildCounter: (_, {required currentLength, required isFocused, maxLength}) => Text(
+                            '$currentLength ký tự (tối thiểu 20)',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: currentLength < 20 ? context.textMuted : context.cs.primary)),
                         decoration: const InputDecoration(
                             labelText: 'Nội dung',
                             alignLabelWithHint: true,
