@@ -1,5 +1,6 @@
 package com.veggiepal.blog.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
@@ -65,6 +66,31 @@ public class Video {
     @Column(name = "view_count", nullable = false)
     Integer viewCount;
 
+    @Column(name = "vote_score", nullable = false, columnDefinition = "INT NOT NULL DEFAULT 0")
+    Integer voteScore;
+
+    @Column(name = "serving_label", length = 100)
+    String servingLabel;
+
+    @Column(name = "calories")
+    Integer calories;
+
+    @Column(name = "protein_g", precision = 8, scale = 2)
+    BigDecimal proteinG;
+
+    @Column(name = "carbs_g", precision = 8, scale = 2)
+    BigDecimal carbsG;
+
+    @Column(name = "fat_g", precision = 8, scale = 2)
+    BigDecimal fatG;
+
+    @Column(name = "fiber_g", precision = 8, scale = 2)
+    BigDecimal fiberG;
+
+    // Newline-separated "name|amount" lines; columnDefinition TEXT avoids @Lob CLOB issues
+    @Column(name = "ingredients_text", columnDefinition = "TEXT")
+    String ingredientsText;
+
     @Column(name = "published_at")
     LocalDateTime publishedAt;
 
@@ -81,6 +107,10 @@ public class Video {
 
         if (viewCount == null) {
             viewCount = 0;
+        }
+
+        if (voteScore == null) {
+            voteScore = 0;
         }
     }
 

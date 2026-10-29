@@ -20,11 +20,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.veggiepal.blog.entity.Blog;
 import com.veggiepal.blog.entity.ContentVote;
+import com.veggiepal.blog.entity.Video;
 import com.veggiepal.blog.enums.TargetType;
 import com.veggiepal.blog.exception.AppException;
 import com.veggiepal.blog.exception.ErrorCode;
 import com.veggiepal.blog.repository.BlogRepository;
 import com.veggiepal.blog.repository.ContentVoteRepository;
+import com.veggiepal.blog.repository.VideoRepository;
 
 @ExtendWith(MockitoExtension.class)
 class VoteServiceTest {
@@ -41,11 +43,21 @@ class VoteServiceTest {
     @Mock
     BlogService blogService;
 
+    @Mock
+    VideoRepository videoRepository;
+
+    @Mock
+    VideoService videoService;
+
     @InjectMocks
     VoteService voteService;
 
     static Blog publishedBlog() {
         return Blog.builder().id(10L).authorId(AUTHOR_ID).voteScore(4).build();
+    }
+
+    static Video publishedVideo() {
+        return Video.builder().id(20L).authorId(AUTHOR_ID).voteScore(3).build();
     }
 
     static ContentVote existingVote(int value) {
@@ -54,8 +66,12 @@ class VoteServiceTest {
                 .build();
     }
 
-    // All nine rows of the delta table in the spec, section 6.2.
-    // "no vote" is written as 0 for both the previous and the new value.
+    static ContentVote existingVideoVote(int value) {
+        return ContentVote.builder()
+                .id(2L).userId(VOTER_ID).targetType(TargetType.VIDEO).targetId(20L).value(value)
+                .build();
+    }
+
     @ParameterizedTest(name = "{0} then {1} moves the score by {2}")
     @CsvSource({
             "0,  1,  1",
@@ -100,8 +116,6 @@ class VoteServiceTest {
         assertThat(response.getVoteScore()).isEqualTo(2);
     }
 
-    // Task sheet US5: "Gọi API lần 1 là Insert (Vote), gọi lần 2 là Delete (Un-vote)".
-    // A heart button sends 1 on every click, so a second identical vote must take it back.
     @Test
     void vote_sameValueTwice_removesTheVote() {
         when(blogService.requirePublishedBlog(10L)).thenReturn(publishedBlog());
@@ -133,7 +147,6 @@ class VoteServiceTest {
         verify(contentVoteRepository, never()).save(any());
     }
 
-    // UC-04: "vote on OTHER users' posts"
     @Test
     void vote_onOwnBlog_throwsCannotVoteOwnContent() {
         when(blogService.requirePublishedBlog(10L)).thenReturn(publishedBlog());
@@ -172,7 +185,6 @@ class VoteServiceTest {
         assertThat(response.getVoteScore()).isEqualTo(3);
     }
 
-    // Deleting something that is not there already achieves the intended result
     @Test
     void removeVote_whenNoVoteExists_isANoOp() {
         when(blogService.requirePublishedBlog(10L)).thenReturn(publishedBlog());
@@ -216,5 +228,68 @@ class VoteServiceTest {
                 .isInstanceOf(AppException.class)
                 .extracting(e -> ((AppException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    void voteVideo_firstTime_savesVideoVoteAndAddsOne() {
+        when(videoService.requirePublishedVideo(20L)).thenReturn(publishedVideo());
+        when(contentVoteRepository.findByUserIdAndTargetTypeAndTargetId(VOTER_ID, TargetType.VIDEO, 20L))
+                .thenReturn(Optional.empty());
+        when(contentVoteRepository.save(any(ContentVote.class))).thenAnswer(call -> call.getArgument(0));
+
+        var response = voteService.voteVideo(VOTER_ID, 20L, 1);
+
+        verify(videoRepository).addVoteScore(20L, 1);
+        assertThat(response.getVideoId()).isEqualTo(20L);
+        assertThat(response.getBlogId()).isNull();
+        assertThat(response.getMyVote()).isEqualTo(1);
+        assertThat(response.getVoteScore()).isEqualTo(4);
+    }
+
+    @Test
+    void voteVideo_sameValueTwice_togglesOff() {
+        when(videoService.requirePublishedVideo(20L)).thenReturn(publishedVideo());
+        ContentVote existing = existingVideoVote(1);
+        when(contentVoteRepository.findByUserIdAndTargetTypeAndTargetId(VOTER_ID, TargetType.VIDEO, 20L))
+                .thenReturn(Optional.of(existing));
+
+        var response = voteService.voteVideo(VOTER_ID, 20L, 1);
+
+        verify(contentVoteRepository).delete(existing);
+        verify(videoRepository).addVoteScore(20L, -1);
+        assertThat(response.getMyVote()).isNull();
+        assertThat(response.getVoteScore()).isEqualTo(2);
+    }
+
+    @Test
+    void voteVideo_onOwnVideo_throwsCannotVoteOwnContent() {
+        when(videoService.requirePublishedVideo(20L)).thenReturn(publishedVideo());
+
+        assertThatThrownBy(() -> voteService.voteVideo(AUTHOR_ID, 20L, 1))
+                .isInstanceOf(AppException.class)
+                .extracting(e -> ((AppException) e).getErrorCode())
+                .isEqualTo(ErrorCode.CANNOT_VOTE_OWN_CONTENT);
+    }
+
+    @Test
+    void getMyVideoVotes_returnsOneEntryPerRequestedVideo() {
+        when(contentVoteRepository.findByUserIdAndTargetTypeAndTargetIdIn(
+                VOTER_ID, TargetType.VIDEO, List.of(20L, 21L)))
+                .thenReturn(List.of(existingVideoVote(-1)));
+
+        var votes = voteService.getMyVideoVotes(VOTER_ID, List.of(20L, 21L));
+
+        assertThat(votes).hasSize(2);
+        assertThat(votes.getFirst().getVideoId()).isEqualTo(20L);
+        assertThat(votes.getFirst().getMyVote()).isEqualTo(-1);
+        assertThat(votes.getLast().getMyVote()).isNull();
+    }
+
+    @Test
+    void getMyVideoVotes_emptyList_throwsVideoIdsRequired() {
+        assertThatThrownBy(() -> voteService.getMyVideoVotes(VOTER_ID, List.of()))
+                .isInstanceOf(AppException.class)
+                .extracting(e -> ((AppException) e).getErrorCode())
+                .isEqualTo(ErrorCode.VIDEO_IDS_REQUIRED);
     }
 }

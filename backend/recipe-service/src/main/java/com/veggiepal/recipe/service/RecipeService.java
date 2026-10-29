@@ -1,42 +1,66 @@
 package com.veggiepal.recipe.service;
 
-import java.time.LocalDateTime;
+import java.io.IOException;
 import java.text.Normalizer;
+import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.veggiepal.recipe.dto.request.RecipeIngredientRequest;
 import com.veggiepal.recipe.dto.request.RecipeRequest;
 import com.veggiepal.recipe.dto.request.RecipeStepRequest;
+import com.veggiepal.recipe.dto.response.ImageUploadResponse;
 import com.veggiepal.recipe.dto.response.PageResponse;
+import com.veggiepal.recipe.dto.response.RecipeLikeResponse;
 import com.veggiepal.recipe.dto.response.RecipeResponse;
 import com.veggiepal.recipe.entity.Ingredient;
 import com.veggiepal.recipe.entity.Recipe;
 import com.veggiepal.recipe.entity.RecipeIngredient;
+import com.veggiepal.recipe.entity.RecipeLike;
 import com.veggiepal.recipe.entity.RecipeStep;
+import com.veggiepal.recipe.enums.ImageType;
 import com.veggiepal.recipe.enums.RecipeStatus;
 import com.veggiepal.recipe.exception.AppException;
 import com.veggiepal.recipe.exception.ErrorCode;
 import com.veggiepal.recipe.mapper.RecipeMapper;
 import com.veggiepal.recipe.repository.IngredientRepository;
+import com.veggiepal.recipe.repository.RecipeLikeRepository;
 import com.veggiepal.recipe.repository.RecipeRepository;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @FieldDefaults(
         level = AccessLevel.PRIVATE,
         makeFinal = true
 )
+@Slf4j
 public class RecipeService {
+
+    private static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
+    private static final int MAX_LIKE_LOOKUP_IDS = 200;
+
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Sort POPULAR_FIRST = Sort.by(
+            Sort.Order.desc("likeCount"),
+            Sort.Order.desc("publishedAt"),
+            Sort.Order.desc("createdAt")
+    );
 
     private static final Set<String> SUPPORTED_UNITS = Set.of(
             "g", "gram", "grams", "gr", "gam",
@@ -53,6 +77,31 @@ public class RecipeService {
     RecipeRepository recipeRepository;
     IngredientRepository ingredientRepository;
     RecipeMapper recipeMapper;
+    RecipeLikeRepository recipeLikeRepository;
+    FileStorageService fileStorageService;
+
+    public RecipeService(
+            RecipeRepository recipeRepository,
+            IngredientRepository ingredientRepository,
+            RecipeMapper recipeMapper
+    ) {
+        this(recipeRepository, ingredientRepository, recipeMapper, null, null);
+    }
+
+    @Autowired
+    public RecipeService(
+            RecipeRepository recipeRepository,
+            IngredientRepository ingredientRepository,
+            RecipeMapper recipeMapper,
+            RecipeLikeRepository recipeLikeRepository,
+            FileStorageService fileStorageService
+    ) {
+        this.recipeRepository = recipeRepository;
+        this.ingredientRepository = ingredientRepository;
+        this.recipeMapper = recipeMapper;
+        this.recipeLikeRepository = recipeLikeRepository;
+        this.fileStorageService = fileStorageService;
+    }
 
     @Transactional
     public RecipeResponse createRecipe(
@@ -90,6 +139,7 @@ public class RecipeService {
                 .status(
                         RecipeStatus.DRAFT
                 )
+                .likeCount(0)
                 .build();
 
         for (
@@ -182,6 +232,17 @@ public class RecipeService {
             int page,
             int size
     ) {
+        return getPublishedRecipes(keyword, null, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<RecipeResponse>
+    getPublishedRecipes(
+            String keyword,
+            String sort,
+            int page,
+            int size
+    ) {
 
         int safePage =
                 Math.max(page, 0);
@@ -196,10 +257,7 @@ public class RecipeService {
                 PageRequest.of(
                         safePage,
                         safeSize,
-                        Sort.by(
-                                Sort.Direction.DESC,
-                                "createdAt"
-                        )
+                        sortFor(sort)
                 );
 
         String safeKeyword =
@@ -219,6 +277,14 @@ public class RecipeService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<RecipeResponse> getPopularRecipes(
+            int page,
+            int size
+    ) {
+        return getPublishedRecipes(null, "popular", page, size);
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<RecipeResponse>
     getMyRecipes(
             Long userId,
@@ -233,10 +299,7 @@ public class RecipeService {
                                 Math.max(size, 1),
                                 100
                         ),
-                        Sort.by(
-                                Sort.Direction.DESC,
-                                "createdAt"
-                        )
+                        NEWEST_FIRST
                 );
 
         Page<Recipe> recipePage =
@@ -366,6 +429,130 @@ public class RecipeService {
     }
 
     @Transactional
+    public RecipeResponse uploadRecipeImage(
+            Long id,
+            Long userId,
+            boolean admin,
+            MultipartFile file
+    ) {
+        ValidatedImage validated = validateImage(file);
+
+        Recipe recipe = findById(id);
+        checkOwner(recipe, userId, admin);
+        ensureMutable(recipe);
+
+        String previousImageUrl = recipe.getImageUrl();
+        String key = "recipes/" + id + "/" + UUID.randomUUID() + "." + validated.type().getExtension();
+        String imageUrl = fileStorageService.upload(key, validated.bytes(), validated.type().getContentType());
+
+        recipe.setImageUrl(imageUrl);
+        Recipe saved;
+        try {
+            saved = recipeRepository.save(recipe);
+        } catch (RuntimeException exception) {
+            deleteQuietly(imageUrl);
+            throw exception;
+        }
+
+        deleteQuietly(previousImageUrl);
+        return recipeMapper.toRecipeResponse(saved);
+    }
+
+    public ImageUploadResponse uploadStandaloneImage(
+            Long userId,
+            MultipartFile file
+    ) {
+        ValidatedImage validated = validateImage(file);
+        String key = "recipes/uploads/" + userId + "/" + UUID.randomUUID() + "." + validated.type().getExtension();
+        String imageUrl = fileStorageService.upload(key, validated.bytes(), validated.type().getContentType());
+        return ImageUploadResponse.builder()
+                .imageUrl(imageUrl)
+                .build();
+    }
+
+    @Transactional
+    public RecipeLikeResponse likeRecipe(Long userId, Long recipeId) {
+        Recipe recipe = requirePublishedRecipe(recipeId);
+        int currentLikes = recipe.getLikeCount() == null ? 0 : recipe.getLikeCount();
+
+        if (recipeLikeRepository.findByUserIdAndRecipeId(userId, recipeId).isPresent()) {
+            return RecipeLikeResponse.builder()
+                    .recipeId(recipeId)
+                    .liked(true)
+                    .likeCount(currentLikes)
+                    .build();
+        }
+
+        recipeLikeRepository.save(RecipeLike.builder()
+                .userId(userId)
+                .recipeId(recipeId)
+                .build());
+        recipeRepository.addLikeCount(recipeId, 1);
+
+        return RecipeLikeResponse.builder()
+                .recipeId(recipeId)
+                .liked(true)
+                .likeCount(currentLikes + 1)
+                .build();
+    }
+
+    @Transactional
+    public RecipeLikeResponse unlikeRecipe(Long userId, Long recipeId) {
+        Recipe recipe = requirePublishedRecipe(recipeId);
+        int currentLikes = recipe.getLikeCount() == null ? 0 : recipe.getLikeCount();
+
+        int deleted = recipeLikeRepository.deleteByUserIdAndRecipeId(userId, recipeId);
+        int updatedLikes = currentLikes;
+        if (deleted > 0) {
+            recipeRepository.addLikeCount(recipeId, -1);
+            updatedLikes = Math.max(0, currentLikes - 1);
+        }
+
+        return RecipeLikeResponse.builder()
+                .recipeId(recipeId)
+                .liked(false)
+                .likeCount(updatedLikes)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecipeLikeResponse> getMyLikes(Long userId, List<Long> recipeIds) {
+        if (recipeIds == null || recipeIds.isEmpty()) {
+            throw new AppException(ErrorCode.RECIPE_IDS_REQUIRED);
+        }
+
+        Set<Long> uniqueIds = recipeIds.stream()
+                .filter(id -> id != null && id > 0)
+                .limit(MAX_LIKE_LOOKUP_IDS)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (uniqueIds.isEmpty()) {
+            throw new AppException(ErrorCode.RECIPE_IDS_REQUIRED);
+        }
+
+        Map<Long, Recipe> publishedRecipes = recipeRepository.findAllById(uniqueIds).stream()
+                .filter(r -> r.getStatus() == RecipeStatus.PUBLISHED)
+                .collect(Collectors.toMap(Recipe::getId, Function.identity()));
+
+        Set<Long> likedIds = recipeLikeRepository.findByUserIdAndRecipeIdIn(userId, publishedRecipes.keySet())
+                .stream()
+                .map(RecipeLike::getRecipeId)
+                .collect(Collectors.toSet());
+
+        return uniqueIds.stream()
+                .filter(publishedRecipes::containsKey)
+                .map(id -> {
+                    Recipe r = publishedRecipes.get(id);
+                    return RecipeLikeResponse.builder()
+                            .recipeId(id)
+                            .liked(likedIds.contains(id))
+                            .likeCount(r.getLikeCount() == null ? 0 : r.getLikeCount())
+                            .build();
+                })
+                .toList();
+    }
+
+    @Transactional
     public RecipeResponse publishRecipe(
             Long id,
             Long userId,
@@ -434,6 +621,11 @@ public class RecipeService {
         recipeRepository.save(
                 recipe
         );
+    }
+
+    private Recipe requirePublishedRecipe(Long id) {
+        return recipeRepository.findByIdAndStatus(id, RecipeStatus.PUBLISHED)
+                .orElseThrow(() -> new AppException(ErrorCode.RECIPE_NOT_EXISTED));
     }
 
     private Recipe findById(
@@ -528,6 +720,67 @@ public class RecipeService {
             throw new AppException(ErrorCode.INVALID_RECIPE_UNIT);
         }
         return rawUnit.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static Sort sortFor(String sort) {
+        if (sort != null && "popular".equalsIgnoreCase(sort.trim())) {
+            return POPULAR_FIRST;
+        }
+        return NEWEST_FIRST;
+    }
+
+    private ValidatedImage validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.RECIPE_IMAGE_REQUIRED);
+        }
+        if (file.getSize() > MAX_IMAGE_BYTES) {
+            throw new AppException(ErrorCode.RECIPE_IMAGE_TOO_LARGE);
+        }
+
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException exception) {
+            throw new AppException(ErrorCode.FILE_UPLOAD_FAILED);
+        }
+
+        if (content.length == 0) {
+            throw new AppException(ErrorCode.RECIPE_IMAGE_REQUIRED);
+        }
+        if (content.length > MAX_IMAGE_BYTES) {
+            throw new AppException(ErrorCode.RECIPE_IMAGE_TOO_LARGE);
+        }
+
+        String declaredContentType = file.getContentType();
+        ImageType detectedType = ImageTypeDetector.detect(content)
+                .filter(type -> isCompatibleContentType(type, declaredContentType))
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_RECIPE_IMAGE_TYPE));
+
+        return new ValidatedImage(detectedType, content);
+    }
+
+    private static boolean isCompatibleContentType(ImageType detected, String declared) {
+        if (declared == null || declared.isBlank() || "application/octet-stream".equalsIgnoreCase(declared)) {
+            return true;
+        }
+        if ("image/jpg".equalsIgnoreCase(declared) && detected == ImageType.JPEG) {
+            return true;
+        }
+        return detected.getContentType().equalsIgnoreCase(declared);
+    }
+
+    private void deleteQuietly(String url) {
+        if (url == null || fileStorageService == null) {
+            return;
+        }
+        try {
+            fileStorageService.delete(url);
+        } catch (RuntimeException exception) {
+            log.warn("Could not delete recipe image object from storage", exception);
+        }
+    }
+
+    private record ValidatedImage(ImageType type, byte[] bytes) {
     }
 
     private PageResponse<RecipeResponse>

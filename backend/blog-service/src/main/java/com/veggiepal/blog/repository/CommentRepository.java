@@ -25,6 +25,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
             Long parentId, Collection<CommentStatus> statuses, Pageable pageable
     );
 
+    long countByStatus(CommentStatus status);
+
     /** One grouped query instead of a count per comment. */
     @Query("""
             select c.parent.id as parentId, count(c) as total

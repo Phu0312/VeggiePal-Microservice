@@ -5,6 +5,7 @@ import static com.veggiepal.ai.mealplan.MealPlanDtos.*;
 import java.util.List;
 import com.veggiepal.ai.common.ApiResponse;
 import com.veggiepal.ai.common.PageResponse;
+import com.veggiepal.ai.quota.QuotaDtos;
 import com.veggiepal.ai.security.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,11 @@ public class MealPlanController {
     @GetMapping
     public ApiResponse<List<MealPlanResponse>> list(@AuthenticationPrincipal Jwt jwt) {
         return ApiResponse.success(service.list(CurrentUser.id(jwt)));
+    }
+
+    @GetMapping("/quota")
+    public ApiResponse<QuotaDtos.MealPlanQuotaStatus> quota(@AuthenticationPrincipal Jwt jwt) {
+        return ApiResponse.success(service.getQuota(CurrentUser.id(jwt)));
     }
 
     @GetMapping("/nutrition-target")
@@ -103,6 +109,15 @@ public class MealPlanController {
             @PathVariable Long id,
             @PathVariable Integer version) {
         return ApiResponse.success(service.getVersion(CurrentUser.id(jwt), id, version));
+    }
+
+    @PostMapping("/{id}/versions/{version}/restore")
+    public ApiResponse<MealPlanResponse> restoreVersion(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long id,
+            @PathVariable Integer version,
+            @RequestBody(required = false) @Valid RestoreVersionRequest request) {
+        return ApiResponse.success(service.restoreVersion(CurrentUser.id(jwt), id, version, request));
     }
 
     // ==========================================

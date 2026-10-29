@@ -1,9 +1,12 @@
 package com.veggiepal.recipe.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -14,27 +17,38 @@ import com.veggiepal.recipe.dto.request.RecipeIngredientRequest;
 import com.veggiepal.recipe.dto.request.RecipeRequest;
 import com.veggiepal.recipe.dto.request.RecipeStepRequest;
 import com.veggiepal.recipe.dto.response.PageResponse;
+import com.veggiepal.recipe.dto.response.RecipeLikeResponse;
 import com.veggiepal.recipe.dto.response.RecipeResponse;
 import com.veggiepal.recipe.entity.Ingredient;
 import com.veggiepal.recipe.entity.Recipe;
+import com.veggiepal.recipe.entity.RecipeLike;
 import com.veggiepal.recipe.enums.RecipeStatus;
 import com.veggiepal.recipe.exception.AppException;
 import com.veggiepal.recipe.exception.ErrorCode;
 import com.veggiepal.recipe.mapper.RecipeMapper;
 import com.veggiepal.recipe.repository.IngredientRepository;
+import com.veggiepal.recipe.repository.RecipeLikeRepository;
 import com.veggiepal.recipe.repository.RecipeRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
 
 class RecipeServiceTest {
+    private static final byte[] PNG_BYTES = new byte[]{
+            (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01, 0x02, 0x03
+    };
+
     private RecipeRepository recipes;
     private IngredientRepository ingredients;
     private RecipeMapper mapper;
+    private RecipeLikeRepository likes;
+    private FileStorageService storage;
     private RecipeService service;
 
     @BeforeEach
@@ -42,7 +56,9 @@ class RecipeServiceTest {
         recipes = mock(RecipeRepository.class);
         ingredients = mock(IngredientRepository.class);
         mapper = mock(RecipeMapper.class);
-        service = new RecipeService(recipes, ingredients, mapper);
+        likes = mock(RecipeLikeRepository.class);
+        storage = mock(FileStorageService.class);
+        service = new RecipeService(recipes, ingredients, mapper, likes, storage);
     }
 
     @Test
@@ -65,6 +81,19 @@ class RecipeServiceTest {
         PageResponse<RecipeResponse> own = service.getMyRecipes(100L, 0, 10);
         assertNotNull(published);
         assertNotNull(own);
+    }
+
+    @Test
+    void popularListingOrdersByLikeCountDescending() {
+        when(recipes.searchPublished(eq(null), eq(RecipeStatus.PUBLISHED), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.getPopularRecipes(0, 10);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(recipes).searchPublished(eq(null), eq(RecipeStatus.PUBLISHED), pageableCaptor.capture());
+        assertNotNull(pageableCaptor.getValue().getSort().getOrderFor("likeCount"));
+        assertTrue(pageableCaptor.getValue().getSort().getOrderFor("likeCount").isDescending());
     }
 
     @Test
@@ -175,6 +204,58 @@ class RecipeServiceTest {
         assertEquals(ErrorCode.INVALID_RECIPE_STATUS_TRANSITION,
                 assertThrows(AppException.class,
                         () -> service.publishRecipe(1L, 100L, false)).getErrorCode());
+    }
+
+    @Test
+    void uploadRecipeImage_validPngReplacesOldImageAndDeletesPrevious() {
+        Recipe recipe = Recipe.builder()
+                .id(10L)
+                .userId(100L)
+                .status(RecipeStatus.PUBLISHED)
+                .imageUrl("https://res.cloudinary.com/test-cloud/image/upload/v1/recipes/10/old.png")
+                .build();
+        MockMultipartFile file = new MockMultipartFile("file", "dish.png", "image/png", PNG_BYTES);
+
+        when(recipes.findById(10L)).thenReturn(Optional.of(recipe));
+        when(storage.upload(anyString(), eq(PNG_BYTES), eq("image/png")))
+                .thenReturn("https://res.cloudinary.com/test-cloud/image/upload/v2/recipes/10/new.png");
+        when(recipes.save(recipe)).thenReturn(recipe);
+        when(mapper.toRecipeResponse(recipe)).thenReturn(
+                RecipeResponse.builder().id(10L).imageUrl("https://res.cloudinary.com/test-cloud/image/upload/v2/recipes/10/new.png").build()
+        );
+
+        RecipeResponse result = service.uploadRecipeImage(10L, 100L, false, file);
+
+        assertEquals("https://res.cloudinary.com/test-cloud/image/upload/v2/recipes/10/new.png", result.getImageUrl());
+        verify(storage).delete("https://res.cloudinary.com/test-cloud/image/upload/v1/recipes/10/old.png");
+    }
+
+    @Test
+    void uploadRecipeImage_rejectsSpoofedMagicBytes() {
+        MockMultipartFile badFile = new MockMultipartFile("file", "fake.png", "image/png", "not-an-image".getBytes());
+        AppException ex = assertThrows(AppException.class,
+                () -> service.uploadRecipeImage(10L, 100L, false, badFile));
+        assertEquals(ErrorCode.INVALID_RECIPE_IMAGE_TYPE, ex.getErrorCode());
+    }
+
+    @Test
+    void likeAndUnlikeRecipeAreIdempotentAndUpdateCounter() {
+        Recipe published = Recipe.builder().id(15L).userId(50L).status(RecipeStatus.PUBLISHED).likeCount(4).build();
+        when(recipes.findByIdAndStatus(15L, RecipeStatus.PUBLISHED)).thenReturn(Optional.of(published));
+        when(likes.findByUserIdAndRecipeId(100L, 15L)).thenReturn(Optional.empty());
+
+        RecipeLikeResponse liked = service.likeRecipe(100L, 15L);
+        assertTrue(liked.isLiked());
+        assertEquals(5, liked.getLikeCount());
+        verify(likes).save(any(RecipeLike.class));
+        verify(recipes).addLikeCount(15L, 1);
+
+        published.setLikeCount(5);
+        when(likes.deleteByUserIdAndRecipeId(100L, 15L)).thenReturn(1);
+        RecipeLikeResponse unliked = service.unlikeRecipe(100L, 15L);
+        assertFalse(unliked.isLiked());
+        assertEquals(4, unliked.getLikeCount());
+        verify(recipes).addLikeCount(15L, -1);
     }
 
     private Ingredient activeIngredient() {

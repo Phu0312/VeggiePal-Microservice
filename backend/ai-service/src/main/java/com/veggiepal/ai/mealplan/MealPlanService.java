@@ -15,6 +15,7 @@ import com.veggiepal.ai.groq.ModelProperties;
 import com.veggiepal.ai.groq.dto.GroqRequest;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
+import com.veggiepal.ai.quota.QuotaDtos;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -552,6 +553,38 @@ public class MealPlanService {
         MealPlanVersion ver = versionRepository.findByMealPlanIdAndVersion(mealPlanId, version)
                 .orElseThrow(() -> new AppException(ErrorCode.VERSION_NOT_FOUND));
         return viewVersion(ver);
+    }
+
+    public QuotaDtos.MealPlanQuotaStatus getQuota(Long userId) {
+        return premiumQuota.getMealPlanQuota(userId);
+    }
+
+    @Transactional
+    public MealPlanResponse restoreVersion(
+            Long userId, Long mealPlanId, Integer version, RestoreVersionRequest request) {
+        MealPlan entity = owned(userId, mealPlanId);
+        if (versionRepository == null) {
+            throw new AppException(ErrorCode.VERSION_NOT_FOUND);
+        }
+        MealPlanVersion target = versionRepository.findByMealPlanIdAndVersion(mealPlanId, version)
+                .orElseThrow(() -> new AppException(ErrorCode.VERSION_NOT_FOUND));
+
+        String summary = (request != null && request.changeSummary() != null && !request.changeSummary().isBlank())
+                ? request.changeSummary().trim()
+                : "Khôi phục từ phiên bản " + version;
+
+        versionRepository.save(new MealPlanVersion(
+                entity,
+                entity.getVersion() != null ? entity.getVersion() : 1,
+                entity.getName(),
+                entity.getGoal(),
+                entity.getPlanJson(),
+                summary
+        ));
+
+        entity.restoreFrom(target.getName(), target.getGoal(), target.getPlanJson());
+        repository.save(entity);
+        return view(entity);
     }
 
     private MealPlanVersionResponse viewVersion(MealPlanVersion v) {

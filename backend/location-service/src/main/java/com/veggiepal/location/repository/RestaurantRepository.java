@@ -57,4 +57,58 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
             @Param("radiusMeters") double radiusMeters,
             @Param("veganOnly") boolean veganOnly
     );
+
+    @Query(nativeQuery = true, value = """
+            select r.id as id, r.name as name, r.address as address,
+                   r.latitude as latitude, r.longitude as longitude,
+                   r.phone_number as phoneNumber, r.rating as rating, r.is_vegan_only as veganOnly,
+                   r.image_url as imageUrl,
+                   ST_Distance_Sphere(point(r.longitude, r.latitude), point(:lng, :lat)) as distanceMeters
+            from vegetarian_restaurants r
+            where ST_Distance_Sphere(point(r.longitude, r.latitude), point(:lng, :lat)) <= :radiusMeters
+              and (:veganOnly = false or r.is_vegan_only = 1)
+              and (locate(lower(:keyword), lower(r.name)) > 0
+                   or locate(lower(:keyword), lower(coalesce(r.address, ''))) > 0)
+            order by distanceMeters
+            """)
+    List<NearbyRestaurant> findNearbyByKeyword(
+            @Param("lat") double lat,
+            @Param("lng") double lng,
+            @Param("radiusMeters") double radiusMeters,
+            @Param("veganOnly") boolean veganOnly,
+            @Param("keyword") String keyword
+    );
+
+    @Query(nativeQuery = true, value = """
+            select r.id as id, r.name as name, r.address as address,
+                   r.latitude as latitude, r.longitude as longitude,
+                   r.phone_number as phoneNumber, r.rating as rating, r.is_vegan_only as veganOnly,
+                   r.image_url as imageUrl,
+                   ST_Distance_Sphere(point(r.longitude, r.latitude), point(:lng, :lat)) as distanceMeters
+            from vegetarian_restaurants r
+            where (:veganOnly = false or r.is_vegan_only = 1)
+              and (:keyword = ''
+                   or locate(lower(:keyword), lower(r.name)) > 0
+                   or locate(lower(:keyword), lower(coalesce(r.address, ''))) > 0)
+            order by distanceMeters
+            """)
+    List<NearbyRestaurant> searchWithDistance(
+            @Param("lat") double lat,
+            @Param("lng") double lng,
+            @Param("veganOnly") boolean veganOnly,
+            @Param("keyword") String keyword
+    );
+
+    @Query("""
+            select r from Restaurant r
+            where (:veganOnly = false or r.veganOnly = true)
+              and (:keyword = ''
+                   or lower(r.name) like lower(concat('%', :keyword, '%'))
+                   or lower(coalesce(r.address, '')) like lower(concat('%', :keyword, '%')))
+            order by coalesce(r.rating, 0) desc, r.name asc
+            """)
+    List<Restaurant> searchByKeyword(
+            @Param("veganOnly") boolean veganOnly,
+            @Param("keyword") String keyword
+    );
 }

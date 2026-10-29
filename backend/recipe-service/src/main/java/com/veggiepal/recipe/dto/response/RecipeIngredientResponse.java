@@ -26,6 +26,8 @@ public class RecipeIngredientResponse {
 
     BigDecimal fatPer100g;
 
+    BigDecimal fiberPer100g;
+
     Boolean vegan;
 
     Boolean allergen;
@@ -33,6 +35,8 @@ public class RecipeIngredientResponse {
     BigDecimal quantity;
 
     String unit;
+
+    BigDecimal gramsEquivalent;
 
     String note;
 }

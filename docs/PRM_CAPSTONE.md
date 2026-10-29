@@ -136,11 +136,11 @@ The plant-based food market in Southeast Asia is growing steadily. By consolidat
 
 #### 6.1. Major Features (In Scope)
 
-- Stateless authentication and authorization with JWT and Google sign-in.
+- Stateless authentication and authorization with JWT, opaque refresh-token rotation and revocation, Google sign-in, and 6-digit email OTP password reset and email verification.
 - Health profiling: height/weight history with BMI, BMR/TDEE-based nutrition targets, and allergen declarations.
-- Social community: blogs, videos, multilevel nested comments, up/down voting and image upload.
-- AI-assisted 7-day meal plan (breakfast, lunch and dinner for each day, 21 meals) based on nutrition targets, declared allergens and optional available ingredients.
-- Nearby restaurant search using MySQL `ST_Distance_Sphere`.
+- Social community: blogs, videos, multilevel nested comments and up/down voting on both blogs and videos, and image upload.
+- AI-assisted 7-day meal plan (breakfast, lunch and dinner for each day, 21 meals) based on nutrition targets, declared allergens and optional available ingredients, with version history and restoration.
+- Recipe catalog with per-serving nutrition calculation, image upload and popular/liked ranking; restaurant keyword search and nearby search using MySQL `ST_Distance_Sphere`.
 - AI-driven video recipe extraction: audio extraction with FFmpeg, transcription, and structured recipe extraction.
 - AI-assisted content moderation with an administrator review queue.
 - Domestic payment processing and subscription management through PayOS VietQR.
@@ -235,7 +235,7 @@ gitGraph
 
 - **Repository hosting:** GitHub.
 - **CI/CD platform:** GitHub Actions (`.github/workflows/ci-cd.yml`).
-- **Cloud assets:** Cloudinary stores user avatars, blog thumbnails and uploaded videos.
+- **Cloud assets:** Cloudinary stores user avatars, blog thumbnails, recipe images and uploaded videos.
 - **Local tunnel:** An Ngrok container tunnels public traffic to `api-gateway:8080` so that PayOS can deliver webhooks to the local deployment. Its inspector UI is published on host port 5041.
 - **Secrets:** Stored in `backend/.env` (not committed; template in `backend/.env.example`) or in the `BACKEND_ENV_FILE` repository secret for the deploy job.
 
@@ -253,9 +253,9 @@ Authorization has two roles (`USER`, `ADMIN`) plus unauthenticated guests. Subsc
 
 | Actor | Core responsibilities and privileges |
 |---|---|
-| Guest | Browse public blogs and the restaurant map; create a guest session to try the AI chatbot (3 chat requests per day per IP) |
-| USER | Maintain health records and allergens; generate and manage meal plans; use the AI chatbot; publish blogs, comments and votes; process videos; buy a subscription |
-| ADMIN | Moderate flagged content, take down blogs, manage categories and ingredients, view AI monitoring and payment statistics |
+| Guest | Browse public blogs, videos, recipes (including popular recipes) and the restaurant map/search; create a guest session to try the AI chatbot (3 chat requests per day per IP) |
+| USER | Maintain health records and allergens; generate, edit and restore meal-plan versions; inspect remaining AI quotas; use the AI chatbot; publish recipes, blogs, comments, votes and likes; process videos; buy a subscription |
+| ADMIN | Manage user accounts (search, lock/unlock status, role assignment), moderate flagged content, take down blogs/videos, manage categories and ingredients, view AI monitoring and payment statistics |
 | Subscription plan (FREE / PLUS / PRO) | Defines per-user quotas for AI chat, meal plans and video processing |
 
 **Figure III.1. VeggiePal actors and use cases**
@@ -278,7 +278,7 @@ flowchart LR
         UC7["Write blogs, comment, vote"]
         UC8["Extract recipe from video"]
         UC9["Buy PLUS / PRO subscription"]
-        UC10["Moderate content and manage categories"]
+        UC10["Manage users, moderate content and manage categories"]
         UC11["View AI monitoring and payment statistics"]
     end
 
@@ -303,25 +303,25 @@ flowchart LR
 
 | Req ID | Feature | Responsible service | Description & acceptance criteria |
 |---|---|---|---|
-| FR-01 | Account & Auth | identity-service | Registration with BCrypt-hashed passwords (cost 10); login issues an HS256 JWT (claims `userId`, `role`, valid 24 hours); Google sign-in with a verified Google ID token; profile update, password change and avatar upload to Cloudinary; each account carries a status (`PENDING`, `ACTIVE`, `INACTIVE`, `BLOCKED`) and a role (`USER`, `ADMIN`). |
+| FR-01 | Account & Auth | identity-service | Profile extras: saved favorites (`/users/me/favorites`) and green badges (`/users/me/badges`, derived from profile/email state plus unlocked badges). Registration with BCrypt-hashed passwords (cost 10); newly registered accounts start `ACTIVE` (`emailVerified = false`) and receive a 6-digit email verification OTP (`/auth/send-verification`, `/auth/verify-email`); 6-digit email OTP password recovery (`/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password`); login and Google sign-in verify that the account is `ACTIVE` (rejecting `BLOCKED` or non-active accounts with HTTP 403 / error 1021) and issue an HS256 JWT (claims `userId`, `role`, valid 24 hours) together with an opaque refresh token (SHA-256 hashed in `refresh_tokens`, rotated via `/auth/refresh` and revoked on `/auth/logout` or password change); profile update, password change and avatar upload to Cloudinary; each account carries a status (`PENDING`, `ACTIVE`, `INACTIVE`, `BLOCKED`) and a role (`USER`, `ADMIN`). |
 | FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest chat is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
 | FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. |
-| FR-04 | Comments & votes | blog-service | Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` / `-1` / `0`) enforced by a unique constraint; the blog `vote_score` is updated with an atomic SQL increment. |
-| FR-05 | Recipe & restaurant search | recipe-service, location-service | Recipe browsing and keyword search; ingredient catalog; nearby restaurant search within a requested radius, ordered by distance computed by MySQL `ST_Distance_Sphere`. |
-| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned and favorited. |
+| FR-04 | Comments & votes | blog-service | Community extras: leaderboard ranked by published posts and likes, author follow/unfollow (`user_follows`), trending topics from category counts, community stats, video channels (`/videos/channels`), a 7-day check-in challenge persisted in `user_challenges`, and per-video nutrition facts (`/videos/{id}/nutrition`). Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` / `-1` / `0`) enforced by a unique constraint on both blogs and videos; `blogs.vote_score` and `videos.vote_score` are updated with atomic SQL increments. |
+| FR-05 | Recipe & restaurant search | recipe-service, location-service | Recipe browsing, keyword search, Cloudinary recipe image upload, per-serving nutrition calculation (`kcal`, `protein`, `carbs`, `fat`, `fiber` converted across weight, volume, spoon and piece units), recipe likes and popular ranking (`/recipes/popular`, `sort=popular`); ingredient catalog; restaurant keyword search (`/restaurants`, `/restaurants/search`) and nearby GPS search within a requested radius (with optional `keyword` and `veganOnly` filters), ordered by distance computed by MySQL `ST_Distance_Sphere`. |
+| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; daily food diary, water and exercise tracking and a combined "today" nutrition summary are served by nutrition-service (`/nutrition/me/food-logs`, `/water`, `/daily-activity`, `/daily-summary`); remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
 | FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. |
 | FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs: FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts ingredients, steps and nutrition highlights as structured JSON. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
-| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). |
-| FR-11 | Admin operations | ai-service, payment-service, blog-service, recipe-service | AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
+| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
+| FR-11 | Admin operations | identity-service, ai-service, payment-service, blog-service, recipe-service | User administration (`/admin/users`: search/filter, lock/unlock status, role assignment); AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
 | FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
 
 ### 4. Non-Functional Requirements (NFR)
 
 1. **Performance & scalability:** Services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status/publish date, comment target). AI response time depends on the Groq API; ai-service applies a 5-second connect timeout and a 45-second read timeout with limited retries.
-2. **Security:** Passwords are hashed with BCrypt (cost 10). JWTs are signed with HS256 and validated by every service as an OAuth2 resource server. Inter-service calls that must not be public (for example subscription lookup) use an internal service token. PayOS webhooks are accepted only after signature verification. CORS is configured only at the gateway. Uploaded images are validated by content type and magic bytes. Secrets are supplied through environment variables.
-3. **Availability & resilience:** Each service runs in its own container with an HTTP health check, and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if the payment service cannot be reached, and falls back to a deterministic planner if the LLM call fails.
-4. **Data integrity:** Database-per-service isolation with no cross-database foreign keys; user identifiers are stored as plain IDs. Unique constraints protect votes, allergen selections, plan codes and payment order codes. Payment orders are updated under a row lock, and the vote score is updated with an atomic SQL statement.
+2. **Security:** Passwords are hashed with BCrypt (cost 10), and OTP codes and opaque refresh tokens are stored as SHA-256 hashes. JWTs are signed with HS256 and validated by every service as an OAuth2 resource server; refresh tokens are rotated on `/auth/refresh` and revoked on `/auth/logout` or password changes. Inter-service calls that must not be public (for example subscription lookup) use an internal service token. PayOS webhooks are accepted only after signature verification. CORS is configured only at the gateway. Uploaded images are validated by content type and magic bytes. Secrets are supplied through environment variables.
+3. **Availability & resilience:** Each service runs in its own container with an HTTP health check, and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if the payment service cannot be reached, falls back to a deterministic planner if the LLM call fails, and queues moderated content as `REVIEW_REQUIRED` (`PENDING`) when LLM moderation is unavailable.
+4. **Data integrity:** Database-per-service isolation with no cross-database foreign keys; user identifiers are stored as plain IDs. Unique constraints protect votes, recipe likes, refresh-token hashes, allergen selections, plan codes and payment order codes. Payment orders are updated under a row lock, and `vote_score` / `like_count` counters are updated with atomic SQL statements.
 5. **Maintainability:** Layered code per service (controller, service, repository, DTO/mapper), consistent response envelope and error codes, OpenAPI documentation per service aggregated at the gateway.
 6. **Portability:** The entire backend starts with a single Docker Compose command.
 
@@ -345,13 +345,13 @@ VeggiePal uses a REST-based microservices architecture: seven business services 
 | Service | Container port | Gateway routes | Responsibility |
 |---|---|---|---|
 | api-gateway | 8080 (host 9080) | — | Routing, CORS, aggregated Swagger UI |
-| identity-service | 8081 | `/api/auth/**`, `/api/users/**` | Accounts, login, profile, user administration |
+| identity-service | 8081 | `/api/auth/**`, `/api/users/**`, `/api/admin/users/**` | Accounts, login, OTP password reset & email verification, refresh tokens, profile, user administration |
 | nutrition-service | 8082 | `/api/nutrition/**` | Health records, BMI, allergen catalog and user allergens |
 | blog-service | 8083 | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Blogs, videos, categories, comments, votes |
-| recipe-service | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Recipes, ingredients, steps |
-| location-service | 8085 | `/api/restaurants/**` | Restaurant data and nearby search |
+| recipe-service | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Recipes (per-serving nutrition, image upload, likes & popular), ingredients, steps |
+| location-service | 8085 | `/api/restaurants/**` | Restaurant data, keyword search and nearby search |
 | ai-service | 8086 | `/api/ai/**`, `/ai/**` | Chatbot, meal plans, video extraction, moderation, quotas, monitoring |
-| payment-service | 8087 | `/api/payments/**`, `/api/subscriptions/**` | Plans, PayOS orders and webhook, subscriptions |
+| payment-service | 8087 | `/api/payments/**`, `/api/subscriptions/**`, `/api/admin/payments/**` | Plans, PayOS orders and webhook, subscriptions, admin payment statistics |
 
 **Figure IV.1. REST-based microservices architecture**
 
@@ -418,6 +418,7 @@ flowchart TB
     AI --> GQ
     ID --> CD
     BL --> CD
+    RE --> CD
     ID --> GO
     PA --> PO
     PO -. "webhook" .-> GW
@@ -463,10 +464,10 @@ Each microservice owns its private schema on MySQL 8.4. The AI schema is created
 
 | Schema | Tables |
 |---|---|
-| `veggiepal_identity` | `users` |
-| `veggiepal_nutrition` | `allergens`, `user_allergies`, `health_records` |
-| `veggiepal_blog` | `categories`, `blogs`, `videos`, `comments`, `content_votes` |
-| `veggiepal_recipe` | `recipes`, `ingredients`, `recipe_ingredients`, `recipe_steps` |
+| `veggiepal_identity` | `users`, `user_otps`, `refresh_tokens`, `user_favorites`, `user_badges` |
+| `veggiepal_nutrition` | `allergens`, `user_allergies`, `health_records`, `food_logs`, `daily_wellness_logs` |
+| `veggiepal_blog` | `categories`, `blogs`, `videos`, `comments`, `content_votes`, `user_follows`, `user_challenges` |
+| `veggiepal_recipe` | `recipes`, `ingredients`, `recipe_ingredients`, `recipe_steps`, `recipe_likes` |
 | `veggiepal_location` | `vegetarian_restaurants` |
 | `veggiepal_ai` | `ai_meal_plans`, `ai_meal_plan_versions`, `ai_meal_plan_favorites`, `ai_conversations`, `ai_chat_messages`, `ai_guest_sessions`, `ai_daily_quotas`, `ai_usage_logs`, `ai_moderation_cases`, `ai_video_jobs` |
 | `veggiepal_payment` | `subscription_plans`, `user_subscriptions`, `payment_orders` |
@@ -475,10 +476,10 @@ Each microservice owns its private schema on MySQL 8.4. The AI schema is created
 
 ```mermaid
 flowchart LR
-    U[("identity<br/>users")]
-    N[("nutrition<br/>allergens, user_allergies,<br/>health_records")]
-    B[("blog<br/>categories, blogs, videos,<br/>comments, content_votes")]
-    R[("recipe<br/>recipes, ingredients,<br/>recipe_ingredients, recipe_steps")]
+    U[("identity<br/>users, user_otps, refresh_tokens,<br/>user_favorites, user_badges")]
+    N[("nutrition<br/>allergens, user_allergies, health_records,<br/>food_logs, daily_wellness_logs")]
+    B[("blog<br/>categories, blogs, videos, comments,<br/>content_votes, user_follows, user_challenges")]
+    R[("recipe<br/>recipes, ingredients, steps,<br/>recipe_ingredients, recipe_likes")]
     L[("location<br/>vegetarian_restaurants")]
     A[("ai<br/>meal plans, chat, quotas,<br/>usage, moderation, video jobs")]
     P[("payment<br/>subscription_plans,<br/>user_subscriptions, payment_orders")]
@@ -514,6 +515,65 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+    USER_OTPS {
+        bigint id PK
+        bigint user_id
+        varchar email
+        enum purpose
+        varchar code_hash
+        varchar reset_token
+        int attempts
+        boolean used
+        datetime expires_at
+        datetime created_at
+    }
+    REFRESH_TOKENS {
+        bigint id PK
+        bigint user_id
+        varchar token_hash UK
+        boolean revoked
+        datetime expires_at
+        datetime created_at
+        datetime revoked_at
+    }
+    USER_FAVORITES {
+        bigint id PK
+        bigint user_id
+        enum target_type
+        bigint target_id
+        varchar title
+        varchar image_url
+        datetime created_at
+    }
+    USER_BADGES {
+        bigint id PK
+        bigint user_id
+        enum badge_code
+        datetime earned_at
+    }
+    FOOD_LOGS {
+        bigint id PK
+        bigint user_id
+        date log_date
+        enum meal_type
+        varchar food_name
+        bigint recipe_id
+        int calories
+        decimal protein_g
+        decimal carbs_g
+        decimal fat_g
+        decimal fiber_g
+    }
+    DAILY_WELLNESS_LOGS {
+        bigint id PK
+        bigint user_id
+        date log_date
+        int water_ml
+        int water_target_ml
+        int exercise_minutes
+        int steps
+        int calories_burned
+    }
     ALLERGENS {
         bigint id PK
         varchar code UK
@@ -534,10 +594,12 @@ erDiagram
         decimal bmi
         datetime recorded_at
     }
+    USERS ||--o{ USER_OTPS : "user_id"
+    USERS ||--o{ REFRESH_TOKENS : "user_id"
     ALLERGENS ||--o{ USER_ALLERGIES : "allergen_id"
 ```
 
-*Figure IV.3a: `users` belongs to identity-service. In nutrition-service, a user's allergen choices are rows in `user_allergies` pointing to the seeded `allergens` catalog; health records form a history of height, weight and BMI per user. `user_id` in the nutrition tables refers to `users.id` logically, not through a foreign key.*
+*Figure IV.3a: `users`, `user_otps` (hashed 6-digit OTPs for password reset and email verification) and `refresh_tokens` (SHA-256-hashed opaque refresh tokens for rotation and revocation) belong to identity-service. In nutrition-service, a user's allergen choices are rows in `user_allergies` pointing to the seeded `allergens` catalog; health records form a history of height, weight and BMI per user. `user_favorites` and `user_badges` hold profile collections and unlocked badges; nutrition-service also keeps the food diary (`food_logs`) and daily water/exercise tracking (`daily_wellness_logs`). `user_id` across these tables refers to `users.id` logically rather than through cross-table foreign keys.*
 
 **Figure IV.3b. ERD of the blog schema**
 
@@ -571,6 +633,13 @@ erDiagram
         text description
         enum source_type
         varchar video_url
+        int vote_score
+        int calories
+        decimal protein_g
+        decimal carbs_g
+        decimal fat_g
+        decimal fiber_g
+        text ingredients_text
         varchar thumbnail_url
         enum status
         int view_count
@@ -585,6 +654,18 @@ erDiagram
         text content
         enum status
     }
+    USER_FOLLOWS {
+        bigint id PK
+        bigint follower_id
+        bigint followee_id
+        datetime created_at
+    }
+    USER_CHALLENGES {
+        bigint id PK
+        bigint user_id UK
+        varchar check_in_dates
+        date completed_at
+    }
     CONTENT_VOTES {
         bigint id PK
         bigint user_id
@@ -598,7 +679,7 @@ erDiagram
     COMMENTS ||--o{ COMMENTS : "parent_comment_id"
 ```
 
-*Figure IV.3b: Categories form a two-level tree and every blog or video belongs to one category. Comments and votes are polymorphic: `target_type` (BLOG or VIDEO) and `target_id` identify the content, so no foreign key is declared; comments reference their parent comment for nested replies. A unique constraint on votes allows one vote per user per target.*
+*Figure IV.3b: Categories form a two-level tree and every blog or video belongs to one category. Both `blogs` and `videos` carry a denormalized `vote_score` updated atomically; `videos` also stores optional nutrition facts and an ingredients list, and `user_follows` / `user_challenges` back author follows and the 7-day challenge. Comments and votes are polymorphic: `target_type` (BLOG or VIDEO) and `target_id` identify the content, so no foreign key is declared; comments reference their parent comment for nested replies. A unique constraint on votes allows one vote per user per target.*
 
 **Figure IV.3c. ERD of the recipe and location schemas**
 
@@ -613,6 +694,7 @@ erDiagram
         int servings
         int prep_time
         int cook_time
+        int like_count
         enum status
         datetime published_at
     }
@@ -620,6 +702,11 @@ erDiagram
         bigint id PK
         varchar name
         varchar normalized_name
+        decimal calories_per_100g
+        decimal protein_per_100g
+        decimal carbs_per_100g
+        decimal fat_per_100g
+        decimal fiber_per_100g
         varchar description
         boolean vegan
         boolean allergen
@@ -640,6 +727,12 @@ erDiagram
         int step_number
         varchar instruction
     }
+    RECIPE_LIKES {
+        bigint id PK
+        bigint user_id
+        bigint recipe_id
+        datetime created_at
+    }
     VEGETARIAN_RESTAURANTS {
         bigint id PK
         varchar name
@@ -654,9 +747,10 @@ erDiagram
     RECIPES ||--o{ RECIPE_INGREDIENTS : "recipe_id"
     INGREDIENTS ||--o{ RECIPE_INGREDIENTS : "ingredient_id"
     RECIPES ||--o{ RECIPE_STEPS : "recipe_id"
+    RECIPES ||--o{ RECIPE_LIKES : "recipe_id"
 ```
 
-*Figure IV.3c: `recipe_ingredients` is the associative table that gives each recipe its ingredients with quantity and unit, and `recipe_steps` stores ordered cooking steps. `vegetarian_restaurants` is a standalone table in location-service; its latitude and longitude columns feed the `ST_Distance_Sphere` search.*
+*Figure IV.3c: `recipe_ingredients` is the associative table that gives each recipe its ingredients with quantity and unit (used together with `ingredients.*_per_100g` to compute per-serving nutrition), `recipe_steps` stores ordered cooking steps, and `recipe_likes` records per-user likes (unique on `user_id, recipe_id`) paired with the denormalized `recipes.like_count`. `vegetarian_restaurants` is a standalone table in location-service; its name, address, vegan flag and coordinates feed keyword search and `ST_Distance_Sphere` nearby search.*
 
 **Figure IV.3d. ERD of the AI schema**
 
@@ -833,16 +927,18 @@ sequenceDiagram
     ID->>DB: find user by normalized email
     DB-->>ID: user row
     ID->>ID: BCrypt verify password (cost 10)
+    ID->>ID: verify user status is ACTIVE
     ID->>ID: sign JWT HS256 (userId, role, 24 h)
-    ID-->>GW: token and user info
-    GW-->>C: token and user info
+    ID->>DB: save SHA-256 hash of opaque refresh token
+    ID-->>GW: JWT, refreshToken and user info
+    GW-->>C: JWT, refreshToken and user info
     C->>GW: GET /api/... with Authorization Bearer token
     GW->>S: forward request
     S->>S: validate signature and expiry with shared secret
     S-->>C: response (401 if token invalid)
 ```
 
-*Figure IV.4 shows the login sequence. Identity-service verifies the password hash, then signs a JWT carrying `userId` and `role`. Every later request carries the token as a Bearer header; each service validates the signature locally with the shared secret, so no service has to call identity-service for authentication. Google sign-in follows the same pattern, except identity-service verifies a Google ID token (including `email_verified`) instead of a password and then issues its own JWT.*
+*Figure IV.4 shows the login sequence. Identity-service verifies the password hash and confirms that the account status is `ACTIVE` (rejecting locked or inactive accounts with HTTP 403), then signs a 24-hour HS256 JWT carrying `userId` and `role` and issues an opaque refresh token stored as a SHA-256 hash in `refresh_tokens` (rotatable via `POST /api/auth/refresh` and revocable via `POST /api/auth/logout`). Every later request carries the JWT as a Bearer header; each service validates the signature locally with the shared secret, so no service has to call identity-service for authentication. Google sign-in follows the same pattern, except identity-service verifies a Google ID token (including `email_verified`) instead of a password before checking status and issuing its own JWT and refresh token.*
 
 #### 3.2. AI 7-Day Allergen-Safe Meal Plan Generation Flow
 
@@ -942,16 +1038,16 @@ All clients use the gateway at `http://localhost:9080`; the aggregated Swagger U
 
 | Group | Examples (gateway path) | Access |
 |---|---|---|
-| Identity | `/api/auth/register`, `/api/auth/login`, `/api/auth/google`, `/api/users/me` (profile, password, avatar), `/api/users/batch` | Public for register/login; JWT for the rest |
-| Nutrition | `/api/nutrition/me/allergies`, `/api/nutrition/me/health-records/**`, allergen catalog | JWT |
-| Blog and community | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Public reads of published content; JWT to write; ADMIN for categories and takedowns |
-| Recipes | `/api/recipes/**`, `/api/ingredients/**` | Public reads of recipe list/detail and ingredients; JWT for other recipe operations; ADMIN for ingredient changes |
-| Restaurants | `/api/restaurants/**` including nearby search | Public |
+| Identity | `/api/auth/register`, `/api/auth/login`, `/api/auth/google`, `/api/auth/forgot-password`, `/api/auth/verify-otp`, `/api/auth/reset-password`, `/api/auth/send-verification`, `/api/auth/verify-email`, `/api/auth/refresh`, `/api/auth/logout`, `/api/users/me` (profile, password, avatar), `/api/users/me/favorites`, `/api/users/me/badges`, `/api/users/batch`, `/api/admin/users/**` | Public for auth/OTP/refresh/batch; JWT for `/api/users/me`; ADMIN for `/api/admin/users/**` |
+| Nutrition | `/api/nutrition/me/allergies`, `/api/nutrition/me/health-records/**`, `/api/nutrition/me/food-logs`, `/api/nutrition/me/daily-activity`, `/api/nutrition/me/water`, `/api/nutrition/me/daily-summary`, allergen catalog | JWT |
+| Blog and community | `/api/blogs/**` (including `/community/leaderboard`, `/community/trending-topics`, `/community/stats`, `/authors/{id}/follow`, `/me/following`, `/challenge/me`, `/challenge/check-in`), `/api/categories/**`, `/api/comments/**`, `/api/videos/**` (including `/channels`, `/{id}/nutrition`, `/{id}/vote`, `/me/votes`) | Public reads of published content, community stats and video channels; JWT to write/vote/follow/check in; ADMIN for categories and takedowns |
+| Recipes | `/api/recipes/**` (`/popular`, `/{id}/image`, `/images`, `/{id}/like`, `/me/likes`), `/api/ingredients/**` | Public reads of recipe list/popular/detail and ingredients; JWT for recipe authoring, image upload and likes; ADMIN for ingredient changes |
+| Restaurants | `/api/restaurants`, `/api/restaurants/search`, `/api/restaurants/nearby` (`keyword`, `veganOnly`, `lat`, `lng`, `radiusKm`) | Public |
 | AI chat | `/api/ai/chat/guest-sessions`, guest chat, member chat, conversations | Guest session or JWT |
-| AI meal plans | `POST /api/ai/meal-plans`, `GET /api/ai/meal-plans`, `/nutrition-target`, `/favorites`, `/{id}/versions`, `/{id}/preview-edit`, `/{id}/edit`, `/{id}/replace` | JWT |
+| AI meal plans & quotas | `POST /api/ai/meal-plans`, `GET /api/ai/meal-plans`, `/quota`, `GET /api/ai/quotas/me`, `/nutrition-target`, `/favorites`, `/{id}/versions`, `/{id}/versions/{version}/restore`, `/{id}/preview-edit`, `/{id}/edit`, `/{id}/replace` | JWT |
 | AI video | `POST /api/ai/videos/process` (multipart), job status endpoints | JWT |
 | AI moderation and monitoring | `/api/ai/moderation/check`, `/ai/admin/moderation`, `/ai/admin/monitoring/**` | Service call / ADMIN |
-| Payments | `GET /api/payments/plans`, `POST /api/payments/checkout`, `/api/payments/orders/{id}`, `/history`, `GET /api/subscriptions/me`, `POST /api/payments/webhook/payos` | JWT; webhook is public but signature-verified |
+| Payments | `GET /api/payments/plans`, `POST /api/payments/checkout`, `/api/payments/orders/{id}`, `/history`, `GET /api/subscriptions/me`, `POST /api/payments/webhook/payos`, `/api/admin/payments/**` | JWT; ADMIN for `/api/admin/payments/**`; webhook is public but signature-verified |
 | Internal | `/internal/subscriptions/{userId}` (not routed through the gateway) | Internal service token |
 
 Request and response schemas, status codes and examples for every endpoint are published in Swagger UI, generated from the OpenAPI definitions of each service.
@@ -976,19 +1072,19 @@ Request and response schemas, status codes and examples for every endpoint are p
 
 ### 3. Test Inventory
 
-The repository contains 92 test classes with 634 test methods (counted from `@Test` annotations in source).
+The repository contains 106 test classes with 712 test methods (counted from `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in source).
 
 | No. | Service | Test methods | Primary test focus |
 |---|---|---|---|
-| 1 | blog-service | 241 | Blogs, comments, votes, categories, moderation hooks, security |
-| 2 | ai-service | 204 | Meal planning and validation, quota, chat, video jobs, moderation |
-| 3 | identity-service | 77 | Registration, login, BCrypt, JWT, profile, user status |
-| 4 | nutrition-service | 43 | Health records, BMI, allergen mapping |
-| 5 | payment-service | 26 | PayOS signature, webhook handling, subscriptions |
-| 6 | recipe-service | 22 | Recipe CRUD, ingredient data and units |
-| 7 | location-service | 13 | Restaurant data and nearby distance search |
-| 8 | api-gateway | 8 | Routing rules and Swagger aggregation |
-| | **Total** | **634** | |
+| 1 | blog-service | 259 | Blogs, videos, comments, votes, categories, moderation fallback, security |
+| 2 | ai-service | 212 | Meal planning, version restore, validation, quota endpoints, chat, video jobs, moderation |
+| 3 | identity-service | 102 | Registration, login, OTP password reset & email verification, refresh tokens, admin users, profile |
+| 4 | nutrition-service | 47 | Health records, BMI, allergen mapping |
+| 5 | recipe-service | 38 | Recipe CRUD, per-serving nutrition, image upload, likes & popular, ingredient data and units |
+| 6 | payment-service | 26 | PayOS signature, webhook handling, subscriptions |
+| 7 | location-service | 19 | Restaurant keyword search, vegan filter and nearby distance search |
+| 8 | api-gateway | 9 | Routing rules (including admin routes) and Swagger aggregation |
+| | **Total** | **712** | |
 
 The result of each test run is recorded by the "Run tests" step of the `maven` job in GitHub Actions (see Figure VI.5).
 
@@ -1042,7 +1138,7 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
    cp backend/.env.example backend/.env
    ```
 
-   Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`. Needed for the related features: `INTERNAL_SERVICE_TOKEN`, `GROQ_API_KEY` (AI), `CLOUDINARY_*` (images and videos), `GOOGLE_CLIENT_ID` (Google sign-in) and the `PAYOS_*` credentials (payments).
+   Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`. Needed for the related features: `INTERNAL_SERVICE_TOKEN`, `GROQ_API_KEY` (AI), `CLOUDINARY_*` (images and videos), `GOOGLE_CLIENT_ID` (Google sign-in), `MAIL_*` (SMTP delivery for OTP emails; falls back to application logs when `MAIL_HOST` is omitted in local development) and the `PAYOS_*` credentials (payments).
 
 3. Start the whole backend with Docker Compose:
 
@@ -1094,7 +1190,7 @@ flowchart TD
 1. Navigate to Menu Planner > Generate Plan.
 2. Select a goal (weight loss, muscle gain or maintenance) and optionally list preferences and ingredients you have on hand.
 3. The system computes the nutrition target, excludes recipes containing your allergens, and shows a plan with breakfast, lunch and dinner for seven days.
-4. Open any recipe to see its ingredient quantities and cooking steps. Plans can be edited, a single meal can be replaced, and plans can be favorited.
+4. Open any recipe to see its ingredient quantities, per-serving nutrition and cooking steps. Plans can be edited, a single meal can be replaced, historical versions can be restored, and plans can be favorited.
 
 **Figure VI.2. Meal plan workflow**
 
@@ -1116,7 +1212,7 @@ flowchart TD
 #### 3.3. Workflow 3: Finding Nearby Vegan Restaurants via GPS
 
 1. Open the Places / Map tab and allow location access.
-2. The app asks location-service for restaurants within the chosen radius.
+2. The app asks location-service for restaurants matching an optional keyword or vegan-only filter, or within the chosen radius around the user's coordinates.
 3. Results are ordered by distance, which is computed by MySQL `ST_Distance_Sphere`, together with their rating and a vegan-only flag.
 
 **Figure VI.3. Nearby restaurant discovery workflow**
@@ -1224,8 +1320,8 @@ flowchart LR
 |---|---|
 | Backend modules | 8 (7 business services + 1 API gateway) |
 | Database schemas | 7 isolated MySQL schemas |
-| Database tables | 27 |
-| Test classes / test methods | 92 / 634 |
+| Database tables | 36 |
+| Test classes / test methods | 106 / 712 |
 | Subscription plans | 3 (FREE, PLUS, PRO) |
 | CI jobs | `maven` and `docker` (matrix of 8 modules each), `compose-check`, `deploy` |
 | Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector) |
@@ -1236,7 +1332,7 @@ flowchart LR
 #### 3.1. Results Achieved
 
 - A complete microservices backend (7 services and a gateway) that starts with one Docker Compose command and exposes aggregated Swagger documentation.
-- Secure authentication with BCrypt, HS256 JWT validation in every service, and Google sign-in.
+- Secure authentication with BCrypt, HS256 JWT validation in every service, opaque refresh-token rotation and revocation, 6-digit email OTP password recovery and email verification, and Google sign-in.
 - Allergen-aware AI meal planning with server-side validation and a fallback planner; AI chatbot, video recipe extraction and moderation backed by Groq.
 - A community module with nested comments, voting and administrator moderation.
 - A domestic payment flow with PayOS VietQR, signed and idempotent webhook processing, and plan-based quotas.

@@ -2,7 +2,9 @@ package com.veggiepal.blog.service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,8 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.veggiepal.blog.configuration.VideoProperties;
+import com.veggiepal.blog.dto.request.VideoNutritionRequest;
 import com.veggiepal.blog.dto.request.VideoRequest;
 import com.veggiepal.blog.dto.response.PageResponse;
+import com.veggiepal.blog.dto.response.VideoNutritionResponse;
 import com.veggiepal.blog.dto.response.VideoResponse;
 import com.veggiepal.blog.entity.Video;
 import com.veggiepal.blog.enums.ContentStatus;
@@ -75,6 +79,7 @@ public class VideoService {
                 .thumbnailUrl(hasFile ? null : youtubeThumbnailUrl(youtubeId))
                 .status(ContentStatus.DRAFT)
                 .viewCount(0)
+                .voteScore(0)
                 .build();
 
         // Persist first so the moderation case can point to a real resource id
@@ -112,14 +117,40 @@ public class VideoService {
     // Task sheet US4: "Tương tự Blog, phân trang 10 items. Chỉ lấy video có status Public."
     @Transactional(readOnly = true)
     public PageResponse<VideoResponse> getPublishedVideos(Long categoryId, int page, int size) {
+        return getPublishedVideos(categoryId, null, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<VideoResponse> getPublishedVideos(
+            Long categoryId,
+            Long authorId,
+            int page,
+            int size
+    ) {
 
         PageRequest pageRequest = BlogService.pageRequest(page, size, BlogService.RECENTLY_PUBLISHED_FIRST);
 
-        Page<Video> videos = categoryId == null
-                ? videoRepository.findByStatus(ContentStatus.PUBLISHED, pageRequest)
-                : videoRepository.findByStatusAndCategoryId(ContentStatus.PUBLISHED, categoryId, pageRequest);
+        Page<Video> videos;
+        if (categoryId != null && authorId != null) {
+            videos = videoRepository.findByStatusAndCategoryIdAndAuthorId(
+                    ContentStatus.PUBLISHED, categoryId, authorId, pageRequest);
+        } else if (categoryId != null) {
+            videos = videoRepository.findByStatusAndCategoryId(ContentStatus.PUBLISHED, categoryId, pageRequest);
+        } else if (authorId != null) {
+            videos = videoRepository.findByStatusAndAuthorId(ContentStatus.PUBLISHED, authorId, pageRequest);
+        } else {
+            videos = videoRepository.findByStatus(ContentStatus.PUBLISHED, pageRequest);
+        }
 
         return toPageResponse(videos);
+    }
+
+    @Transactional
+    public Video requirePublishedVideo(Long id) {
+
+        return videoRepository
+                .findByIdAndStatus(id, ContentStatus.PUBLISHED)
+                .orElseThrow(() -> new AppException(ErrorCode.VIDEO_NOT_EXISTED));
     }
 
     @Transactional
@@ -138,6 +169,42 @@ public class VideoService {
         response.setViewCount(video.getViewCount() + 1);
 
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public VideoNutritionResponse getVideoNutrition(Long videoId) {
+        Video video = requirePublishedVideo(videoId);
+        VideoNutritionResponse nutrition = VideoNutritionResponse.fromVideo(video);
+        if (nutrition != null) {
+            return nutrition;
+        }
+        return VideoNutritionResponse.builder()
+                .videoId(video.getId())
+                .ingredients(List.of())
+                .build();
+    }
+
+    @Transactional
+    public VideoNutritionResponse updateVideoNutrition(
+            Long userId,
+            boolean admin,
+            Long videoId,
+            VideoNutritionRequest request
+    ) {
+        Video video = findOwnedVideo(userId, admin, videoId);
+        video.setServingLabel(normalizeDescription(request.getServingLabel()));
+        video.setCalories(request.getKcal());
+        video.setProteinG(request.getProteinG());
+        video.setCarbsG(request.getCarbsG());
+        video.setFatG(request.getFatG());
+        video.setFiberG(request.getFiberG());
+        video.setIngredientsText(formatIngredients(request.getIngredients()));
+
+        Video saved = videoRepository.save(video);
+        VideoNutritionResponse nutrition = VideoNutritionResponse.fromVideo(saved);
+        return nutrition != null
+                ? nutrition
+                : VideoNutritionResponse.builder().videoId(saved.getId()).ingredients(List.of()).build();
     }
 
     // Task sheet US6: the owner sees every status, Draft, Public and Banned included
@@ -351,6 +418,21 @@ public class VideoService {
     private static String normalizeDescription(String description) {
 
         return description == null || description.isBlank() ? null : description.trim();
+    }
+
+    private static String formatIngredients(List<VideoNutritionRequest.IngredientItem> items) {
+        if (items == null || items.isEmpty()) {
+            return null;
+        }
+        String joined = items.stream()
+                .filter(i -> i != null && i.getName() != null && !i.getName().isBlank())
+                .map(i -> {
+                    String name = i.getName().replace('|', ' ').replace('\n', ' ').trim();
+                    String amount = i.getAmount() == null ? "" : i.getAmount().replace('\n', ' ').trim();
+                    return amount.isEmpty() ? name : name + "|" + amount;
+                })
+                .collect(Collectors.joining("\n"));
+        return joined.isEmpty() ? null : joined;
     }
 
     // enablejsapi lets the FE pause the iframe when it scrolls out of view (task sheet US4)

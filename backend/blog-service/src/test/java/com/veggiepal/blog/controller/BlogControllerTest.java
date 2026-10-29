@@ -277,4 +277,16 @@ class BlogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result[0].myVote").value(1));
     }
+
+    @Test
+    void createBlog_contentExceeding64KB_returns400BlogContentTooLong() throws Exception {
+        String oversized = "a".repeat(65536);
+        String payload = "{\"title\":\"Valid vegan blog title\",\"content\":\"" + oversized + "\",\"categoryId\":1}";
+
+        mockMvc.perform(post("/blogs").with(member())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3016));
+    }
 }

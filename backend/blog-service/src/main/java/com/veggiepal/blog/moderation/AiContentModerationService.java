@@ -4,6 +4,7 @@ import com.veggiepal.blog.exception.AppException;
 import com.veggiepal.blog.exception.ErrorCode;
 import java.time.Duration;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -17,7 +18,10 @@ import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 
 @Service
+@Slf4j
 public class AiContentModerationService implements ContentModerationService {
+
+    static final String FALLBACK_REASON = "AI moderation temporarily unavailable; pending manual review";
 
     private final RestClient client;
 
@@ -55,20 +59,24 @@ public class AiContentModerationService implements ContentModerationService {
 
             JsonNode result = response == null ? null : response.path("result");
             if (result == null || result.isMissingNode() || result.path("decision").asString().isBlank()) {
-                throw new AppException(ErrorCode.INVALID_MODERATION_RESPONSE);
+                log.warn("AI moderation returned missing decision for {}:{}; falling back to REVIEW_REQUIRED",
+                        contentType, externalContentId);
+                return new ModerationResult(ModerationDecision.REVIEW_REQUIRED, FALLBACK_REASON);
             }
 
             ModerationDecision decision;
             try {
                 decision = ModerationDecision.valueOf(result.path("decision").asString());
             } catch (IllegalArgumentException exception) {
-                throw new AppException(ErrorCode.INVALID_MODERATION_RESPONSE);
+                log.warn("AI moderation returned unknown decision '{}' for {}:{}; falling back to REVIEW_REQUIRED",
+                        result.path("decision").asString(), contentType, externalContentId);
+                return new ModerationResult(ModerationDecision.REVIEW_REQUIRED, FALLBACK_REASON);
             }
             return new ModerationResult(decision, result.path("reason").asString(null));
-        } catch (AppException exception) {
-            throw exception;
         } catch (RestClientException exception) {
-            throw new AppException(ErrorCode.MODERATION_UNAVAILABLE);
+            log.warn("AI moderation unavailable for {}:{}; falling back to REVIEW_REQUIRED",
+                    contentType, externalContentId, exception);
+            return new ModerationResult(ModerationDecision.REVIEW_REQUIRED, FALLBACK_REASON);
         }
     }
 

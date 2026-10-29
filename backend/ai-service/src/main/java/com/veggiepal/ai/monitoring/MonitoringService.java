@@ -39,5 +39,10 @@ public class MonitoringService {
     }
 
     public record UsageLogPage(java.util.List<UsageLog> items, int page, int size,
-                               long totalElements, int totalPages) {}
+                               long totalElements, int totalPages) {
+        @com.fasterxml.jackson.annotation.JsonProperty("content")
+        public java.util.List<UsageLog> content() {
+            return items;
+        }
+    }
 }
