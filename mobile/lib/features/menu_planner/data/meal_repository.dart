@@ -2,29 +2,11 @@ import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
 import 'meal_models.dart';
 
-/// meal-service: công thức (công khai) và nguyên liệu trong tủ của tôi (cần JWT).
+/// Nguyên liệu trong tủ của tôi (cần JWT). Công thức nằm ở RecipeRepository.
 /// Mọi lỗi được ném lại cho UI hiển thị popup.
 class MealRepository {
   final ApiClient _api;
   MealRepository(this._api);
-
-  // GET /nutrition/recipes?keyword=&excludeAllergen=
-  // Lưu ý: BE ưu tiên excludeAllergen, nếu có thì bỏ qua keyword.
-  Future<List<RecipeItem>> recipes({String? keyword, String? excludeAllergen}) async {
-    final r = await _api.get(Endpoints.recipes, query: {
-      if (excludeAllergen != null && excludeAllergen.isNotEmpty) 'excludeAllergen': excludeAllergen,
-      if ((excludeAllergen ?? '').isEmpty && keyword != null && keyword.isNotEmpty) 'keyword': keyword,
-    });
-    return asList(r)
-        .map((e) => RecipeItem.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-  }
-
-  // GET /nutrition/recipes/{id}
-  Future<RecipeItem> recipe(int id) async {
-    final r = await _api.get(Endpoints.recipeById(id));
-    return RecipeItem.fromJson(Map<String, dynamic>.from(r as Map));
-  }
 
   void _requireLogin() {
     if (_api.token == null) throw ApiException('Vui lòng đăng nhập để sử dụng chức năng này.');

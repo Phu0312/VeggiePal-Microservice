@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../recipe/data/recipe_models.dart';
+import '../../recipe/data/recipe_repository.dart';
 import '../data/meal_plan_models.dart';
-import '../data/meal_plan_repository.dart';
 
 /// Hiển thị một thực đơn tuần: tiêu đề + yêu thích, mục tiêu, chọn thứ, dinh dưỡng và 3 bữa của ngày đó.
 /// Widget tree: Column
@@ -238,8 +239,8 @@ class _MealTile extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: FutureBuilder<PlanRecipe>(
-          future: context.read<MealPlanRepository>().recipe(meal.recipeId),
+        child: FutureBuilder<Recipe>(
+          future: context.read<RecipeRepository>().cachedRecipe(meal.recipeId),
           builder: (context, snap) {
             final recipe = snap.data;
             final title = recipe?.title ??
@@ -325,8 +326,8 @@ class _MealSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = meal.nutrition;
-    return FutureBuilder<PlanRecipe>(
-      future: context.read<MealPlanRepository>().recipe(meal.recipeId),
+    return FutureBuilder<Recipe>(
+      future: context.read<RecipeRepository>().cachedRecipe(meal.recipeId),
       builder: (context, snap) {
         final r = snap.data;
         return ListView(
@@ -375,7 +376,7 @@ class _MealSheet extends StatelessWidget {
               for (final i in r.ingredients)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text('• ${i.name}${i.amount.isEmpty ? '' : ' - ${i.amount}'}'),
+                  child: Text('• ${i.name}${i.amountText.isEmpty ? '' : ' - ${i.amountText}'}'),
                 ),
             ],
             if (r != null && r.steps.isNotEmpty) ...[
@@ -385,7 +386,7 @@ class _MealSheet extends StatelessWidget {
               for (var i = 0; i < r.steps.length; i++)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Text('${i + 1}. ${r.steps[i]}', style: const TextStyle(height: 1.35)),
+                  child: Text('${i + 1}. ${r.steps[i].instruction}', style: const TextStyle(height: 1.35)),
                 ),
             ],
             const SizedBox(height: 20),

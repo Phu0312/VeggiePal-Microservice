@@ -2,14 +2,11 @@ import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
 import 'meal_plan_models.dart';
 
-/// ai-service: thực đơn tuần (`/ai/meal-plans`, cần JWT) và công thức của từng bữa (recipe-service, công khai).
+/// ai-service: thực đơn tuần (`/ai/meal-plans`, cần JWT). Công thức của từng bữa lấy ở RecipeRepository.
 /// Mọi lỗi được ném lại cho UI hiển thị popup.
 class MealPlanRepository {
   final ApiClient _api;
   MealPlanRepository(this._api);
-
-  /// Công thức đã tải, dùng chung giữa các màn để không gọi lại khi đổi ngày/mở lại thực đơn.
-  final _recipes = <int, Future<PlanRecipe>>{};
 
   void _requireLogin() {
     if (_api.token == null) throw ApiException('Vui lòng đăng nhập để sử dụng chức năng này.');
@@ -89,18 +86,5 @@ class MealPlanRepository {
     _requireLogin();
     final r = await _api.get(Endpoints.aiNutritionTarget, query: {'goalType': goal.value});
     return NutritionTargetInfo.fromJson(Map<String, dynamic>.from(r as Map));
-  }
-
-  // GET /recipes/{id}: tên món, ảnh, nguyên liệu, các bước.
-  Future<PlanRecipe> recipe(int id) {
-    return _recipes.putIfAbsent(id, () async {
-      try {
-        return PlanRecipe.fromJson(
-            Map<String, dynamic>.from(await _api.get(Endpoints.recipeDetail(id)) as Map));
-      } catch (_) {
-        _recipes.remove(id); // lần sau cho phép thử lại
-        rethrow;
-      }
-    });
   }
 }

@@ -1,5 +1,5 @@
 // Model thực đơn tuần của ai-service (`/ai/meal-plans`). Phần `plan` của backend chỉ có `recipeId`
-// cho mỗi bữa; tên món, ảnh, nguyên liệu và các bước nấu lấy riêng từ recipe-service (xem PlanRecipe).
+// cho mỗi bữa; tên món, ảnh, nguyên liệu và các bước nấu lấy riêng từ recipe-service (xem Recipe ở features/recipe).
 
 /// Mục tiêu của thực đơn (ai-service: GoalType).
 class PlanGoal {
@@ -354,64 +354,4 @@ class MealPlanVersion {
         target: current.target,
         viewingVersion: version,
       );
-}
-
-/// Nguyên liệu của một công thức (recipe-service: RecipeIngredientResponse).
-class PlanIngredient {
-  final String name;
-  final String amount; // "200 g" hoặc rỗng
-  const PlanIngredient(this.name, this.amount);
-}
-
-/// Phần của công thức mà màn thực đơn cần (recipe-service: RecipeResponse).
-class PlanRecipe {
-  final int id;
-  final String title;
-  final String? description;
-  final String? imageUrl;
-  final int? servings;
-  final int? prepTime;
-  final int? cookTime;
-  final List<PlanIngredient> ingredients;
-  final List<String> steps;
-  const PlanRecipe({
-    required this.id,
-    required this.title,
-    this.description,
-    this.imageUrl,
-    this.servings,
-    this.prepTime,
-    this.cookTime,
-    this.ingredients = const [],
-    this.steps = const [],
-  });
-
-  factory PlanRecipe.fromJson(Map<String, dynamic> j) {
-    final steps = [
-      for (final s in (j['steps'] as List? ?? const [])) Map<String, dynamic>.from(s as Map),
-    ]..sort((a, b) => ((a['stepNumber'] as num?) ?? 0).compareTo((b['stepNumber'] as num?) ?? 0));
-    return PlanRecipe(
-      id: (j['id'] as num).toInt(),
-      title: '${j['title'] ?? ''}',
-      description: j['description'] as String?,
-      imageUrl: j['imageUrl'] as String?,
-      servings: (j['servings'] as num?)?.toInt(),
-      prepTime: (j['prepTime'] as num?)?.toInt(),
-      cookTime: (j['cookTime'] as num?)?.toInt(),
-      ingredients: [
-        for (final i in (j['ingredients'] as List? ?? const []))
-          PlanIngredient('${(i as Map)['ingredientName'] ?? ''}', _amount(i['quantity'], i['unit'])),
-      ],
-      steps: [for (final s in steps) '${s['instruction'] ?? ''}'],
-    );
-  }
-
-  static String _amount(Object? quantity, Object? unit) => [
-        if (quantity is num) _fmt(quantity.toDouble()),
-        if (unit != null && '$unit'.trim().isNotEmpty) '$unit'.trim(),
-      ].join(' ');
-
-  /// Tổng thời gian chuẩn bị + nấu (phút); null nếu cả hai đều trống.
-  int? get totalMinutes =>
-      prepTime == null && cookTime == null ? null : (prepTime ?? 0) + (cookTime ?? 0);
 }
