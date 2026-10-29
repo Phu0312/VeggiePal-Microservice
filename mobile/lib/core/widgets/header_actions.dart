@@ -160,7 +160,7 @@ class _GuestNotificationsDialog extends StatelessWidget {
   Widget build(BuildContext context) => AlertDialog(
         icon: Icon(LucideIcons.bell, color: context.cs.primary, size: 32),
         title: const Text('Thông báo'),
-        content: const Text('Đăng nhập để nhận thông báo về bài viết của bạn.'),
+        content: const Text('Đăng nhập để nhận thông báo về bài viết và video của bạn.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng')),
           FilledButton(
