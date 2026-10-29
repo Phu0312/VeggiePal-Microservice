@@ -18,21 +18,6 @@ Color videoStatusColor(BuildContext context, String status) => switch (status) {
       _ => context.textMuted,
     };
 
-/// Nhãn nhỏ có màu: trạng thái video hoặc trạng thái lượt bóc tách.
-class StatusPill extends StatelessWidget {
-  final String label;
-  final Color color;
-  const StatusPill(this.label, this.color, {super.key});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
-      );
-}
-
 /// Thẻ video: ảnh đại diện 16:9 có nút phát và nhãn nguồn (YouTube / MP4), tiêu đề, danh mục, lượt xem.
 class VideoCard extends StatelessWidget {
   final Video video;

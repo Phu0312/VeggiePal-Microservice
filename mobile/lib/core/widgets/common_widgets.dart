@@ -208,3 +208,18 @@ Future<void> showInfoDialog(BuildContext context, String title, String message) 
     ),
   );
 }
+
+/// Nhãn nhỏ có màu cho một trạng thái (đã đăng / đang chờ / thất bại...).
+class StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  const StatusPill(this.label, this.color, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      );
+}
