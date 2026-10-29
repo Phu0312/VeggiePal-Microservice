@@ -258,7 +258,8 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _fixProfile() async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen()));
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => const EditProfileScreen(highlightFields: {'dateOfBirth', 'gender', 'activityLevel'})));
     _loadTarget();
   }
 

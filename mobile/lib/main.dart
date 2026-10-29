@@ -33,6 +33,7 @@ import 'features/places/data/user_location.dart';
 import 'features/places/presentation/places_map.dart' show MapTiles;
 import 'features/recipe/data/recipe_repository.dart';
 import 'features/video/data/video_repository.dart';
+import 'features/profile/data/profile_overview.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'navigation/main_navigation_screen.dart';
 
@@ -54,7 +55,11 @@ class VeggiePalApp extends StatelessWidget {
 
   /// Cho phép test thay nguồn ID token của Google.
   final GoogleIdTokenSource? googleIdTokenSource;
-  const VeggiePalApp({super.key, this.store, this.initialSession, this.googleIdTokenSource});
+
+  /// Cho phép test thay bộ tải ô bản đồ (mặc định dùng bộ tải của flutter_map).
+  final MapTiles mapTiles;
+  const VeggiePalApp(
+      {super.key, this.store, this.initialSession, this.googleIdTokenSource, this.mapTiles = const MapTiles()});
 
   void _onSessionExpired() {
     final ctx = navigatorKey.currentContext;
@@ -71,6 +76,8 @@ class VeggiePalApp extends StatelessWidget {
       providers: [
         Provider<ApiClient>(create: (_) => ApiClient()),
         Provider<GoogleIdTokenSource>(create: (_) => googleIdTokenSource ?? GoogleSignInSource()),
+        Provider<LocationSource>(create: (_) => const GeolocatorSource()),
+        Provider<MapTiles>.value(value: mapTiles),
         ProxyProvider<ApiClient, AuthRepository>(update: (_, api, _) => AuthRepository(api)),
         ProxyProvider<ApiClient, HomeRepository>(update: (_, api, _) => HomeRepository(api)),
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),
@@ -97,6 +104,11 @@ class VeggiePalApp extends StatelessWidget {
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
         ChangeNotifierProxyProvider<AuthController, RecommendationController>(
           create: (c) => RecommendationController(c.read<RecommendationRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthController, ProfileOverview>(
+          create: (c) => ProfileOverview(c.read<ProfileRepository>(), c.read<HomeRepository>(),
+              c.read<RecipeRepository>(), c.read<VideoRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
         ),
         ChangeNotifierProxyProvider<AuthController, SubscriptionController>(
