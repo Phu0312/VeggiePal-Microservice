@@ -25,4 +25,8 @@ public class PageResponse<T> {
     boolean first;
 
     boolean last;
+
+    public List<T> getItems() {
+        return content;
+    }
 }

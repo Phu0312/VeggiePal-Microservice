@@ -1,8 +1,12 @@
 package com.veggiepal.ai.mealplan;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,10 +15,15 @@ import com.veggiepal.ai.groq.GroqClient;
 import com.veggiepal.ai.groq.ModelProperties;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
+import com.veggiepal.ai.quota.QuotaDtos;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -60,6 +69,79 @@ class MealPlanControllerTest {
         return MockMvcBuilders.standaloneSetup(new MealPlanController(service))
                 .setControllerAdvice(new com.veggiepal.ai.common.GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).build();
+    }
+
+    @Test
+    void quotaReturnsMonthlyMealPlanUsage() throws Exception {
+        MealPlanService service = mock(MealPlanService.class);
+        when(service.getQuota(7L)).thenReturn(new QuotaDtos.MealPlanQuotaStatus(
+                "FREE", null, "MONTHLY", 2, 1, 1,
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1)));
+
+        mockMvcFor(service).perform(get("/ai/meal-plans/quota"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.planCode").value("FREE"))
+                .andExpect(jsonPath("$.result.limit").value(2))
+                .andExpect(jsonPath("$.result.used").value(1))
+                .andExpect(jsonPath("$.result.remaining").value(1));
+    }
+
+    @Test
+    void restoreVersionArchivesCurrentStateAndRestoresSelectedVersion() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        MealPlanRepository repository = mock(MealPlanRepository.class);
+        MealPlanVersionRepository versionRepository = mock(MealPlanVersionRepository.class);
+        MealPlan current = new MealPlan(7L, "Thực đơn v2", "Tăng cơ", "{\"days\":[{\"day\":\"MONDAY\",\"meals\":[]}]}" , 2);
+        MealPlanVersion archivedV1 = new MealPlanVersion(
+                current, 1, "Thực đơn v1", "Giữ cân", "{\"days\":[{\"day\":\"SUNDAY\",\"meals\":[]}]}", "Bản đầu tiên");
+
+        when(repository.findByIdAndUserId(15L, 7L)).thenReturn(Optional.of(current));
+        when(versionRepository.findByMealPlanIdAndVersion(15L, 1)).thenReturn(Optional.of(archivedV1));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        MealPlanService service = new MealPlanService(repository, mock(RestClient.class), "http://recipe",
+                "http://nutrition", "http://identity", mock(GroqClient.class),
+                new ModelProperties("c", "m", "r", "p", "v", "w"),
+                mapper, mock(UsageService.class), new MealPlanValidator(mapper),
+                mock(MealPlanFavoriteRepository.class), versionRepository, mock(PremiumQuotaService.class));
+
+        mockMvcFor(service).perform(post("/ai/meal-plans/15/versions/1/restore")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"changeSummary\":\"Quay về bản tuần trước\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.name").value("Thực đơn v1"))
+                .andExpect(jsonPath("$.result.goal").value("Giữ cân"))
+                .andExpect(jsonPath("$.result.version").value(3))
+                .andExpect(jsonPath("$.result.plan.days[0].day").value("SUNDAY"));
+
+        ArgumentCaptor<MealPlanVersion> archivedCaptor = ArgumentCaptor.forClass(MealPlanVersion.class);
+        verify(versionRepository).save(archivedCaptor.capture());
+        assertThat(archivedCaptor.getValue().getVersion()).isEqualTo(2);
+        assertThat(archivedCaptor.getValue().getName()).isEqualTo("Thực đơn v2");
+        assertThat(archivedCaptor.getValue().getChangeSummary()).isEqualTo("Quay về bản tuần trước");
+    }
+
+    @Test
+    void restoreVersionWhenVersionMissingReturns404Code6017() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        MealPlanRepository repository = mock(MealPlanRepository.class);
+        MealPlanVersionRepository versionRepository = mock(MealPlanVersionRepository.class);
+        MealPlan current = new MealPlan(7L, "Thực đơn v2", "Tăng cơ", "{\"days\":[]}", 2);
+
+        when(repository.findByIdAndUserId(15L, 7L)).thenReturn(Optional.of(current));
+        when(versionRepository.findByMealPlanIdAndVersion(15L, 99)).thenReturn(Optional.empty());
+
+        MealPlanService service = new MealPlanService(repository, mock(RestClient.class), "http://recipe",
+                "http://nutrition", "http://identity", mock(GroqClient.class),
+                new ModelProperties("c", "m", "r", "p", "v", "w"),
+                mapper, mock(UsageService.class), new MealPlanValidator(mapper),
+                mock(MealPlanFavoriteRepository.class), versionRepository, mock(PremiumQuotaService.class));
+
+        mockMvcFor(service).perform(post("/ai/meal-plans/15/versions/99/restore"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(6017));
     }
 
     @Test

@@ -33,6 +33,10 @@ public class RecipeResponse {
 
     RecipeStatus status;
 
+    Integer likeCount;
+
+    NutritionPerServingResponse nutritionPerServing;
+
     List<RecipeIngredientResponse> ingredients;
 
     List<RecipeStepResponse> steps;

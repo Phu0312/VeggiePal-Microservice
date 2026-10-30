@@ -1,12 +1,18 @@
 package com.veggiepal.recipe.controller;
 
+import java.util.List;
+
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.veggiepal.recipe.dto.request.RecipeRequest;
 import com.veggiepal.recipe.dto.response.ApiResponse;
+import com.veggiepal.recipe.dto.response.ImageUploadResponse;
 import com.veggiepal.recipe.dto.response.PageResponse;
+import com.veggiepal.recipe.dto.response.RecipeLikeResponse;
 import com.veggiepal.recipe.dto.response.RecipeResponse;
 import com.veggiepal.recipe.service.RecipeService;
 
@@ -36,6 +42,11 @@ public class RecipeController {
             String keyword,
 
             @RequestParam(
+                    required = false
+            )
+            String sort,
+
+            @RequestParam(
                     defaultValue = "0"
             )
             int page,
@@ -53,10 +64,22 @@ public class RecipeController {
                         recipeService
                                 .getPublishedRecipes(
                                         keyword,
+                                        sort,
                                         page,
                                         size
                                 )
                 )
+                .build();
+    }
+
+    @GetMapping("/popular")
+    ApiResponse<PageResponse<RecipeResponse>> getPopularRecipes(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ApiResponse
+                .<PageResponse<RecipeResponse>>builder()
+                .result(recipeService.getPopularRecipes(page, size))
                 .build();
     }
 
@@ -111,6 +134,17 @@ public class RecipeController {
                 .build();
     }
 
+    @GetMapping("/me/likes")
+    ApiResponse<List<RecipeLikeResponse>> getMyLikes(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("recipeIds") List<Long> recipeIds
+    ) {
+        return ApiResponse
+                .<List<RecipeLikeResponse>>builder()
+                .result(recipeService.getMyLikes(CurrentUser.id(jwt), recipeIds))
+                .build();
+    }
+
     @PostMapping
     ApiResponse<RecipeResponse>
     createRecipe(
@@ -134,6 +168,58 @@ public class RecipeController {
                                         request
                                 )
                 )
+                .build();
+    }
+
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ApiResponse<ImageUploadResponse> uploadStandaloneImage(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return ApiResponse
+                .<ImageUploadResponse>builder()
+                .result(recipeService.uploadStandaloneImage(CurrentUser.id(jwt), file))
+                .build();
+    }
+
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ApiResponse<RecipeResponse> uploadRecipeImage(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return ApiResponse
+                .<RecipeResponse>builder()
+                .result(
+                        recipeService.uploadRecipeImage(
+                                id,
+                                CurrentUser.id(jwt),
+                                CurrentUser.isAdmin(jwt),
+                                file
+                        )
+                )
+                .build();
+    }
+
+    @PostMapping("/{id}/like")
+    ApiResponse<RecipeLikeResponse> likeRecipe(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ApiResponse
+                .<RecipeLikeResponse>builder()
+                .result(recipeService.likeRecipe(CurrentUser.id(jwt), id))
+                .build();
+    }
+
+    @DeleteMapping("/{id}/like")
+    ApiResponse<RecipeLikeResponse> unlikeRecipe(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ApiResponse
+                .<RecipeLikeResponse>builder()
+                .result(recipeService.unlikeRecipe(CurrentUser.id(jwt), id))
                 .build();
     }
 

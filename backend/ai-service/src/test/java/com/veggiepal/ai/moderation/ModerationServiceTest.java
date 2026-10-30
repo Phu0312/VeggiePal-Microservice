@@ -78,6 +78,23 @@ class ModerationServiceTest {
     }
 
     @Test
+    void groqFailureFallsBackToReviewRequiredAndSavesModerationCase() {
+        ModerationRepository repository = mock(ModerationRepository.class);
+        GroqClient groq = mock(GroqClient.class);
+        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
+                .thenThrow(new AppException(ErrorCode.GROQ_UNAVAILABLE));
+        when(repository.save(any(ModerationCase.class))).thenAnswer(inv -> inv.getArgument(0));
+        ModerationService service = service(repository, groq, mock(ModerationOwnerClient.class));
+
+        var response = service.moderate(9L,
+                new ModerationDtos.ModerationRequest(ModerationDtos.ContentType.BLOG, 42L, 7L, "post text"));
+
+        assertEquals(Decision.REVIEW_REQUIRED, response.decision());
+        assertEquals(42L, response.externalContentId());
+        verify(repository).save(any(ModerationCase.class));
+    }
+
+    @Test
     void deletedTarget404ClosesOrphanCaseInsteadOfStayingReviewRequired() {
         ModerationRepository repository = mock(ModerationRepository.class);
         ModerationOwnerClient owner = mock(ModerationOwnerClient.class);

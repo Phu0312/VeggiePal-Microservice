@@ -50,4 +50,16 @@ public class MealPlan {
         this.version=(this.version == null ? 1 : this.version) + 1;
         this.updatedAt=LocalDateTime.now();
     }
+
+    public void restoreFrom(String restoredName, String restoredGoal, String restoredPlanJson) {
+        if (restoredName != null && !restoredName.isBlank()) {
+            this.name = restoredName;
+        }
+        if (restoredGoal != null && !restoredGoal.isBlank()) {
+            this.goal = restoredGoal;
+        }
+        this.planJson = restoredPlanJson;
+        this.version = (this.version == null ? 1 : this.version) + 1;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

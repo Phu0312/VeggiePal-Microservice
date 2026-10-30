@@ -26,7 +26,6 @@ public class ModerationService {
     private final ModerationOwnerClient ownerClient;
 
     public ModerationResponse moderate(Long callerId, ModerationRequest request) {
-        usage.checkBudget("user:"+callerId);
         String prompt = """
                 Phân loại nội dung cộng đồng sau. Vi phạm gồm: hate, harassment, sexual, violence, self_harm,
                 illegal, spam, misinformation_dangerous. Trả duy nhất JSON:
@@ -36,6 +35,7 @@ public class ModerationService {
                 """.formatted(request.text());
         long start=System.nanoTime();
         try {
+            usage.checkBudget("user:"+callerId);
             var result=groq.complete(models.moderation(), List.of(new GroqRequest.Message("system","Bạn là bộ kiểm duyệt an toàn VeggiePal."), new GroqRequest.Message("user",prompt)),0,350);
             usage.success(callerId,"user:"+callerId,"MODERATION",models.moderation(),result,elapsed(start));
             JsonNode json=mapper.readTree(cleanJson(result.content()));
@@ -44,27 +44,31 @@ public class ModerationService {
             if (decision==Decision.REJECTED && confidence.compareTo(new BigDecimal("0.85"))<0) decision=Decision.REVIEW_REQUIRED;
             List<String> categories=mapper.convertValue(json.path("categories"), mapper.getTypeFactory().constructCollectionType(List.class,String.class));
             String reason=json.path("reason").asText(null);
-            String type = request.contentType().name();
-            String joinedCategories = String.join(",", categories);
-            ModerationCase item = request.externalContentId() == null || request.authorId() == null
-                    ? null
-                    : repository.findFirstByContentTypeAndExternalContentIdAndAuthorIdAndReviewedAtIsNullOrderByCreatedAtDesc(
-                            type, request.externalContentId(), request.authorId()).orElse(null);
-            if (item == null) {
-                item = new ModerationCase(type, request.externalContentId(), request.authorId(), request.text(),
-                        decision.name(), joinedCategories, reason, confidence);
-            } else {
-                item.refresh(request.text(), decision.name(), joinedCategories, reason, confidence);
-            }
-            ModerationCase saved=repository.save(item);
-            return view(saved);
-        } catch (AppException exception) {
-            usage.failure(callerId,"user:"+callerId,"MODERATION",models.moderation(),elapsed(start),exception); throw exception;
+            return saveOrRefreshCase(request, decision, String.join(",", categories), reason, confidence);
         } catch (Exception exception) {
             usage.failure(callerId,"user:"+callerId,"MODERATION",models.moderation(),elapsed(start),exception);
-            throw new AppException(ErrorCode.INVALID_AI_RESPONSE,exception);
+            return saveOrRefreshCase(request, Decision.REVIEW_REQUIRED, "ai_fallback",
+                    "AI moderation temporarily unavailable; queued for manual review", BigDecimal.ZERO);
         }
     }
+
+    private ModerationResponse saveOrRefreshCase(ModerationRequest request, Decision decision,
+                                                 String joinedCategories, String reason, BigDecimal confidence) {
+        String type = request.contentType().name();
+        ModerationCase item = request.externalContentId() == null || request.authorId() == null
+                ? null
+                : repository.findFirstByContentTypeAndExternalContentIdAndAuthorIdAndReviewedAtIsNullOrderByCreatedAtDesc(
+                        type, request.externalContentId(), request.authorId()).orElse(null);
+        if (item == null) {
+            item = new ModerationCase(type, request.externalContentId(), request.authorId(), request.text(),
+                    decision.name(), joinedCategories, reason, confidence);
+        } else {
+            item.refresh(request.text(), decision.name(), joinedCategories, reason, confidence);
+        }
+        ModerationCase saved=repository.save(item);
+        return view(saved);
+    }
+
     public List<ModerationResponse> pending() { return repository.findByDecisionOrderByCreatedAtAsc(Decision.REVIEW_REQUIRED.name()).stream().map(this::view).toList(); }
     @Transactional
     public ModerationResponse review(Long adminId, Long id, ReviewRequest request, String bearerToken) {

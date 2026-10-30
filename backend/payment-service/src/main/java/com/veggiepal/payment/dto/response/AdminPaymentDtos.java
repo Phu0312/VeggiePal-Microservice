@@ -18,7 +18,10 @@ public final class AdminPaymentDtos {
         public Long orderId() { return id; }
     }
 
-    public record OrderPage(List<Order> items, int page, int size, long totalElements, int totalPages) {}
+    public record OrderPage(List<Order> items, int page, int size, long totalElements, int totalPages) {
+        @JsonProperty("content")
+        public List<Order> content() { return items; }
+    }
 
     public record Summary(long totalRevenue, long totalTransactions, long paidTransactions,
                           long pendingTransactions, long cancelledTransactions, long failedTransactions,

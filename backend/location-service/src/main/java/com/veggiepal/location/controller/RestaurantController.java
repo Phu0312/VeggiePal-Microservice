@@ -27,18 +27,34 @@ public class RestaurantController {
 
     RestaurantService restaurantService;
 
-    @Operation(summary = "Restaurants within radiusKm (max 10) of a point, nearest first; no login needed")
+    @Operation(summary = "Search restaurants by name or address across all locations; optional lat/lng computes distanceKm")
+    @GetMapping({"", "/search"})
+    ApiResponse<List<RestaurantResponse>> search(
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "veganOnly", defaultValue = "false") boolean veganOnly,
+            @RequestParam(name = "lat", required = false) Double lat,
+            @RequestParam(name = "lng", required = false) Double lng
+    ) {
+
+        return ApiResponse
+                .<List<RestaurantResponse>>builder()
+                .result(restaurantService.search(keyword, veganOnly, lat, lng))
+                .build();
+    }
+
+    @Operation(summary = "Restaurants within radiusKm (max 10) of a point, optionally filtered by keyword, nearest first")
     @GetMapping("/nearby")
     ApiResponse<List<RestaurantResponse>> findNearby(
             @RequestParam("lat") double lat,
             @RequestParam("lng") double lng,
             @RequestParam(name = "radiusKm", defaultValue = "5") double radiusKm,
-            @RequestParam(name = "veganOnly", defaultValue = "false") boolean veganOnly
+            @RequestParam(name = "veganOnly", defaultValue = "false") boolean veganOnly,
+            @RequestParam(name = "keyword", required = false) String keyword
     ) {
 
         return ApiResponse
                 .<List<RestaurantResponse>>builder()
-                .result(restaurantService.findNearby(lat, lng, radiusKm, veganOnly))
+                .result(restaurantService.findNearby(lat, lng, radiusKm, veganOnly, keyword))
                 .build();
     }
 }
