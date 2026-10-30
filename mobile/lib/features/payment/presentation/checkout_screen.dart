@@ -109,7 +109,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final o = await context.read<PaymentRepository>().cancel(_order.id);
       if (!mounted) return;
       _stopTimers();
-      // Khách vừa thanh toán xong ngay lúc bấm huỷ thì backend trả 6008 và đơn đã PAID.
+      // Khách vừa thanh toán xong ngay lúc bấm huỷ thì backend trả 7008 và đơn đã PAID.
       if (o.status == 'CANCELLED') {
         Navigator.of(context).pop(false);
       } else {
