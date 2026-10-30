@@ -1046,6 +1046,7 @@ All clients use the gateway at `http://localhost:9080`; the aggregated Swagger U
 | AI chat | `/api/ai/chat/guest-sessions`, guest chat, member chat, conversations | Guest session or JWT |
 | AI meal plans & quotas | `POST /api/ai/meal-plans`, `GET /api/ai/meal-plans`, `/quota`, `GET /api/ai/quotas/me`, `/nutrition-target`, `/favorites`, `/{id}/versions`, `/{id}/versions/{version}/restore`, `/{id}/preview-edit`, `/{id}/edit`, `/{id}/replace` | JWT |
 | AI video | `POST /api/ai/videos/process` (multipart), job status endpoints | JWT |
+| AI recommendations | `GET /api/ai/recommendations` | JWT |
 | AI moderation and monitoring | `/api/ai/moderation/check`, `/ai/admin/moderation`, `/ai/admin/monitoring/**` | Service call / ADMIN |
 | Payments | `GET /api/payments/plans`, `POST /api/payments/checkout`, `/api/payments/orders/{id}`, `/history`, `GET /api/subscriptions/me`, `POST /api/payments/webhook/payos`, `/api/admin/payments/**` | JWT; ADMIN for `/api/admin/payments/**`; webhook is public but signature-verified |
 | Internal | `/internal/subscriptions/{userId}` (not routed through the gateway) | Internal service token |
@@ -1157,17 +1158,18 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
 
 5. Register the PayOS webhook as `https://<ngrok-domain>/api/payments/webhook/payos`.
 
-6. Run the clients: `cd frontend && npm install && npm run dev` for the web app, and `cd mobile && flutter pub get && flutter run` for the mobile app.
+6. Run the clients: `cd frontend && npm install && npm run dev` for the web app, and `cd mobile && flutter pub get && flutter run` for the mobile app. The mobile app reads `mobile/.env` (copy `mobile/.env.example`): `API_BASE_URL` for the gateway and, for Google sign-in, `GOOGLE_CLIENT_ID` (the same OAuth web client ID as identity-service) and, on iOS, `GOOGLE_IOS_CLIENT_ID`.
 
 ### 3. User Manual & Core Workflows
 
 #### 3.1. Workflow 1: Registration, Login & Allergen Setup
 
 1. Open the VeggiePal application.
-2. Register with email and password, or sign in with Google.
+2. Register with full name, email, an optional phone number and a password of at least 6 characters (typed twice in the mobile app), or choose "Continue with Google". Google sign-in sends the Google ID token to `POST /auth/google`, which links the account with the same email or creates a new `USER` account; the mobile app keeps that session on the device, as the web app does.
 3. Open Profile > Health Profile and enter height (cm) and weight (kg).
 4. Open Profile > Personal Information and enter date of birth, gender and activity level; the meal planner needs them to compute the daily calorie target.
 5. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
+6. The Profile screen of the mobile app summarises the account: the current plan, the number of the user's blogs, recipes and videos, the latest BMI and a line chart of BMI or weight over the last six health records with the change since the first of them. It reminds the user to add any of date of birth, gender and activity level that is missing (or says that calorie targets are only available from age 18), and the allergy menu shows how many substances are avoided; the health history lists each record with the weight change since the previous one.
 
 **Figure VI.1. Registration and health profile workflow**
 
@@ -1241,10 +1243,10 @@ sequenceDiagram
 
 #### 3.4. Workflow 4: Upgrading to a PLUS or PRO Subscription via VietQR PayOS
 
-1. Navigate to Profile > Subscription.
-2. Select PLUS or PRO and choose to pay with PayOS.
-3. Scan the dynamic VietQR code with any Vietnamese banking app.
-4. After PayOS confirms the payment through the webhook, the subscription is activated for 30 days.
+1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan.
+2. Select PLUS or PRO. Choosing a different paid plan than the current one asks for confirmation first, because the new plan replaces the current one.
+3. The app creates the order (`POST /payments/checkout`; an unexpired pending order of the same plan is reused) and shows the dynamic VietQR code with the amount, account and transfer content. Scan it with any Vietnamese banking app. The app polls the order every 2.5 seconds, shows a countdown, offers to recreate an expired code and lets the user cancel a pending order.
+4. After PayOS confirms the payment through the webhook, the order becomes PAID and the subscription is activated for 30 days; paying again for the active plan adds 30 days to its expiry. When a quota is used up (error 6003 in ai-service), the app offers a shortcut to this screen. Past orders are listed under Profile > Payment history.
 
 | Plan | Price | Chat per day | Meal plans per month | Videos per month |
 |---|---|---|---|---|

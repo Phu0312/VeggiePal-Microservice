@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:VeggiePal/main.dart';
+import 'support/blank_tiles.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> _boot(WidgetTester tester) async {
   dotenv.loadFromString(envString: 'APP=test');
   SharedPreferences.setMockInitialValues({});
-  await tester.pumpWidget(const VeggiePalApp());
+  // Ô bản đồ trong suốt: test không có path_provider và không được gọi mạng thật.
+  await tester.pumpWidget(VeggiePalApp(mapTiles: blankMapTiles()));
   // Cho các request tới localhost thất bại thật (server tắt).
   await tester.runAsync(() => Future.delayed(const Duration(seconds: 2)));
   await tester.pumpAndSettle();
@@ -53,6 +55,6 @@ void main() {
     // Khách bấm chuông -> mời đăng nhập.
     await tester.tap(find.byIcon(LucideIcons.bell));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng nhập để nhận thông báo về bài viết của bạn.'), findsOneWidget);
+    expect(find.text('Đăng nhập để nhận thông báo về bài viết và video của bạn.'), findsOneWidget);
   });
 }

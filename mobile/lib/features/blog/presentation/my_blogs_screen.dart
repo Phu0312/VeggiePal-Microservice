@@ -150,9 +150,9 @@ class _MyBlogsScreenState extends State<MyBlogsScreen> {
                 style: const TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(blogStatusLabel(status)),
           ),
-          if (status == 'PUBLISHED')
-            tile(LucideIcons.eye, 'Xem bài viết', () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => BlogDetailScreen(summary: b)))),
+          // Tác giả xem được mọi trạng thái (GET /blogs/{id} trả cả bài chưa đăng cho chủ bài).
+          tile(LucideIcons.eye, 'Xem bài viết', () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => BlogDetailScreen(summary: b, onChanged: _afterChange)))),
           if (status != 'BANNED') tile(LucideIcons.pencil, 'Sửa bài viết', () => _openEditor(b)),
           if (status == 'DRAFT') tile(LucideIcons.send, 'Gửi duyệt', () => _submit(b)),
           if (status != 'BANNED') tile(LucideIcons.image, 'Đổi ảnh bìa', () => _changeThumbnail(b)),

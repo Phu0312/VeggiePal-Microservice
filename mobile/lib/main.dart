@@ -15,17 +15,25 @@ import 'features/ai_nutrition/presentation/chat_controller.dart';
 import 'features/auth/data/auth_models.dart';
 import 'features/blog/data/blog_repository.dart';
 import 'features/auth/data/auth_repository.dart';
+import 'features/auth/data/google_auth.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/home/data/home_repository.dart';
+import 'features/home/data/recommendation_controller.dart';
+import 'features/home/data/recommendation_repository.dart';
 import 'features/ingredient/data/ingredient_repository.dart';
 import 'features/ingredient/data/pantry_controller.dart';
 import 'features/menu_planner/data/health_sync.dart';
 import 'features/menu_planner/data/meal_plan_repository.dart';
 import 'features/menu_planner/data/menu_repository.dart';
 import 'features/notifications/notification_controller.dart';
+import 'features/payment/data/payment_repository.dart';
+import 'features/payment/data/subscription_controller.dart';
 import 'features/places/data/places_repository.dart';
+import 'features/places/data/user_location.dart';
+import 'features/places/presentation/places_map.dart' show MapTiles;
 import 'features/recipe/data/recipe_repository.dart';
 import 'features/video/data/video_repository.dart';
+import 'features/profile/data/profile_overview.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'navigation/main_navigation_screen.dart';
 
@@ -44,7 +52,14 @@ final navigatorKey = GlobalKey<NavigatorState>();
 class VeggiePalApp extends StatelessWidget {
   final SessionStore? store;
   final AuthSession? initialSession;
-  const VeggiePalApp({super.key, this.store, this.initialSession});
+
+  /// Cho phép test thay nguồn ID token của Google.
+  final GoogleIdTokenSource? googleIdTokenSource;
+
+  /// Cho phép test thay bộ tải ô bản đồ (mặc định dùng bộ tải của flutter_map).
+  final MapTiles mapTiles;
+  const VeggiePalApp(
+      {super.key, this.store, this.initialSession, this.googleIdTokenSource, this.mapTiles = const MapTiles()});
 
   void _onSessionExpired() {
     final ctx = navigatorKey.currentContext;
@@ -60,6 +75,9 @@ class VeggiePalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<ApiClient>(create: (_) => ApiClient()),
+        Provider<GoogleIdTokenSource>(create: (_) => googleIdTokenSource ?? GoogleSignInSource()),
+        Provider<LocationSource>(create: (_) => const GeolocatorSource()),
+        Provider<MapTiles>.value(value: mapTiles),
         ProxyProvider<ApiClient, AuthRepository>(update: (_, api, _) => AuthRepository(api)),
         ProxyProvider<ApiClient, HomeRepository>(update: (_, api, _) => HomeRepository(api)),
         ProxyProvider<ApiClient, PlacesRepository>(update: (_, api, _) => PlacesRepository(api)),
@@ -69,6 +87,8 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, MealPlanRepository>(update: (_, api, _) => MealPlanRepository(api)),
         ProxyProvider<ApiClient, RecipeRepository>(update: (_, api, _) => RecipeRepository(api)),
         ProxyProvider<ApiClient, VideoRepository>(update: (_, api, _) => VideoRepository(api)),
+        ProxyProvider<ApiClient, PaymentRepository>(update: (_, api, _) => PaymentRepository(api)),
+        ProxyProvider<ApiClient, RecommendationRepository>(update: (_, api, _) => RecommendationRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
         ProxyProvider<ApiClient, ProfileRepository>(update: (_, api, _) => ProfileRepository(api)),
         ProxyProvider<ApiClient, ChatRepository>(update: (_, api, _) => ChatRepository(api)),
@@ -82,12 +102,25 @@ class VeggiePalApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
         ChangeNotifierProvider<HealthSync>(create: (_) => HealthSync()),
+        ChangeNotifierProxyProvider<AuthController, RecommendationController>(
+          create: (c) => RecommendationController(c.read<RecommendationRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthController, ProfileOverview>(
+          create: (c) => ProfileOverview(c.read<ProfileRepository>(), c.read<HomeRepository>(),
+              c.read<RecipeRepository>(), c.read<VideoRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthController, SubscriptionController>(
+          create: (c) => SubscriptionController(c.read<PaymentRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
         ChangeNotifierProxyProvider<AuthController, PantryController>(
           create: (_) => PantryController(),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
         ),
         ChangeNotifierProxyProvider<AuthController, NotificationController>(
-          create: (c) => NotificationController(c.read<HomeRepository>()),
+          create: (c) => NotificationController(c.read<HomeRepository>(), c.read<VideoRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.user?.id),
         ),
       ],
