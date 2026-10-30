@@ -4,6 +4,8 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +37,10 @@ public class OtpService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final long RESET_TOKEN_GRACE_SECONDS = 600L;
+    private static final int MAX_SENDS_PER_EMAIL_PER_HOUR = 3;
+    private static final int MAX_SENDS_PER_IP_PER_HOUR = 10;
+    private static final int MAX_FAILED_ATTEMPTS_PER_HOUR = 10;
+    private final Map<String, SendWindow> sendWindows = new ConcurrentHashMap<>();
 
     private final UserRepository userRepository;
     private final UserOtpRepository userOtpRepository;
@@ -79,10 +85,19 @@ public class OtpService {
 
     @Transactional
     public OtpSentResponse sendForgotPasswordOtp(ForgotPasswordRequest request) {
+        return sendForgotPasswordOtp(request, "unknown");
+    }
+
+    @Transactional
+    public OtpSentResponse sendForgotPasswordOtp(ForgotPasswordRequest request, String remoteAddress) {
         String email = normalizeEmail(request.getEmail());
-        userRepository.findByEmail(email)
-                .filter(user -> user.getStatus() == UserStatus.ACTIVE)
-                .ifPresent(user -> issueAndSendOtp(user, OtpPurpose.PASSWORD_RESET));
+        emailService.requireDeliveryAvailable();
+        boolean allowed = allowSend(email, remoteAddress);
+        if (allowed) {
+            userRepository.findByEmail(email)
+                    .filter(user -> user.getStatus() == UserStatus.ACTIVE)
+                    .ifPresent(user -> issueAndSendOtp(user, OtpPurpose.PASSWORD_RESET));
+        }
 
         return OtpSentResponse.builder()
                 .message("If the email is registered, a 6-digit OTP code has been sent")
@@ -154,27 +169,32 @@ public class OtpService {
 
     @Transactional
     public OtpSentResponse sendEmailVerificationOtp(Long authenticatedUserId, String requestedEmail) {
+        return sendEmailVerificationOtp(authenticatedUserId, requestedEmail, "unknown");
+    }
+
+    @Transactional
+    public OtpSentResponse sendEmailVerificationOtp(Long authenticatedUserId, String requestedEmail, String remoteAddress) {
+        String email = authenticatedUserId == null ? normalizeEmail(requestedEmail) : null;
+        emailService.requireDeliveryAvailable();
         User user;
         if (authenticatedUserId != null) {
             user = userRepository.findById(authenticatedUserId)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        } else if (StringUtils.hasText(requestedEmail)) {
-            user = userRepository.findByEmail(normalizeEmail(requestedEmail))
-                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         } else {
-            throw new AppException(ErrorCode.EMAIL_REQUIRED);
+            user = userRepository.findByEmail(email).orElse(null);
         }
 
-        if (user.getStatus() != UserStatus.ACTIVE && user.getStatus() != UserStatus.PENDING) {
-            throw new AppException(ErrorCode.USER_BLOCKED);
+        if (authenticatedUserId != null) {
+            email = user.getEmail();
         }
-        if (Boolean.TRUE.equals(user.getEmailVerified())) {
-            throw new AppException(ErrorCode.EMAIL_ALREADY_VERIFIED);
+        boolean allowed = allowSend(email, remoteAddress);
+        if (allowed && user != null
+                && (user.getStatus() == UserStatus.ACTIVE || user.getStatus() == UserStatus.PENDING)
+                && !Boolean.TRUE.equals(user.getEmailVerified())) {
+            issueAndSendOtp(user, OtpPurpose.EMAIL_VERIFICATION);
         }
-
-        issueAndSendOtp(user, OtpPurpose.EMAIL_VERIFICATION);
         return OtpSentResponse.builder()
-                .message("Verification OTP code has been sent")
+                .message("If the email needs verification, a 6-digit OTP code has been sent")
                 .expiresInSeconds(otpExpirationSeconds)
                 .build();
     }
@@ -222,6 +242,9 @@ public class OtpService {
     }
 
     private UserOtp validateOtpCode(String email, OtpPurpose purpose, String code) {
+        if (userOtpRepository.countFailedAttemptsSince(email, LocalDateTime.now().minusHours(1)) >= MAX_FAILED_ATTEMPTS_PER_HOUR) {
+            throw new AppException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
+        }
         UserOtp otp = userOtpRepository
                 .findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(email, purpose)
                 .orElseThrow(() -> new AppException(ErrorCode.OTP_INVALID_OR_EXPIRED));
@@ -250,6 +273,34 @@ public class OtpService {
 
     private static String hashOtp(String email, OtpPurpose purpose, String otpCode) {
         return TokenHashUtils.sha256Hex(email + ":" + purpose.name() + ":" + otpCode);
+    }
+
+    private boolean allowSend(String email, String remoteAddress) {
+        long now = System.currentTimeMillis();
+        if (sendWindows.size() > 10_000) {
+            sendWindows.entrySet().removeIf(entry -> now - entry.getValue().startedAt >= 3_600_000L);
+        }
+        String ip = remoteAddress == null ? "unknown" : remoteAddress;
+        if (!takeSendSlot("ip:" + ip, MAX_SENDS_PER_IP_PER_HOUR, now)) {
+            throw new AppException(ErrorCode.OTP_SEND_RATE_LIMITED);
+        }
+        return takeSendSlot("email:" + email, MAX_SENDS_PER_EMAIL_PER_HOUR, now);
+    }
+
+    private boolean takeSendSlot(String key, int limit, long now) {
+        SendWindow window = sendWindows.compute(key, (ignored, old) ->
+                old == null || now - old.startedAt >= 3_600_000L ? new SendWindow(now) : old);
+        synchronized (window) {
+            if (window.count >= limit) return false;
+            window.count++;
+            return true;
+        }
+    }
+
+    private static final class SendWindow {
+        final long startedAt;
+        int count;
+        SendWindow(long startedAt) { this.startedAt = startedAt; }
     }
 
     private static String normalizeEmail(String email) {

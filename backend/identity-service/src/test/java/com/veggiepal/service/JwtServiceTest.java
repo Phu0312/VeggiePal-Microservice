@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import java.time.Duration;
 
 import com.veggiepal.configuration.JwtConfig;
 import com.veggiepal.entity.User;
@@ -32,6 +33,7 @@ class JwtServiceTest {
         assertThat(((Number) jwt.getClaim("userId")).longValue()).isEqualTo(7L);
         assertThat(jwt.getClaimAsString("role")).isEqualTo("USER");
         assertThat(jwt.getExpiresAt()).isAfter(jwt.getIssuedAt());
+        assertThat(Duration.between(jwt.getIssuedAt(), jwt.getExpiresAt()).toMinutes()).isEqualTo(30);
     }
 
     @Test

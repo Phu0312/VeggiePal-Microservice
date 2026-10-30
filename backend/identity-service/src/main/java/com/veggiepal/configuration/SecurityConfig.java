@@ -46,6 +46,7 @@ public class SecurityConfig {
             "/auth/logout",
             "/auth/test",
             "/users/batch",
+            "/internal/badges/green-heart/*",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**"

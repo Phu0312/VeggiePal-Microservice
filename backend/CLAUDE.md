@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-VeggiePal backend: Spring Boot microservices (Java 21, Spring Boot 4.1.1). There is **no parent/aggregator POM**. Each service (`api-gateway/`, `identity-service/`, `nutrition-service/`, `blog-service/`, `location-service/`) is a separate Maven project with its own wrapper, so run Maven commands from inside the service directory. Every service, `api-gateway` included, uses `application.properties`.
+VeggiePal backend: Spring Boot microservices (Java 21, Spring Boot 4.1.1). There is **no parent/aggregator POM**. Each service (`api-gateway/`, `identity-service/`, `nutrition-service/`, `blog-service/`, `recipe-service/`, `location-service/`, `ai-service/`, `payment-service/`) is a separate Maven project; run Maven from the service directory. payment-service has no wrapper, so use `mvn` there. Every service, `api-gateway` included, uses `application.properties`.
 
 ## Workflow and skills
 
@@ -40,18 +40,22 @@ Four skill families are installed for this project. Pick by situation — do not
 ```bash
 # Start MySQL (host 3307, root/12345).
 # Images live on Cloudinary: copy .env.example to .env at the repo root and fill CLOUDINARY_* (never commit .env).
-docker compose up -d mysql   # compose also defines an identity-service container on :8081 — don't run it alongside mvnw
+docker compose -f docker-compose.infra.yml up -d mysql   # host-mode MySQL on 3307 and 4307
 
 # Run a service (from its directory; on Windows use mvnw.cmd or Git Bash)
 cd identity-service && ./mvnw spring-boot:run    # :8081
 cd nutrition-service && ./mvnw spring-boot:run   # :8082
 cd blog-service && ./mvnw spring-boot:run        # :8083
+cd recipe-service && ./mvnw spring-boot:run      # :8084
 cd location-service && ./mvnw spring-boot:run    # :8085
+cd ai-service && ./mvnw spring-boot:run          # :8086
+cd payment-service && mvn spring-boot:run        # :8087, no wrapper
 cd api-gateway && ./mvnw spring-boot:run         # :8080
 
 # Build / test
 ./mvnw clean package
 ./mvnw test
+# payment-service has no wrapper: run `mvn test` there.
 ./mvnw test -Dtest=ProfileServiceTest                         # single class
 ./mvnw test -Dtest=ProfileServiceTest#changePassword_success_storesNewHash  # single method
 ./mvnw test -Dtest='!VeggiepalApplicationTests'               # identity-service: everything except the MySQL-backed contextLoads
@@ -73,11 +77,11 @@ In `-Dtest`, separate classes with a comma. `+` only joins methods inside one cl
 There is no linter or formatter configured.
 
 **Database gotchas:**
-- `docker-compose.yml` creates a database named `veggiepal`. identity-service connects to `veggiepal_identity` without `createDatabaseIfNotExist`, so create it by hand: `docker exec veggiepal-mysql mysql -uroot -p12345 -e "CREATE DATABASE IF NOT EXISTS veggiepal_identity"`. nutrition-service creates `veggiepal_nutrition` itself, blog-service creates `veggiepal_blog` itself the same way, and location-service creates `veggiepal_location`.
-- Tables come from Hibernate `ddl-auto=update`; there are no migrations. nutrition-service seeds the `allergens` catalog from `src/main/resources/data.sql` (`INSERT IGNORE`, runs on every start).
+- `docker-compose.infra.yml` publishes MySQL on host ports 3307 and 4307 for host development. Each service creates its own `veggiepal_*` schema with `createDatabaseIfNotExist=true`; credentials come from `.env`.
+- ai-service uses Flyway migrations; the other domain services use Hibernate `ddl-auto=update`. Enum fields in those services are mapped to VARCHAR with `@JdbcTypeCode`. nutrition-service seeds the `allergens` catalog from `src/main/resources/data.sql` (`INSERT IGNORE`, runs on every start).
 - Images live on Cloudinary. identity-service and blog-service read `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` from the repo-root `.env` through `spring.config.import=optional:file:.env[.properties],optional:file:../.env[.properties]` (`../.env` because Maven runs inside the service directory). `.env` is gitignored; `.env.example` is the template. The properties default to empty, so every context (including `BlogServiceIntegrationTests`) loads without `.env` and only uploads fail with 503.
 - The `@SpringBootTest` `contextLoads` tests use the same MySQL (no test profile or H2), except recipe-service, whose tests use H2 (`src/test/resources/application.properties`, `jdbc:h2:mem:testdb;MODE=MySQL`, `ddl-auto=create-drop`). Unit tests and `@WebMvcTest` tests need no database.
-- Hibernate maps `@Enumerated(EnumType.STRING)` to a native MySQL `ENUM` column. `ddl-auto=update` does not add new constants to it, so adding an enum value needs a manual `ALTER TABLE ... MODIFY COLUMN`. This happened with `ContentStatus.BANNED`: a database created before it existed rejects the value and the admin takedown answers 500 until the column is altered.
+- Enum fields use `@JdbcTypeCode(SqlTypes.VARCHAR)` with `@Enumerated(EnumType.STRING)` so new schemas use VARCHAR. Check existing MySQL schemas before rollout because old native ENUM columns may require an explicit ALTER TABLE to VARCHAR.
 - `@Lob` on a `String` field maps it to CLOB in Hibernate 6+, and `lower()`/`like` against a CLOB fails query validation at application startup (this took down blog-service entirely once a `search` query added `lower()` on a `@Lob` column). A text column that needs searching should get its real column type from `columnDefinition` alone, without `@Lob`.
 - recipe-service's `data.sql` runs on every start and is mostly `INSERT … WHERE NOT EXISTS`, so editing a value in place never reaches an existing database. It must also load on H2 (recipe-service's tests run it on `jdbc:h2:mem` in MySQL mode), so no `ON DUPLICATE KEY UPDATE … AS new` and no `DELETE … JOIN`. Change an existing ingredient by giving its `INSERT … WHERE NOT EXISTS` the new values and adding `UPDATE ingredients SET … WHERE normalized_name = '…'` right after it; change an existing recipe row the same way with `UPDATE recipe_ingredients … WHERE recipe_id IN (SELECT …) AND ingredient_id = (SELECT …)`; drop rows with `DELETE FROM recipe_ingredients WHERE recipe_id IN (SELECT …) AND ingredient_id = (SELECT …)` in its `6. DATA FIXES` section (`IN`, because recipe titles are not unique). `RecipeSqlDataInitTest` pins the recipe and ingredient counts. The `UPDATE` statements re-apply the seed values on every start, so an admin's `PUT /ingredients/{id}` edit to a seed ingredient is reverted on the next start (spec §3.4). To run recipe-service's tests against MySQL, set `SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD`, `SPRING_JPA_DATABASE_PLATFORM` and **`SPRING_JPA_HIBERNATE_DDL_AUTO=update`**: the test config's `create-drop` otherwise drops the tables of the target database. Each ingredient has exactly one state (raw, dry, fresh, cooked) stated in its `description`; a recipe row must point at the ingredient in the state it was weighed in. Nutrition sources are in `docs/nutrition-audit/`.
 
@@ -122,7 +126,7 @@ Same conventions as identity-service, under package `com.veggiepal.nutrition` (i
 
 Same conventions as identity-service, under package `com.veggiepal.blog` (shared classes are copies, not a shared module). Controllers map `/blogs/**`, `/videos/**`, `/categories/**`, `/comments/**`. It owns blogs, videos, the category tree, comments and votes, and stores only `author_id` from the JWT — the frontend resolves display names through identity-service's `GET /users/batch`.
 
-- **Comments and votes are polymorphic** (`target_type` + `target_id`) so videos slot in without a migration. `TargetType.VIDEO` and `CommentStatus.PENDING` already exist in the enums for the same reason — `ddl-auto=update` cannot add an ENUM constant later.
+- **Comments and votes are polymorphic** (`target_type` + `target_id`) so videos slot in without a migration. `TargetType.VIDEO` and `CommentStatus.PENDING` already exist in the enums for the same reason — native MySQL ENUM columns on older databases need conversion to VARCHAR.
 - **`SecurityConfig.PUBLIC_ENDPOINTS` here is method-aware** and its path variables are constrained to digits (`/blogs/{id:[0-9]+}`). Without the digits, `/blogs/me` matches `/blogs/{id}`, becomes public, loses its bearer token and then 401s forever. `SecurityConfigTest` guards this.
 - **Moderation calls ai-service.** `AiContentModerationService` (the only `ContentModerationService` bean; `AutoApproveContentModerationService` is not registered) posts to ai-service `/ai/moderation/check` with the caller's JWT. If Groq or ai-service is unreachable or returns an invalid payload, moderation falls back to `REVIEW_REQUIRED` (`PENDING` awaiting manual admin review) instead of failing publishing with 503. An admin's decision on a `REVIEW_REQUIRED` case comes back through `PUT /internal/moderation/{BLOG|VIDEO|COMMENT}/{id}` (`ROLE_ADMIN`).
 - **`blogs.vote_score` and `videos.vote_score` are denormalized**, kept in sync inside the vote transaction with atomic `UPDATE ... SET vote_score = vote_score + :delta`. The delta is just `new value - old value`, treating "no vote" as 0.
@@ -144,13 +148,13 @@ Package `com.veggiepal.location`, port 8085, controllers map `/restaurants/**`. 
 
 ### Auth (JWT)
 
-- identity-service issues tokens in `JwtService`: HS256 (explicit), subject = email, claims `userId` and `role`, 24h expiry.
+- identity-service issues tokens in `JwtService`: HS256 (explicit), subject = email, claims `userId` and `role`, 30-minute expiry.
 - **Google login** (`POST /auth/google`): the FE sends the Google Identity Services ID token (GIS `credential`) as `{"idToken": ...}` and gets the same `LoginResponse` as `/auth/login`. `GoogleTokenVerifier` checks it against Google's JWKS with `aud` = `google.client-id` (`GOOGLE_CLIENT_ID`, which must equal the FE's `VITE_GOOGLE_CLIENT_ID`; empty by default, so every Google login is rejected until it is set). Its decoder is deliberately not a `JwtDecoder` bean (the resource server uses the HS256 one). Accounts link by email; linking an account whose `emailVerified` is false replaces its password hash with a random one (blocks pre-registration takeover), so that user can only sign in with Google afterwards. A JWT the pre-registering party already holds stays valid until it expires (no revocation).
 - Every service except location-service validates tokens as an OAuth2 Resource Server (`JwtConfig` builds a `NimbusJwtDecoder` with the same secret and HS256). The secret is `jwt.secret=${JWT_SECRET:...}` and must be identical in every service that validates tokens.
 - `SecurityConfig.PUBLIC_ENDPOINTS` is the single list used for both `permitAll` and a `BearerTokenResolver` that ignores stale/invalid Authorization headers on public paths (in `identity-service`, valid tokens on public paths like `/auth/send-verification` are still decoded while invalid/expired tokens fall back to anonymous). Without it, a stale token would make `/auth/login` return 401.
 - 401/403 are written by `SecurityExceptionHandler` as `ApiResponse` (1008/1009), because filter-chain errors never reach `@ControllerAdvice`.
 - Controllers take `@Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt` and call `CurrentUser.id(jwt)`. Never take the user id from the body or the path.
-- Short-lived stateless JWTs stay valid until their 24h expiry, while opaque refresh tokens (SHA-256 hashed in `refresh_tokens`) are rotated on `POST /auth/refresh` and revoked on `POST /auth/logout`, password changes, password resets, or admin account lock (`BLOCKED`/`INACTIVE`).
+- Short-lived stateless JWTs stay valid until their 30-minute expiry, while opaque refresh tokens (SHA-256 hashed in `refresh_tokens`) are rotated on `POST /auth/refresh` and revoked on `POST /auth/logout`, password changes, password resets, or admin account lock (`BLOCKED`/`INACTIVE`).
 - **`@PreAuthorize` trap:** a method-security denial (`AuthorizationDeniedException`, a subclass of `AccessDeniedException`) is thrown by the AOP proxy *while the handler is being invoked*, not in the filter chain, so the catch-all `@ExceptionHandler(Exception.class)` in `GlobalExceptionHandler` catches it first and turns a 403 into a 500. blog-service and identity-service rethrow `AccessDeniedException` in `GlobalExceptionHandler` so it propagates to `SecurityExceptionHandler`. nutrition-service still has no `@PreAuthorize` and no rethrow handler — add it first if `@PreAuthorize` is introduced there.
 - A missing required query parameter (`MissingServletRequestParameterException`) maps to 400/`INVALID_REQUEST` in identity-service, blog-service and location-service's exception handlers, not the 500 a plain catch-all would give it.
 

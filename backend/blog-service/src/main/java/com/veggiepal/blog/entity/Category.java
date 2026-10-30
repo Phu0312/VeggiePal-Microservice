@@ -39,6 +39,7 @@ public class Category {
     Category parent;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     CategoryType type;
 

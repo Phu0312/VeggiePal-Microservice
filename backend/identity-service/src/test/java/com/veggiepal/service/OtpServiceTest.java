@@ -138,7 +138,7 @@ class OtpServiceTest {
     }
 
     @Test
-    void verifyEmail_marksUserVerified_andResendRejectsAlreadyVerified() {
+    void verifyEmail_marksUserVerified_andResendHasGenericResponse() {
         User user = activeUser(false);
         UserOtp storedOtp = UserOtp.builder()
                 .id(2L)
@@ -163,9 +163,52 @@ class OtpServiceTest {
         assertThat(user.getEmailVerified()).isTrue();
         assertThat(storedOtp.getUsed()).isTrue();
 
-        assertThatThrownBy(() -> otpService.sendEmailVerificationOtp(7L, null))
+        assertThat(otpService.sendEmailVerificationOtp(7L, null).getMessage())
+                .contains("If the email needs verification");
+        verify(emailService, never()).sendOtpEmail(anyString(), any(), anyString(), anyLong());
+    }
+
+    @Test
+    void sendVerification_doesNotRevealUnknownOrVerifiedEmail() {
+        User verified = activeUser(true);
+        when(userRepository.findByEmail("an@gmail.com")).thenReturn(Optional.of(verified));
+        when(userRepository.findByEmail("nobody@gmail.com")).thenReturn(Optional.empty());
+
+        String known = otpService.sendEmailVerificationOtp(null, "an@gmail.com", "192.0.2.1").getMessage();
+        String unknown = otpService.sendEmailVerificationOtp(null, "nobody@gmail.com", "192.0.2.1").getMessage();
+
+        assertThat(known).isEqualTo(unknown);
+        verify(emailService, never()).sendOtpEmail(anyString(), any(), anyString(), anyLong());
+    }
+
+    @Test
+    void repeatedSendsDoNotIssueMoreThanThreeCodesPerEmail() {
+        User user = activeUser(false);
+        when(userRepository.findByEmail("an@gmail.com")).thenReturn(Optional.of(user));
+        ForgotPasswordRequest request = new ForgotPasswordRequest("an@gmail.com");
+        for (int i = 0; i < 4; i++) otpService.sendForgotPasswordOtp(request, "192.0.2.2");
+        org.mockito.Mockito.verify(emailService, org.mockito.Mockito.times(3))
+                .sendOtpEmail(eq("an@gmail.com"), eq(OtpPurpose.PASSWORD_RESET), anyString(), eq(300L));
+    }
+
+    @Test
+    void sendLimitAppliesAcrossEmailsFromSameIp() {
+        for (int i = 0; i < 10; i++) {
+            otpService.sendForgotPasswordOtp(new ForgotPasswordRequest("user" + i + "@example.com"), "192.0.2.9");
+        }
+        assertThatThrownBy(() -> otpService.sendForgotPasswordOtp(
+                new ForgotPasswordRequest("user10@example.com"), "192.0.2.9"))
                 .isInstanceOfSatisfying(AppException.class,
-                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.EMAIL_ALREADY_VERIFIED));
+                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.OTP_SEND_RATE_LIMITED));
+    }
+
+    @Test
+    void failedAttemptsAcrossIssuedCodesBlockFurtherGuessing() {
+        when(userOtpRepository.countFailedAttemptsSince(eq("an@gmail.com"), any())).thenReturn(10L);
+        assertThatThrownBy(() -> otpService.verifyForgotPasswordOtp(new VerifyOtpRequest("an@gmail.com", "123456")))
+                .isInstanceOfSatisfying(AppException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED));
+        verify(userOtpRepository, never()).findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(anyString(), any());
     }
 
     private static User activeUser(boolean verified) {

@@ -1,6 +1,7 @@
 package com.veggiepal.controller;
 
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -42,9 +43,9 @@ public class AuthLifecycleController {
 
     @Operation(summary = "Request a 6-digit password reset OTP by email")
     @PostMapping("/forgot-password")
-    ApiResponse<OtpSentResponse> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request) {
+    ApiResponse<OtpSentResponse> forgotPassword(@RequestBody @Valid ForgotPasswordRequest request, HttpServletRequest servletRequest) {
         return ApiResponse.<OtpSentResponse>builder()
-                .result(otpService.sendForgotPasswordOtp(request))
+                .result(otpService.sendForgotPasswordOtp(request, clientIp(servletRequest)))
                 .build();
     }
 
@@ -67,12 +68,13 @@ public class AuthLifecycleController {
     @PostMapping("/send-verification")
     ApiResponse<OtpSentResponse> sendVerification(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
-            @RequestBody(required = false) SendVerificationRequest request
+            @RequestBody(required = false) SendVerificationRequest request,
+            HttpServletRequest servletRequest
     ) {
         Long userId = jwt != null ? CurrentUser.id(jwt) : null;
         String email = request != null ? request.getEmail() : null;
         return ApiResponse.<OtpSentResponse>builder()
-                .result(otpService.sendEmailVerificationOtp(userId, email))
+                .result(otpService.sendEmailVerificationOtp(userId, email, clientIp(servletRequest)))
                 .build();
     }
 
@@ -97,6 +99,16 @@ public class AuthLifecycleController {
     ApiResponse<Void> logout(@RequestBody @Valid RefreshTokenRequest request) {
         refreshTokenService.revoke(request.getRefreshToken());
         return ApiResponse.<Void>builder().build();
+    }
+
+    private static String clientIp(HttpServletRequest request) {
+        // The gateway overwrites X-Forwarded-For for direct clients and preserves only trusted proxy chains.
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null) {
+            String first = forwarded.split(",", 2)[0].trim();
+            if (first.matches("[0-9A-Fa-f:.]{3,45}")) return first;
+        }
+        return request.getRemoteAddr();
     }
 }
 

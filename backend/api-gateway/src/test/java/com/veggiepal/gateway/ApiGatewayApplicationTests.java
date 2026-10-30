@@ -101,6 +101,19 @@ class ApiGatewayApplicationTests {
 	}
 
 	@Test
+	void clientIpForwardingFilter_trustsConfiguredCidr() {
+		com.veggiepal.gateway.configuration.ClientIpForwardingFilter filter =
+				new com.veggiepal.gateway.configuration.ClientIpForwardingFilter("10.0.0.0/8");
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/ai/chat/guest");
+		request.setRemoteAddr("10.2.3.4");
+		var serverRequest = org.springframework.web.servlet.function.ServerRequest.create(request, java.util.List.of());
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("X-Forwarded-For", "198.51.100.5");
+		assertThat(filter.apply(headers, serverRequest).getFirst("X-Forwarded-For"))
+				.isEqualTo("198.51.100.5, 10.2.3.4");
+	}
+
+	@Test
 	void gatewayDoesNotOwnMultipartParsingLimits() {
 		assertThat(environment.getProperty("spring.servlet.multipart.max-file-size")).isNull();
 		assertThat(environment.getProperty("spring.servlet.multipart.max-request-size")).isNull();

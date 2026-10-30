@@ -15,8 +15,7 @@ import io.jsonwebtoken.Jwts;
 @Service
 public class JwtService {
 
-    private static final long EXPIRATION =
-            1000 * 60 * 60 * 24;
+    private static final long EXPIRATION = 1000 * 60 * 30;
 
     private final SecretKey signingKey;
 

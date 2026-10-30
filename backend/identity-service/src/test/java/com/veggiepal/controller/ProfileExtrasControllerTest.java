@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -103,6 +104,11 @@ class ProfileExtrasControllerTest {
                 .andExpect(jsonPath("$.result.earnedCount").value(3));
 
         mockMvc.perform(post("/users/me/badges/VEGGIE_GREEN_HEART").with(currentUser()))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/users/me/badges/VEGGIE_GREEN_HEART")
+                        .with(jwt().jwt(token -> token.claim("userId", 7L).claim("role", "ADMIN"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.code").value("VEGGIE_GREEN_HEART"));
     }

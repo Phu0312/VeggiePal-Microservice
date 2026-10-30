@@ -22,7 +22,8 @@ public class PaymentOrder {
     private SubscriptionPlan plan;
     @Column(nullable = false)
     private long amount;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR) @Column(nullable = false, length = 20)
     private PaymentStatus status;
     @Column(name = "payment_link_id", length = 100)
     private String paymentLinkId;

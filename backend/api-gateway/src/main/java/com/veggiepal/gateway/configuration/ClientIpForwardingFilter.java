@@ -1,6 +1,8 @@
 package com.veggiepal.gateway.configuration;
 
 import java.util.Arrays;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -56,7 +58,26 @@ public class ClientIpForwardingFilter implements HttpHeadersFilter.RequestHttpHe
         if (trustedProxies.isEmpty()) {
             return false;
         }
-        return trustedProxies.contains("*") || trustedProxies.contains(ip);
+        return trustedProxies.contains("*") || trustedProxies.stream().anyMatch(rule -> matches(rule, ip));
+    }
+
+    private static boolean matches(String rule, String ip) {
+        if (!rule.contains("/")) return rule.equals(ip);
+        try {
+            String[] parts = rule.split("/", 2);
+            byte[] network = InetAddress.getByName(parts[0]).getAddress();
+            byte[] address = InetAddress.getByName(ip).getAddress();
+            int bits = Integer.parseInt(parts[1]);
+            if (network.length != address.length || bits < 0 || bits > network.length * 8) return false;
+            for (int i = 0; i < network.length; i++) {
+                int mask = bits >= 8 ? 255 : bits <= 0 ? 0 : (255 << (8 - bits)) & 255;
+                if ((network[i] & mask) != (address[i] & mask)) return false;
+                bits -= 8;
+            }
+            return true;
+        } catch (UnknownHostException | NumberFormatException exception) {
+            return false;
+        }
     }
 
     @Override

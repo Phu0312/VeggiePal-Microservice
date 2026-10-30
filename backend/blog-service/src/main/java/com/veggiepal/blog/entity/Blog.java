@@ -52,6 +52,7 @@ public class Blog {
     String thumbnailUrl;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     ContentStatus status;
 

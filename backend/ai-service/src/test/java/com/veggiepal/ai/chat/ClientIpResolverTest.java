@@ -55,4 +55,18 @@ class ClientIpResolverTest {
 
         assertEquals("192.168.1.100", ip);
     }
+
+    @Test
+    void configuredCidrTrustsGatewayButNotOutsideAddress() {
+        ClientIpResolver resolver = new ClientIpResolver("172.16.0.0/12");
+        MockHttpServletRequest trusted = new MockHttpServletRequest();
+        trusted.setRemoteAddr("172.18.0.3");
+        trusted.addHeader("X-Forwarded-For", "203.0.113.5");
+        assertEquals("203.0.113.5", resolver.resolve(trusted));
+
+        MockHttpServletRequest other = new MockHttpServletRequest();
+        other.setRemoteAddr("198.51.100.3");
+        other.addHeader("X-Forwarded-For", "203.0.113.5");
+        assertEquals("198.51.100.3", resolver.resolve(other));
+    }
 }
