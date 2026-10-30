@@ -21,6 +21,8 @@ import 'places_map.dart';
 ///   ├─ Công tắc Danh sách | Bản đồ
 ///   └─ Expanded IndexedStack[ danh sách PlaceCard | PlacesMap ]
 /// API: GET /restaurants/nearby?lat&lng&radiusKm&veganOnly (công khai, gần nhất trước, bán kính tối đa 10 km).
+/// Gõ chữ thì lọc ngay trên danh sách đã tải; bấm Enter thì tìm trên toàn bộ quán bằng GET /restaurants/search
+/// (không giới hạn bán kính, bán kính bị khoá cho tới khi xoá tìm kiếm).
 /// Chỉ hỏi quyền vị trí khi người dùng bấm "Vị trí của tôi"; quyền đã được cấp từ trước thì dùng luôn.
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -42,6 +44,7 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
   PlaceSort _sort = PlaceSort.nearest;
   bool _showMap = false;
   String _keyword = '';
+  String? _remoteKeyword; // khác null: đang xem kết quả tìm trên toàn bộ quán (GET /restaurants/search)
 
   List<Place> _places = [];
   bool _loading = true;
@@ -56,6 +59,8 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
     _user = UserLocation(context.read<LocationSource>())..addListener(_onLocationChanged);
     _search.addListener(() {
       if (_search.text != _keyword) setState(() => _keyword = _search.text);
+      // Xoá hết chữ thì quay về danh sách quanh vị trí.
+      if (_search.text.trim().isEmpty && _remoteKeyword != null) _clearRemoteSearch();
     });
     _load();
     _user.restoreIfGranted();
@@ -96,9 +101,11 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
       _failed = false;
     });
     try {
-      final r = await context
-          .read<PlacesRepository>()
-          .nearby(lat: loc.lat, lng: loc.lng, radiusKm: _radius, veganOnly: _veganOnly);
+      final repo = context.read<PlacesRepository>();
+      final remote = _remoteKeyword;
+      final r = remote == null
+          ? await repo.nearby(lat: loc.lat, lng: loc.lng, radiusKm: _radius, veganOnly: _veganOnly)
+          : await repo.search(keyword: remote, lat: loc.lat, lng: loc.lng, veganOnly: _veganOnly);
       if (!mounted || gen != _generation) return;
       setState(() {
         _places = r;
@@ -112,6 +119,21 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
     } finally {
       if (mounted && gen == _generation) setState(() => _loading = false);
     }
+  }
+
+  /// Bấm Enter: tìm trên toàn bộ quán, không giới hạn bán kính. Để trống thì quay về danh sách quanh vị trí.
+  void _submitSearch(String text) {
+    FocusScope.of(context).unfocus();
+    final k = text.trim();
+    if (k.isEmpty) return _clearRemoteSearch();
+    setState(() => _remoteKeyword = k);
+    _load();
+  }
+
+  void _clearRemoteSearch() {
+    if (_remoteKeyword == null) return;
+    setState(() => _remoteKeyword = null);
+    _load();
   }
 
   void _setRadius(int km) {
@@ -138,14 +160,15 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final visible = sortPlaces(filterPlaces(_places, _keyword), _sort);
+    // Kết quả tìm trên toàn bộ quán đã khớp từ khoá ở server nên không lọc lại ở máy.
+    final visible = sortPlaces(_remoteKeyword != null ? _places : filterPlaces(_places, _keyword), _sort);
     final loc = _user.location;
 
     return Column(children: [
       VegSearchBar(
         controller: _search,
         hint: 'Tìm theo tên quán hoặc địa chỉ...',
-        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+        onSubmitted: _submitSearch,
       ),
       SizedBox(
         height: 48,
@@ -154,7 +177,10 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           children: [
             for (final km in radiusOptionsKm) ...[
-              ChoiceChip(label: Text('$km km'), selected: _radius == km, onSelected: (_) => _setRadius(km)),
+              ChoiceChip(
+                  label: Text('$km km'),
+                  selected: _radius == km,
+                  onSelected: _remoteKeyword != null ? null : (_) => _setRadius(km)),
               const SizedBox(width: 8),
             ],
             FilterChip(
@@ -223,6 +249,20 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (_, i) {
           if (i == 0) {
+            if (_remoteKeyword != null) {
+              return Row(children: [
+                Expanded(
+                  child: Text('${visible.length} quán khớp "$_remoteKeyword" trên toàn bộ quán (không giới hạn bán kính)',
+                      style: TextStyle(fontSize: 12.5, color: context.textMuted)),
+                ),
+                TextButton(
+                    onPressed: () {
+                      _search.clear();
+                      _clearRemoteSearch();
+                    },
+                    child: const Text('Xoá tìm kiếm')),
+              ]);
+            }
             return Text(
                 _keyword.trim().isEmpty
                     ? '${visible.length} quán trong bán kính $_radius km'

@@ -1200,7 +1200,7 @@ flowchart TD
 1. Navigate to Menu Planner > Generate Plan.
 2. Name the plan, select a goal (lose, maintain or gain weight) and optionally list the ingredients you have on hand. The web app also accepts preferences and a custom nutrition target. The mobile app shows the daily calorie target that the server computes for the chosen goal, or the reason it cannot (missing health record, incomplete profile, under 18). It also keeps a pantry on the device (Menu Planner > Ingredients), where ingredients are picked from the catalog; one tap copies the pantry items that have not expired into the ingredient list, items closest to expiry first, up to the 30 ingredients the server accepts.
 3. The system computes the nutrition target, excludes recipes containing your allergens, saves the plan and shows breakfast, lunch and dinner for seven days, with the nutrition totals of each day and a warning on days that miss the calorie target.
-4. Open any meal to see its ingredient quantities, per-serving nutrition and cooking steps. A single meal can be replaced, historical versions can be restored, and plans can be favorited. The mobile app also lists your plans and favorites and opens older versions of a plan read-only; manual editing of a plan is available on the web app only.
+4. Open any meal to see its ingredient quantities, per-serving nutrition and cooking steps. A single meal can be replaced, historical versions can be restored, and plans can be favorited. The mobile app also lists your plans and favorites and opens older versions of a plan read-only; from an older version the user can choose "Restore this version", which calls `POST /ai/meal-plans/{id}/versions/{version}/restore`, saves the current content as a new history entry and makes the old content the current plan. Under the Create button the mobile app shows how many meal plans remain this month (`GET /ai/quotas/me`). Manual editing of a plan is available on the web app only.
 
 **Figure VI.2. Meal plan workflow**
 
@@ -1224,6 +1224,7 @@ flowchart TD
 1. Open the Places / Map tab and allow location access.
 2. The app asks location-service for restaurants matching an optional keyword or vegan-only filter, or within the chosen radius around the user's coordinates.
 3. Results are ordered by distance, which is computed by MySQL `ST_Distance_Sphere`, together with their rating and a vegan-only flag.
+4. In the mobile app, typing in the search box filters the loaded list at once. Pressing Enter calls `GET /restaurants/search` with the keyword and the coordinates, which searches every restaurant by name or address without the radius limit, returns the distance of each and shows them nearest first; the radius chips are disabled until the search is cleared.
 
 **Figure VI.3. Nearby restaurant discovery workflow**
 
@@ -1249,7 +1250,7 @@ sequenceDiagram
 
 #### 3.4. Workflow 4: Upgrading to a PLUS or PRO Subscription via VietQR PayOS
 
-1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan.
+1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan. For a signed-in user it also shows how much of the chat (per day), meal-plan (per month) and video-extraction (per month) quota has been used and when it resets, read from `GET /ai/quotas/me`.
 2. Select PLUS or PRO. Choosing a different paid plan than the current one asks for confirmation first, because the new plan replaces the current one.
 3. The app creates the order (`POST /payments/checkout`; an unexpired pending order of the same plan is reused) and shows the dynamic VietQR code with the amount, account and transfer content. Scan it with any Vietnamese banking app. The app polls the order every 2.5 seconds, shows a countdown, offers to recreate an expired code and lets the user cancel a pending order.
 4. After PayOS confirms the payment through the webhook, the order becomes PAID and the subscription is activated for 30 days; paying again for the active plan adds 30 days to its expiry. When a quota is used up (error 6003 in ai-service), the app offers a shortcut to this screen. Past orders are listed under Profile > Payment history.
@@ -1285,6 +1286,25 @@ flowchart TD
 4. To lock an account, choose "Lock account" and confirm (`PATCH /admin/users/{id}/status` with `BLOCKED`). The user can no longer sign in and identity-service revokes their refresh tokens; an access token that was already issued stays valid until it expires (24 hours). A locked account offers "Unlock account" (status `ACTIVE`); a pending or inactive account offers "Activate account".
 5. To change a role, choose "Grant administrator role" or "Remove administrator role" and confirm (`PATCH /admin/users/{id}/role`).
 6. An administrator cannot lock or demote their own account (error 1022), so the details of the signed-in account show no actions. If another administrator has already put the account in the requested state (errors 1020 and 1023), the app shows the message and reloads the list.
+
+#### 3.6. Workflow 6: Tracking Daily Nutrition (mobile app)
+
+1. Open Profile > Nutrition diary. The app calls `GET /nutrition/me/daily-summary?date=` for the chosen day (today by default; the arrows and the calendar move between days, never past today).
+2. The summary shows the calories eaten against the target, the protein, carbohydrate and fat totals against their targets, the water drunk, the exercise and the entries grouped into breakfast, lunch, dinner and snacks. Nutrition-service estimates the calorie target as 30 kcal per kilogram of the weight in the latest health record, limited to 1,400-3,500 kcal, and uses 2,000 kcal when there is no health record; it splits the target 50% carbohydrate, 20% protein and 30% fat.
+3. "Log food" (or the plus button of a meal) opens a form with the food name, the meal and optional calories, protein, carbohydrate, fat and fibre (`POST /nutrition/me/food-logs`; blank values count as 0). The delete button of an entry calls `DELETE /nutrition/me/food-logs/{id}`.
+4. The recipe detail screen has "Log 1 serving to diary" for signed-in users; it opens the same form filled with the recipe name, ID and per-serving nutrition.
+5. Water is added with +250 ml, +500 ml or a custom amount of 1 to 5000 ml (`POST /nutrition/me/water`). The Exercise card edits minutes, steps, calories burned, a note and the water target of the day (`PUT /nutrition/me/daily-activity`, which changes only the fields sent).
+6. After every change the app reloads the summary, so the figures always come from the server.
+
+#### 3.7. Workflow 7: Community, Saved Items and Recognition (mobile app)
+
+1. Community: the Home tab links to the Community screen (`GET /blogs/community/stats`, `/trending-topics`, `/leaderboard` and `GET /videos/channels`, all readable by guests). It shows the community totals, the trending categories, the top authors and the recommended video channels. Author names come from `GET /users/batch`.
+2. Following: a signed-in user follows or unfollows an author with `POST` or `DELETE /blogs/authors/{id}/follow`; the button, the follower counts and every row of that author update together. A user's own row has no follow button.
+3. 7-day challenge: "Check in today" calls `POST /blogs/challenge/check-in` once a day. The screen shows the 7 days, tells the user when the streak was broken (the next check-in starts again at day 1) and, on day 7, unlocks the "Trái Tim Xanh Veggie" badge with `POST /users/me/badges/VEGGIE_GREEN_HEART`.
+4. Saved items: the bookmark button in the title bar of a recipe, a blog post and a video saves it to the favourites of the account (`POST /users/me/favorites` with the type, ID, title and image; `DELETE /users/me/favorites/{type}/{id}`). Profile > Favourites lists them in three tabs and opens the full content.
+5. Badges: Profile > Green badges (`GET /users/me/badges`) shows how many badges are earned out of the total, with the condition and the earning date of each.
+6. Recipes: the recipe list can be sorted by newest or by most popular (`GET /recipes/popular`, available when no keyword is typed). A signed-in user likes or unlikes a published recipe (`POST` or `DELETE /recipes/{id}/like`), and the recipe form can upload an image from the device (`POST /recipes/images`, JPEG, PNG or WEBP up to 5 MB) whose URL fills the image field.
+7. Videos: the watch screen has like and dislike buttons (`POST /videos/{id}/vote`, the same value again takes the vote back) and a card with the nutrition and ingredients that the uploader declared. The uploader and ADMIN edit it with `PUT /videos/{id}/nutrition`; the ingredient field takes one `name | amount` per line.
 
 ### 4. CI/CD Deployment Process
 

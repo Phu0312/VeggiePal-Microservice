@@ -7,7 +7,11 @@ import '../../../core/network/api_client.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../auth/presentation/login_screen.dart';
+import '../../nutrition/data/diary_models.dart';
+import '../../nutrition/presentation/add_food_sheet.dart';
 import '../../profile/data/profile_models.dart';
+import '../../profile/presentation/favorite_button.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/recipe_models.dart';
 import '../data/recipe_repository.dart';
@@ -33,6 +37,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool _notFound = false;
   bool _failed = false;
   bool _busy = false;
+  bool _liked = false;
 
   @override
   void initState() {
@@ -52,6 +57,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       if (!mounted) return;
       setState(() => _recipe = r);
       _loadAuthor(r.userId);
+      _loadLiked(r.id);
     } catch (e) {
       if (!mounted) return;
       if (e is ApiException && e.code == 4100) {
@@ -71,6 +77,32 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       final users = await context.read<ProfileRepository>().publicUsers([userId]);
       if (mounted && users.isNotEmpty) setState(() => _author = users.first);
     } catch (_) {}
+  }
+
+  /// Tôi đã thích công thức này chưa; chỉ là thông tin phụ nên lỗi được bỏ qua.
+  Future<void> _loadLiked(int id) async {
+    if (!context.read<AuthController>().isLoggedIn) return;
+    try {
+      final likes = await context.read<RecipeRepository>().myLikes([id]);
+      if (mounted) setState(() => _liked = likes[id]?.liked ?? false);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleLike() async {
+    final r = _recipe;
+    if (r == null) return;
+    if (!context.read<AuthController>().isLoggedIn) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      return;
+    }
+    await _run(() async {
+      final like = await context.read<RecipeRepository>().setLike(r.id, !_liked);
+      if (!mounted) return;
+      setState(() {
+        _liked = like.liked;
+        _recipe = r.withLikeCount(like.likeCount);
+      });
+    }, 'Không cập nhật được lượt thích');
   }
 
   bool get _canManage {
@@ -165,6 +197,15 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       appBar: AppBar(
         title: Text(r?.title ?? 'Công thức', maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          if (r != null && visible && r.status == 'PUBLISHED')
+            TextButton.icon(
+              onPressed: _busy ? null : _toggleLike,
+              icon: Icon(_liked ? Icons.favorite : Icons.favorite_border,
+                  color: _liked ? Colors.redAccent : null),
+              label: Text('${r.likeCount}'),
+            ),
+          if (r != null && visible && r.status == 'PUBLISHED')
+            FavoriteButton(type: FavoriteType.recipe, targetId: r.id, title: r.title, imageUrl: r.imageUrl),
           if (r != null && visible && auth.isLoggedIn && _canManage && _mutable)
             PopupMenuButton<String>(
               enabled: !_busy,
@@ -277,6 +318,32 @@ class _Body extends StatelessWidget {
         else
           Text(gap ?? 'Chưa đủ dữ liệu để tính dinh dưỡng.',
               style: TextStyle(fontSize: 13, color: context.textMuted)),
+        if (r.status == 'PUBLISHED' && context.watch<AuthController>().isLoggedIn)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final now = DateTime.now();
+                  final saved = await showAddFoodSheet(context,
+                      date: DateTime(now.year, now.month, now.day),
+                      prefill: FoodDraft(
+                        name: r.title,
+                        meal: MealSlot.forTime(now),
+                        recipeId: r.id,
+                        calories: n?.kcal,
+                        protein: n?.protein,
+                        carbs: n?.carbs,
+                        fat: n?.fat,
+                      ));
+                  if (saved && context.mounted) showSnack(context, 'Đã ghi "${r.title}" vào nhật ký hôm nay');
+                },
+                icon: const Icon(LucideIcons.notebookPen),
+                label: const Text('Ghi 1 khẩu phần vào nhật ký'),
+              ),
+            ),
+          ),
         _title(context, 'Nguyên liệu'),
         for (final i in r.ingredients)
           Padding(

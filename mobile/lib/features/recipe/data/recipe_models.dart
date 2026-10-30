@@ -136,6 +136,7 @@ class Recipe {
   final List<RecipeIngredient> ingredients;
   final List<RecipeStep> steps; // đã sắp theo stepNumber
   final DateTime? createdAt;
+  final int likeCount;
 
   const Recipe({
     required this.id,
@@ -150,6 +151,7 @@ class Recipe {
     this.ingredients = const [],
     this.steps = const [],
     this.createdAt,
+    this.likeCount = 0,
   });
 
   factory Recipe.fromJson(Map<String, dynamic> j) {
@@ -173,8 +175,25 @@ class Recipe {
       ],
       steps: steps,
       createdAt: j['createdAt'] == null ? null : DateTime.tryParse('${j['createdAt']}'),
+      likeCount: (j['likeCount'] as num?)?.toInt() ?? 0,
     );
   }
+
+  Recipe withLikeCount(int count) => Recipe(
+        id: id,
+        userId: userId,
+        title: title,
+        description: description,
+        imageUrl: imageUrl,
+        servings: servings,
+        prepTime: prepTime,
+        cookTime: cookTime,
+        status: status,
+        ingredients: ingredients,
+        steps: steps,
+        createdAt: createdAt,
+        likeCount: count,
+      );
 
   /// Tổng thời gian chuẩn bị + nấu (phút); null nếu cả hai đều trống.
   int? get totalMinutes =>
@@ -249,4 +268,15 @@ class RecipeLimits {
   static const imageUrl = 500;
   static const note = 300;
   static const instruction = 2000;
+}
+
+/// Trạng thái "thích" của tôi với một công thức cùng tổng lượt thích (recipe-service: RecipeLikeResponse).
+class RecipeLike {
+  final int recipeId;
+  final bool liked;
+  final int likeCount;
+  const RecipeLike(this.recipeId, this.liked, this.likeCount);
+
+  factory RecipeLike.fromJson(Map<String, dynamic> j) => RecipeLike(
+      (j['recipeId'] as num).toInt(), j['liked'] == true, (j['likeCount'] as num?)?.toInt() ?? 0);
 }
