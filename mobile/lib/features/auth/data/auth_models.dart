@@ -8,8 +8,8 @@ class AuthUser {
   final UserRole role;
   final String? avatarUrl;
 
-  /// Email đã xác minh bằng mã OTP chưa. Phản hồi đăng nhập không có trường này nên mặc định `true`
-  /// (không nhắc nhầm); giá trị thật được nạp từ GET /users/me ngay sau khi đăng nhập.
+  /// Email đã xác minh bằng mã OTP chưa. Lấy từ `emailVerified` của LoginResponse; thiếu trường này thì mặc định
+  /// `true` (không nhắc nhầm). AuthController vẫn nạp lại từ GET /users/me sau khi đăng nhập.
   final bool emailVerified;
 
   const AuthUser({
@@ -54,7 +54,7 @@ class AuthUser {
     return n.isEmpty ? '?' : n[0].toUpperCase();
   }
 
-  /// Map từ `LoginResponse` của identity-service: userId, email, fullName, role.
+  /// Map từ `LoginResponse` của identity-service: userId, email, emailVerified, fullName, role.
   factory AuthUser.fromLogin(Map<String, dynamic> j) => AuthUser(
         id: (j['userId'] as num?)?.toInt() ?? 0,
         email: '${j['email'] ?? ''}',
@@ -62,6 +62,7 @@ class AuthUser {
         role: '${j['role']}'.toUpperCase().contains('ADMIN')
             ? UserRole.admin
             : UserRole.user,
+        emailVerified: j['emailVerified'] != false,
       );
 }
 

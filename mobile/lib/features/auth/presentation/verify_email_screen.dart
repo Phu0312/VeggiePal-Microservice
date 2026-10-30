@@ -10,6 +10,8 @@ import 'otp_widgets.dart';
 /// Xác minh email bằng mã 6 số (POST /auth/verify-email). Pop `true` khi email đã được xác minh.
 /// - Sau khi đăng ký: BE đã tự gửi mã nên màn hình chỉ chờ nhập ([sendOnOpen] = false).
 /// - Mở từ Hồ sơ: màn hình tự gửi mã mới khi mở ([sendOnOpen] = true, POST /auth/send-verification).
+/// BE trả thành công cả khi không gửi mã (đã quá 3 mã/giờ cho email này) nên câu chữ không khẳng định mã chắc chắn
+/// đã tới; quá 10 lần/giờ từ một IP thì trả 429 (1033), chưa cấu hình SMTP thì 503 (1034).
 /// Chưa xác minh vẫn dùng app bình thường nên có nút "Để sau".
 class VerifyEmailScreen extends StatefulWidget {
   final bool sendOnOpen;
@@ -47,7 +49,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       _expiresInSeconds = sent.expiresInSeconds;
       if (mounted) {
         _resendKey.currentState?.restart();
-        showSnack(context, 'Đã gửi mã tới ${auth.user?.email ?? 'email của bạn'}');
+        showSnack(context, 'Đã yêu cầu gửi mã tới ${auth.user?.email ?? 'email của bạn'}');
       }
       return true;
     } catch (e) {
@@ -101,8 +103,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
               const AppLogo(size: 80),
               const SizedBox(height: 16),
               Text(
-                  'Mã gồm 6 chữ số đã được gửi tới $email. '
-                  'Mã có hiệu lực trong ${(_expiresInSeconds / 60).ceil()} phút.',
+                  'Mã gồm 6 chữ số được gửi tới $email và có hiệu lực trong ${(_expiresInSeconds / 60).ceil()} phút. '
+                  'Mỗi email nhận tối đa 3 mã mỗi giờ, nếu chưa thấy hãy kiểm tra cả thư rác.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: context.textMuted)),
               const SizedBox(height: 16),
