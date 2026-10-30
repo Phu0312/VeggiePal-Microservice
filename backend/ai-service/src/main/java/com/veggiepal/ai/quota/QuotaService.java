@@ -22,6 +22,15 @@ public class QuotaService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public int getUsedCount(String principalKey, String feature, QuotaPeriod period) {
+        LocalDate today = LocalDate.now();
+        LocalDate periodDate = period == QuotaPeriod.MONTHLY ? today.withDayOfMonth(1) : today;
+        return repository.findByPrincipalKeyAndFeatureAndUsageDate(principalKey, feature, periodDate)
+                .map(DailyQuota::getRequestCount)
+                .orElse(0);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int reserveChat(String principalKey, boolean guest) {
         checkTokenBudget(principalKey);

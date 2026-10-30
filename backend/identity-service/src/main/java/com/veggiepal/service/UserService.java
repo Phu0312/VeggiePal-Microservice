@@ -2,14 +2,15 @@ package com.veggiepal.service;
 
 import java.util.UUID;
 
-import com.veggiepal.dto.request.LoginRequest;
-import com.veggiepal.dto.response.LoginResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import com.veggiepal.dto.request.LoginRequest;
 import com.veggiepal.dto.request.RegisterRequest;
+import com.veggiepal.dto.response.LoginResponse;
 import com.veggiepal.dto.response.RegisterResponse;
 import com.veggiepal.entity.User;
 import com.veggiepal.enums.Role;
@@ -20,12 +21,10 @@ import com.veggiepal.mapper.UserMapper;
 import com.veggiepal.repository.UserRepository;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class UserService {
@@ -35,6 +34,37 @@ public class UserService {
     PasswordEncoder passwordEncoder;
     JwtService jwtService;
     GoogleTokenVerifier googleTokenVerifier;
+    RefreshTokenService refreshTokenService;
+    OtpService otpService;
+
+    public UserService(
+            UserRepository userRepository,
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            GoogleTokenVerifier googleTokenVerifier
+    ) {
+        this(userRepository, userMapper, passwordEncoder, jwtService, googleTokenVerifier, null, null);
+    }
+
+    @Autowired
+    public UserService(
+            UserRepository userRepository,
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            GoogleTokenVerifier googleTokenVerifier,
+            RefreshTokenService refreshTokenService,
+            OtpService otpService
+    ) {
+        this.userRepository = userRepository;
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.googleTokenVerifier = googleTokenVerifier;
+        this.refreshTokenService = refreshTokenService;
+        this.otpService = otpService;
+    }
 
     public RegisterResponse createUser(RegisterRequest request) {
 
@@ -53,6 +83,9 @@ public class UserService {
         user.setEmailVerified(false);
 
         userRepository.save(user);
+        if (otpService != null) {
+            otpService.sendVerificationOtpSafely(user);
+        }
         return userMapper.toUserResponse(user);
     }
 
@@ -140,9 +173,19 @@ public class UserService {
     }
 
     private LoginResponse toLoginResponse(User user) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new AppException(ErrorCode.USER_BLOCKED);
+        }
+
+        RefreshTokenService.IssuedRefreshToken refresh =
+                refreshTokenService != null && user.getId() != null
+                        ? refreshTokenService.issue(user.getId())
+                        : null;
 
         return LoginResponse.builder()
                 .accessToken(jwtService.generateToken(user))
+                .refreshToken(refresh != null ? refresh.rawToken() : null)
+                .refreshExpiresIn(refresh != null ? refresh.expiresInSeconds() : null)
                 .userId(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())

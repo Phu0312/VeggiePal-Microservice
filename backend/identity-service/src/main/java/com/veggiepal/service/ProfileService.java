@@ -3,6 +3,7 @@ package com.veggiepal.service;
 import java.io.IOException;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,12 +20,10 @@ import com.veggiepal.mapper.UserMapper;
 import com.veggiepal.repository.UserRepository;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class ProfileService {
@@ -35,6 +34,31 @@ public class ProfileService {
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
     FileStorageService fileStorageService;
+    RefreshTokenService refreshTokenService;
+
+    public ProfileService(
+            UserRepository userRepository,
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            FileStorageService fileStorageService
+    ) {
+        this(userRepository, userMapper, passwordEncoder, fileStorageService, null);
+    }
+
+    @Autowired
+    public ProfileService(
+            UserRepository userRepository,
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            FileStorageService fileStorageService,
+            RefreshTokenService refreshTokenService
+    ) {
+        this.userRepository = userRepository;
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
+        this.fileStorageService = fileStorageService;
+        this.refreshTokenService = refreshTokenService;
+    }
 
     public UserProfileResponse getProfile(Long userId) {
 
@@ -71,6 +95,10 @@ public class ProfileService {
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+
+        if (refreshTokenService != null) {
+            refreshTokenService.revokeAllForUser(userId);
+        }
     }
 
     public UserProfileResponse uploadAvatar(Long userId, MultipartFile file) {

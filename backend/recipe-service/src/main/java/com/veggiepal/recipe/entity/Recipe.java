@@ -50,6 +50,10 @@ public class Recipe {
     @Column(nullable = false)
     RecipeStatus status;
 
+    @Column(name = "like_count", nullable = false, columnDefinition = "INT NOT NULL DEFAULT 0")
+    @Builder.Default
+    Integer likeCount = 0;
+
     @OneToMany(
             mappedBy = "recipe",
             cascade = CascadeType.ALL,
@@ -89,6 +93,9 @@ public class Recipe {
 
         if (status == null) {
             status = RecipeStatus.DRAFT;
+        }
+        if (likeCount == null) {
+            likeCount = 0;
         }
     }
 

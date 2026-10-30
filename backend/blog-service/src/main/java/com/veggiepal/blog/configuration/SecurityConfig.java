@@ -10,12 +10,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -48,11 +48,16 @@ public class SecurityConfig {
             new PublicEndpoint(HttpMethod.GET, "/internal/videos/{id:[0-9]+}"),
 
             new PublicEndpoint(HttpMethod.GET, "/blogs"),
+            new PublicEndpoint(HttpMethod.GET, "/blogs/community/leaderboard"),
+            new PublicEndpoint(HttpMethod.GET, "/blogs/community/trending-topics"),
+            new PublicEndpoint(HttpMethod.GET, "/blogs/community/stats"),
             new PublicEndpoint(HttpMethod.GET, "/blogs/{id:[0-9]+}"),
             new PublicEndpoint(HttpMethod.GET, "/blogs/{id:[0-9]+}/related"),
 
             new PublicEndpoint(HttpMethod.GET, "/videos"),
+            new PublicEndpoint(HttpMethod.GET, "/videos/channels"),
             new PublicEndpoint(HttpMethod.GET, "/videos/{id:[0-9]+}"),
+            new PublicEndpoint(HttpMethod.GET, "/videos/{id:[0-9]+}/nutrition"),
 
             new PublicEndpoint(HttpMethod.GET, "/categories"),
             new PublicEndpoint(HttpMethod.GET, "/categories/{id:[0-9]+}"),

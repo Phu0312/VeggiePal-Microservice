@@ -51,6 +51,8 @@ public enum ErrorCode {
 
     INVALID_BLOG_STATUS_TRANSITION(3015, "Blog is not in a state that allows this action", HttpStatus.BAD_REQUEST),
 
+    BLOG_CONTENT_TOO_LONG(3016, "Blog content must be at most {max} characters", HttpStatus.BAD_REQUEST),
+
     // Thumbnail
     THUMBNAIL_REQUIRED(3020, "Thumbnail file is required", HttpStatus.BAD_REQUEST),
 
@@ -82,6 +84,8 @@ public enum ErrorCode {
 
     BLOG_IDS_REQUIRED(3042, "Blog id list is required", HttpStatus.BAD_REQUEST),
 
+    VIDEO_IDS_REQUIRED(3043, "Video id list is required", HttpStatus.BAD_REQUEST),
+
     // Video
     VIDEO_NOT_EXISTED(3060, "Video not existed", HttpStatus.NOT_FOUND),
 
@@ -106,7 +110,11 @@ public enum ErrorCode {
 
     INVALID_MODERATION_RESPONSE(3051, "AI moderation returned an invalid response", HttpStatus.BAD_GATEWAY),
 
-    MODERATION_TARGET_MISMATCH(3052, "Moderation target does not match its author", HttpStatus.CONFLICT);
+    MODERATION_TARGET_MISMATCH(3052, "Moderation target does not match its author", HttpStatus.CONFLICT),
+
+    CANNOT_FOLLOW_SELF(3070, "You cannot follow yourself", HttpStatus.BAD_REQUEST),
+
+    INVALID_VIDEO_NUTRITION(3071, "Video nutrition values must not be negative", HttpStatus.BAD_REQUEST);
 
     ErrorCode(
             int code,
@@ -118,9 +126,21 @@ public enum ErrorCode {
         this.statusCode = statusCode;
     }
 
-    final int code;
+    private final int code;
 
-    final String message;
+    private final String message;
 
-    final HttpStatusCode statusCode;
+    private final HttpStatusCode statusCode;
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public HttpStatusCode getStatusCode() {
+        return statusCode;
+    }
 }

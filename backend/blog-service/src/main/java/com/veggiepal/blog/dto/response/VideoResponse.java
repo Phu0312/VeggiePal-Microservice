@@ -38,6 +38,10 @@ public class VideoResponse {
 
     Integer viewCount;
 
+    Integer voteScore;
+
+    VideoNutritionResponse nutrition;
+
     LocalDateTime publishedAt;
 
     LocalDateTime createdAt;

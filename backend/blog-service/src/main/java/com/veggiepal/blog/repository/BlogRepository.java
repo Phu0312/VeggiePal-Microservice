@@ -25,6 +25,8 @@ public interface BlogRepository extends JpaRepository<Blog, Long> {
 
     boolean existsByCategoryId(Long categoryId);
 
+    long countByStatus(ContentStatus status);
+
     // Task sheet US7: title matches rank above body-only matches. The Pageable's sort is
     // appended after this expression, so it only orders rows within each tier. With no
     // keyword, like null is NULL and every row falls into the same tier.
@@ -48,6 +50,26 @@ public interface BlogRepository extends JpaRepository<Blog, Long> {
             Long categoryId, ContentStatus status, Long id, Pageable pageable
     );
 
+    @Query("""
+            select b.authorId as authorId,
+                   count(b) as postCount,
+                   coalesce(sum(b.voteScore), 0) as totalLikes
+            from Blog b
+            where b.status = :status
+            group by b.authorId
+            """)
+    List<AuthorAggregate> aggregateByAuthor(@Param("status") ContentStatus status);
+
+    @Query("""
+            select b.category.id as categoryId,
+                   b.category.name as categoryName,
+                   count(b) as postCount
+            from Blog b
+            where b.status = :status
+            group by b.category.id, b.category.name
+            """)
+    List<CategoryAggregate> countByCategory(@Param("status") ContentStatus status);
+
     /**
      * One atomic statement. Read-modify-write would let two concurrent readers
      * overwrite each other's increment and silently lose views.
@@ -60,4 +82,20 @@ public interface BlogRepository extends JpaRepository<Blog, Long> {
     @Modifying
     @Query("update Blog b set b.voteScore = b.voteScore + :delta where b.id = :id")
     void addVoteScore(@Param("id") Long id, @Param("delta") int delta);
+
+    interface AuthorAggregate {
+        Long getAuthorId();
+
+        Long getPostCount();
+
+        Long getTotalLikes();
+    }
+
+    interface CategoryAggregate {
+        Long getCategoryId();
+
+        String getCategoryName();
+
+        Long getPostCount();
+    }
 }
