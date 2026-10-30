@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import IngredientPicker from "@/features/recipe/components/IngredientPicker";
+import RecipeImageUpload from "@/features/recipe/components/RecipeImageUpload";
 import RecipeStepsEditor from "@/features/recipe/components/RecipeStepsEditor";
 import {
   useCreateRecipe,
@@ -49,6 +50,7 @@ export default function RecipeForm({ recipe, onClose }) {
     handleSubmit,
     control,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(recipeSchema),
@@ -58,6 +60,7 @@ export default function RecipeForm({ recipe, onClose }) {
   const ingredientFields = useFieldArray({ control, name: "ingredients" });
   // Đơn vị đang chọn của từng nguyên liệu, để cảnh báo ngay khi chọn đơn vị không tính được kcal.
   const watchedIngredients = useWatch({ control, name: "ingredients" });
+  const watchedImageUrl = useWatch({ control, name: "imageUrl" });
 
   const addIngredient = (ingredient) =>
     ingredientFields.append({
@@ -136,7 +139,7 @@ export default function RecipeForm({ recipe, onClose }) {
 
         <div>
           <label htmlFor={`${idPrefix}-image`} className={labelClass}>
-            Link ảnh (không bắt buộc)
+            Ảnh (không bắt buộc)
           </label>
           <input
             id={`${idPrefix}-image`}
@@ -150,8 +153,16 @@ export default function RecipeForm({ recipe, onClose }) {
           {errors.imageUrl ? (
             <p className={errorClass}>{errors.imageUrl.message}</p>
           ) : (
-            <p className="mt-1.5 text-xs text-subtle">Hiện chưa hỗ trợ tải ảnh lên, hãy dán link ảnh có sẵn.</p>
+            <p className="mt-1.5 text-xs text-subtle">
+              Dán link ảnh có sẵn hoặc tải ảnh từ máy (JPEG, PNG, WEBP, tối đa 5MB).
+              {isEdit && " Ảnh tải lên được lưu cho công thức ngay."}
+            </p>
           )}
+          <RecipeImageUpload
+            recipeId={isEdit ? recipe.id : undefined}
+            imageUrl={watchedImageUrl?.trim()}
+            onUploaded={(url) => setValue("imageUrl", url, { shouldValidate: true, shouldDirty: true })}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

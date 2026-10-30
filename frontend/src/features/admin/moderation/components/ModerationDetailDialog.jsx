@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { moderationReasonVi } from "@/shared/utils/moderation";
 
 const CONTENT_TYPE_MAP = {
   BLOG: { label: "Bài viết", icon: FileText, className: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
@@ -193,7 +194,7 @@ export default function ModerationDetailDialog({
           <div>
             <span className="text-xs font-semibold text-ink">Lý do từ AI Moderation:</span>
             <div className="mt-1.5 rounded-2xl border border-border bg-card p-3 text-xs leading-relaxed text-body">
-              {item.reason || "Cần quản trị viên kiểm tra thủ công nội dung này."}
+              {moderationReasonVi(item.reason) || "Cần quản trị viên kiểm tra thủ công nội dung này."}
             </div>
           </div>
 

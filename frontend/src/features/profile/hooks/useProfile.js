@@ -10,19 +10,19 @@ import {
 } from "@/features/profile/api/profileApi";
 import { profileKeys } from "@/features/profile/queryKeys";
 
-// Giữ token, cập nhật user trong store (fullName / avatar hiển thị ở header).
+// Giữ token, cập nhật user trong store (fullName / avatar hiển thị ở header, emailVerified cho banner xác minh).
 // Đọc store trực tiếp qua getState() nên không phụ thuộc closure/hook.
-function syncAuthUser(p) {
+export function syncAuthUser(p) {
   const { token, setAuth } = useAuthStore.getState();
   if (!p || !token) return;
   setAuth({
-    token,
     user: {
       id: p.id,
       email: p.email,
       fullName: p.fullName,
       role: p.role,
       avatarUrl: p.avatarUrl,
+      emailVerified: Boolean(p.emailVerified),
     },
   });
 }
@@ -59,7 +59,7 @@ export function useProfile({ enabled = true, staleTime } = {}) {
             dateOfBirth: null,
             gender: null,
             activityLevel: null,
-            emailVerified: false,
+            emailVerified: Boolean(authUser.emailVerified),
           }
         : null,
     [authUser]
@@ -74,7 +74,7 @@ export function useProfile({ enabled = true, staleTime } = {}) {
 
 // Hồ sơ mới từ server -> ghi vào cache (mọi nơi đang đọc useProfile tự cập nhật)
 // và đồng bộ tên/avatar vào authStore để header đổi theo.
-function useApplyProfile() {
+export function useApplyProfile() {
   const queryClient = useQueryClient();
   return (updated) => {
     queryClient.setQueryData(profileKeys.me, updated);

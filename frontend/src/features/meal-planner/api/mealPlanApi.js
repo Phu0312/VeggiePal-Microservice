@@ -195,6 +195,28 @@ export async function getMealPlanVersion(id, version) {
   return unwrap(res, "Không lấy được phiên bản này");
 }
 
+/**
+ * POST /ai/meal-plans/:id/versions/:version/restore — khôi phục một phiên bản cũ thành nội dung hiện tại.
+ * BE lưu bản hiện tại vào lịch sử trước khi khôi phục; `changeSummary` (tối đa 500 ký tự) tùy chọn,
+ * bỏ trống thì BE ghi "Khôi phục từ phiên bản N". Trả về thực đơn sau khi khôi phục.
+ */
+export async function restoreMealPlanVersion(id, version, changeSummary) {
+  const res = await apiClient.post(
+    `/ai/meal-plans/${id}/versions/${version}/restore`,
+    changeSummary ? { changeSummary } : {}
+  );
+  return unwrap(res, "Không khôi phục được phiên bản này");
+}
+
+/**
+ * GET /ai/meal-plans/quota — lượt tạo thực đơn của gói trong tháng:
+ * { planCode, expiresAt, period, limit, used, remaining, periodStart, resetsAt }.
+ */
+export async function getMealPlanQuota() {
+  const res = await apiClient.get("/ai/meal-plans/quota");
+  return unwrap(res, "Không lấy được lượt tạo thực đơn");
+}
+
 /** GET /ai/meal-plans/:id/versions — các phiên bản cũ của một thực đơn, mới nhất trước. */
 export async function getMealPlanVersions(id) {
   const res = await apiClient.get(`/ai/meal-plans/${id}/versions`);

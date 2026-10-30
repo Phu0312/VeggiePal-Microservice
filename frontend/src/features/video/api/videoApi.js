@@ -83,3 +83,18 @@ export async function deleteVideo(id) {
   const res = await apiClient.delete(`/videos/${id}`);
   unwrap(res, "Xóa video thất bại");
 }
+
+/**
+ * GET /videos/:id/nutrition (công khai) — dinh dưỡng mỗi khẩu phần và nguyên liệu của video:
+ * { videoId, servingLabel, kcal, proteinG, carbsG, fatG, fiberG, ingredients: [{ name, amount }] } hoặc null khi chưa nhập.
+ */
+export async function getVideoNutrition(id) {
+  const res = await apiClient.get(`/videos/${id}/nutrition`);
+  return unwrap(res, "Không tải được thông tin dinh dưỡng") ?? null;
+}
+
+/** PUT /videos/:id/nutrition — chủ video hoặc ADMIN lưu dinh dưỡng (ghi đè cả danh sách nguyên liệu). */
+export async function updateVideoNutrition(id, payload) {
+  const res = await apiClient.put(`/videos/${id}/nutrition`, payload);
+  return unwrap(res, "Không lưu được thông tin dinh dưỡng");
+}

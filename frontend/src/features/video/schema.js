@@ -60,3 +60,28 @@ export const videoEditSchema = z.object({
     .optional()
     .default(""),
 });
+
+// Dinh dưỡng của video (VideoNutritionRequest): số không âm, nhãn khẩu phần <= 100 ký tự,
+// nguyên liệu tên <= 150, lượng <= 80 ký tự. Ô số để trống được.
+const optionalAmount = z
+  .string()
+  .trim()
+  .refine((value) => value === "" || /^d+([.,]d+)?$/.test(value), "Nhập số không âm");
+
+export const videoNutritionSchema = z.object({
+  servingLabel: z.string().trim().max(100, "Tối đa 100 ký tự"),
+  kcal: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || /^d+$/.test(value), "Nhập số nguyên không âm"),
+  proteinG: optionalAmount,
+  carbsG: optionalAmount,
+  fatG: optionalAmount,
+  fiberG: optionalAmount,
+  ingredients: z.array(
+    z.object({
+      name: z.string().trim().min(1, "Nhập tên nguyên liệu").max(150, "Tối đa 150 ký tự"),
+      amount: z.string().trim().max(80, "Tối đa 80 ký tự"),
+    })
+  ),
+});

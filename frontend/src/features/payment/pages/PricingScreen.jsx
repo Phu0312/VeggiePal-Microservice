@@ -18,6 +18,7 @@ import { useRequireLogin } from "@/features/auth/hooks/useRequireLogin";
 import { usePlans, useMySubscription, useCheckout } from "@/features/payment/hooks";
 import PlanCard from "@/features/payment/components/PlanCard";
 import PlanConfirmDialog from "@/features/payment/components/PlanConfirmDialog";
+import QuotaUsageList from "@/features/payment/components/QuotaUsageList";
 import {
   PENDING_ORDER_STORAGE_KEY,
   formatDateTime,
@@ -142,6 +143,8 @@ export default function PricingScreen() {
                   </Button>
                 </div>
               </div>
+              {/* Lượt đã dùng / còn lại của gói (GET /ai/quotas/me) */}
+              <QuotaUsageList className="mt-5" />
             </div>
           </Reveal>
         )}

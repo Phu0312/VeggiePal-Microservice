@@ -4,6 +4,8 @@ import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-
 import { Button } from "@/components/ui/button";
 import { useRequireLogin } from "@/features/auth/hooks/useRequireLogin";
 import { formatCompactNumber, formatTimeAgo, getInitials } from "@/features/blog/utils/blogFormat";
+import AuthorFollowButton from "@/features/community/components/AuthorFollowButton";
+import FavoriteButton from "@/features/profile/components/FavoriteButton";
 import { useVideoRecipe } from "@/features/video/hooks/useVideoRecipe";
 import FallbackImage from "@/shared/components/FallbackImage";
 
@@ -79,6 +81,8 @@ export default function VideoMetaHeader({ video, author }) {
             </p>
           </div>
 
+          {video.status === "PUBLISHED" && <AuthorFollowButton authorId={video.authorId} />}
+
           <Button
             type="button"
             size="sm"
@@ -91,6 +95,10 @@ export default function VideoMetaHeader({ video, author }) {
             {aiLabel}
           </Button>
         </div>
+
+        {video.status === "PUBLISHED" && (
+          <FavoriteButton targetType="VIDEO" targetId={video.id} title={video.title} imageUrl={video.thumbnailUrl} />
+        )}
       </div>
 
       {/* Thông số lượt xem và thời gian */}

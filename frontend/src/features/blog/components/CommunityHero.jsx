@@ -1,6 +1,8 @@
-import { Broccoli, PenLine, Sprout } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Broccoli, PenLine, Sprout, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/variants/button-variants";
 import GlassBanner, { GlassChip, GlassPanel } from "@/shared/components/GlassBanner";
 import { useContentForm } from "@/shared/hooks/useContentForm";
 
@@ -19,6 +21,10 @@ export default function CommunityHero() {
           Nơi các tín đồ thuần chay cùng VeggiePal chia sẻ dinh dưỡng WFPB, biến tấu công thức
           ấm lòng và lan toả lối sống không rác thải.
         </p>
+        <Link to="/community" className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4" })}>
+          <Trophy className="size-4" />
+          Bảng vàng &amp; thử thách 7 ngày
+        </Link>
       </div>
 
       <GlassPanel className="flex shrink-0 flex-col gap-3 lg:max-w-md">

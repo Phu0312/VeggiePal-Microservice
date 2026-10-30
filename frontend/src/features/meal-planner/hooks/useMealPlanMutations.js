@@ -5,10 +5,12 @@ import {
   editMealPlan,
   favoriteMealPlan,
   replaceMeal,
+  restoreMealPlanVersion,
   unfavoriteMealPlan,
   updatePlanFromHealth,
 } from "@/features/meal-planner/api/mealPlanApi";
 import { mealPlanKeys } from "@/features/meal-planner/queryKeys";
+import { paymentKeys } from "@/features/payment/queryKeys";
 import { replacePlanInList, setPlanFavorite } from "@/features/meal-planner/utils/mealPlan";
 
 /**
@@ -24,6 +26,11 @@ export function useCreateMealPlan() {
         created,
         ...(Array.isArray(old) ? old.filter((plan) => plan.id !== created.id) : []),
       ]);
+    },
+    // Thành công thì vừa tốn một lượt; lỗi 6003 (hết lượt) thì số lượt đang hiện đã cũ. Cả hai đều lấy lại.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: mealPlanKeys.quota });
+      queryClient.invalidateQueries({ queryKey: paymentKeys.quotas() });
     },
   });
 }
@@ -99,6 +106,24 @@ export function useReplaceMeal() {
     mutationFn: ({ planId, ...body }) => replaceMeal(planId, body),
     onSuccess: (updated) => {
       queryClient.setQueryData(mealPlanKeys.list, (old) => replacePlanInList(old, updated));
+    },
+  });
+}
+
+/**
+ * Khôi phục một phiên bản cũ. mutate({ planId, version, changeSummary? }) -> thực đơn sau khi khôi phục.
+ * Thay thực đơn trong cache và làm mới lịch sử (BE vừa lưu bản hiện tại thành một phiên bản mới).
+ */
+export function useRestoreMealPlanVersion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ planId, version, changeSummary }) => restoreMealPlanVersion(planId, version, changeSummary),
+    onSuccess: (restored, { planId }) => {
+      if (restored) {
+        queryClient.setQueryData(mealPlanKeys.list, (old) => replacePlanInList(old, restored));
+        queryClient.setQueryData(mealPlanKeys.detail(planId), restored);
+      }
+      queryClient.invalidateQueries({ queryKey: mealPlanKeys.versions(planId) });
     },
   });
 }

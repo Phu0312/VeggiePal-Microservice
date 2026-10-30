@@ -4,3 +4,4 @@ export { usePaymentHistory } from "./usePaymentHistory";
 export { useCheckout } from "./useCheckout";
 export { useOrder } from "./useOrder";
 export { useCancelOrder } from "./useCancelOrder";
+export { useMyQuotas } from "./useMyQuotas";

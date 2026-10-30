@@ -4,6 +4,8 @@ import { ArrowLeft, Eye, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import AuthorAvatar from "@/features/blog/components/AuthorAvatar";
+import AuthorFollowButton from "@/features/community/components/AuthorFollowButton";
+import FavoriteButton from "@/features/profile/components/FavoriteButton";
 import CommentSection from "@/features/blog/components/CommentSection";
 import RelatedBlogs from "@/features/blog/components/RelatedBlogs";
 import VoteButton from "@/features/blog/components/VoteButton";
@@ -99,6 +101,7 @@ export default function BlogDetailScreen() {
                         {formatTimeAgo(blog.publishedAt ?? blog.createdAt)}
                       </p>
                     </div>
+                    {isPublished && <AuthorFollowButton authorId={blog.authorId} />}
                     {/* Bên phải: danh mục, và ngay dưới là tim + lượt xem cỡ nhỏ (không chen vào hàng tiêu đề,
                         vì tiêu đề dài sẽ đẩy chúng xuống dòng). */}
                     <div className="ml-auto flex shrink-0 flex-col items-end gap-1.5">
@@ -110,6 +113,12 @@ export default function BlogDetailScreen() {
                       {isPublished && (
                         <div className="flex items-center gap-3 text-sm font-medium text-body">
                           <VoteButton blog={blog} myVote={myVotes?.get(blog.id)} />
+                          <FavoriteButton
+                            targetType="BLOG"
+                            targetId={blog.id}
+                            title={blog.title}
+                            imageUrl={blog.thumbnailUrl}
+                          />
                           <span className="flex items-center gap-1.5">
                             <Eye className="size-4 text-brand" />
                             {formatCompactNumber(blog.viewCount)}

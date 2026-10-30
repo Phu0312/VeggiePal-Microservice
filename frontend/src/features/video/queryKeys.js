@@ -7,6 +7,7 @@ export const videoKeys = {
     { categoryId: categoryId || undefined, size },
   ],
   detail: (id) => ["videos", "detail", id],
+  nutrition: (id) => ["videos", "nutrition", id],
   mine: (status, size) => ["videos", "mine", { status: status || undefined, size }],
   // Job bóc tách công thức (ai-service); tách khỏi `all` để đăng video không làm tải lại danh sách job.
   jobsRoot: ["video-jobs"],
