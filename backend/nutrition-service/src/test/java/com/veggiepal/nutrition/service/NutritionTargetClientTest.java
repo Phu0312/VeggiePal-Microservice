@@ -45,6 +45,46 @@ class NutritionTargetClientTest {
     }
 
     @Test
+    void reportsUnderageUserSeparatelyFromAnIncompleteProfile() throws Exception {
+        assertThat(errorFor(400, "{\"code\":6021,\"message\":\"under 18\"}"))
+                .isEqualTo(ErrorCode.NUTRITION_AGE_NOT_SUPPORTED);
+    }
+
+    @Test
+    void otherAiBadRequestsStayIncompleteProfile() throws Exception {
+        assertThat(errorFor(400, "{\"code\":6020,\"message\":\"profile\"}"))
+                .isEqualTo(ErrorCode.NUTRITION_PROFILE_INCOMPLETE);
+        assertThat(errorFor(400, "{\"code\":6010,\"message\":\"health record\"}"))
+                .isEqualTo(ErrorCode.NUTRITION_PROFILE_INCOMPLETE);
+        assertThat(errorFor(400, "not json")).isEqualTo(ErrorCode.NUTRITION_PROFILE_INCOMPLETE);
+    }
+
+    @Test
+    void aiServerErrorsMeanTheTargetIsUnavailable() throws Exception {
+        assertThat(errorFor(500, "{\"code\":6999}")).isEqualTo(ErrorCode.NUTRITION_TARGET_UNAVAILABLE);
+    }
+
+    private ErrorCode errorFor(int status, String body) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/ai/meal-plans/nutrition-target", exchange -> {
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, bytes.length);
+            try (var out = exchange.getResponseBody()) { out.write(bytes); }
+        });
+        server.start();
+        try {
+            NutritionTargetClient client = new NutritionTargetClient("http://127.0.0.1:" + server.getAddress().getPort());
+            AtomicReference<ErrorCode> thrown = new AtomicReference<>();
+            assertThatThrownBy(() -> client.targetCalories("test-jwt", "MAINTAIN"))
+                    .isInstanceOfSatisfying(AppException.class, error -> thrown.set(error.getErrorCode()));
+            return thrown.get();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void reportsIncompleteProfileWhenAiCannotCalculateTarget() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/ai/meal-plans/nutrition-target", exchange -> {

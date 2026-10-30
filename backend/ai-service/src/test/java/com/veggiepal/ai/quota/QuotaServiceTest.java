@@ -31,6 +31,28 @@ class QuotaServiceTest {
     }
 
     @Test
+    void usedCountReadsWithoutTheRowLockSoItWorksInAReadOnlyTransaction() {
+        DailyQuotaRepository repository = mock(DailyQuotaRepository.class);
+        java.time.LocalDate monthStart = java.time.LocalDate.now().withDayOfMonth(1);
+        when(repository.findRequestCount("user:1", "MEAL_PLAN", monthStart)).thenReturn(Optional.of(4));
+        QuotaService service = new QuotaService(repository, new QuotaProperties(3, 50, 12, 4000), new TokenProperties(50000));
+
+        assertEquals(4, service.getUsedCount("user:1", "MEAL_PLAN", QuotaPeriod.MONTHLY));
+        // The locking finder is what made GET /ai/quotas/me fail with HTTP 500 on MySQL.
+        verify(repository, never()).findByPrincipalKeyAndFeatureAndUsageDate(anyString(), anyString(), any());
+    }
+
+    @Test
+    void usedCountIsZeroWhenNothingWasUsedYetAndDailyUsesToday() {
+        DailyQuotaRepository repository = mock(DailyQuotaRepository.class);
+        when(repository.findRequestCount(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        QuotaService service = new QuotaService(repository, new QuotaProperties(3, 50, 12, 4000), new TokenProperties(50000));
+
+        assertEquals(0, service.getUsedCount("user:1", "CHAT", QuotaPeriod.DAILY));
+        verify(repository).findRequestCount("user:1", "CHAT", java.time.LocalDate.now());
+    }
+
+    @Test
     void monthlyFeatureQuotaRejectsAfterConfiguredLimit() {
         DailyQuotaRepository repository = mock(DailyQuotaRepository.class);
         DailyQuota row = new DailyQuota("user:1", "MEAL_PLAN", java.time.LocalDate.now().withDayOfMonth(1));

@@ -146,8 +146,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      // 3051: ngày điểm danh cuối đã được lưu nhưng BE chưa cấp được huy hiệu. Tải lại tiến độ rồi cho thử nhận lại.
-      if (e is ApiException && e.code == 3051 && await _afterBadgeFailure()) return;
+      // 3053: ngày điểm danh cuối đã được lưu nhưng BE chưa cấp được huy hiệu. Tải lại tiến độ rồi cho thử nhận lại.
+      if (e is ApiException && e.code == 3053 && await _afterBadgeFailure()) return;
       if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không điểm danh được');
     } finally {
       if (mounted) setState(() => _checkingIn = false);

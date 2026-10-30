@@ -71,8 +71,8 @@ public class BlogService {
                 .voteScore(0)
                 .build();
 
-        // Persist first so the moderation case can point to a real resource id. The
-        // surrounding transaction rolls this insert back if moderation is unavailable.
+        // Persist first so the moderation case can point to a real resource id. If the AI moderation
+        // is unavailable the blog is not rolled back: it is held as PENDING for manual review.
         blogRepository.saveAndFlush(blog);
 
         String reason = Boolean.TRUE.equals(request.getPublish())

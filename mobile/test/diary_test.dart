@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:VeggiePal/core/constants/endpoints.dart';
 import 'package:VeggiePal/core/network/api_client.dart';
+import 'package:VeggiePal/core/network/error_messages.dart';
 import 'package:VeggiePal/features/nutrition/data/diary_models.dart';
 import 'package:VeggiePal/features/nutrition/data/diary_repository.dart';
 import 'package:VeggiePal/features/nutrition/presentation/add_food_sheet.dart';
@@ -88,7 +90,10 @@ Map<String, dynamic> _summary({int consumed = 650, int target = 2000, int water 
     };
 
 void main() {
-  setUp(() => dotenv.loadFromString(envString: 'APP=test'));
+  setUp(() {
+    dotenv.loadFromString(envString: 'APP=test');
+    SharedPreferences.setMockInitialValues({});
+  });
 
   group('mô hình', () {
     test('DailySummary đọc tổng kết, nhóm món theo bữa và tính tỉ lệ', () {
@@ -134,11 +139,21 @@ void main() {
   });
 
   group('DiaryRepository', () {
-    test('summary gửi ngày dạng yyyy-MM-dd', () async {
+    test('summary gửi ngày dạng yyyy-MM-dd và mục tiêu (mặc định MAINTAIN)', () async {
       final api = _Api()..results[Endpoints.dailySummary] = _summary();
       final s = await DiaryRepository(api).summary(DateTime(2026, 10, 30));
-      expect(api.queries[Endpoints.dailySummary], {'date': '2026-10-30'});
+      expect(api.queries[Endpoints.dailySummary], {'date': '2026-10-30', 'goalType': 'MAINTAIN'});
       expect(s.entries.length, 2);
+
+      await DiaryRepository(api).summary(DateTime(2026, 10, 30), goalType: 'LOSE');
+      expect(api.queries[Endpoints.dailySummary], {'date': '2026-10-30', 'goalType': 'LOSE'});
+    });
+
+    test('hồ sơ chưa đủ (2013) giữ nguyên mã lỗi để màn hình hiện hướng dẫn', () async {
+      final api = _Api()
+        ..error = ApiException('Hãy cập nhật chỉ số sức khỏe và hồ sơ', code: 2013, statusCode: 400);
+      await expectLater(DiaryRepository(api).summary(DateTime(2026, 10, 30)),
+          throwsA(isA<ApiException>().having((e) => e.code, 'code', 2013)));
     });
 
     test('ghi món, xoá món, thêm nước, lưu vận động đúng đường dẫn và nội dung', () async {
@@ -256,6 +271,88 @@ void main() {
       final yesterday = DateTime(today.year, today.month, today.day).subtract(const Duration(days: 1));
       expect(api.queries[Endpoints.dailySummary]!['date'], isoDate(yesterday));
       expect(tester.widget<IconButton>(find.ancestor(of: find.byTooltip('Ngày sau'), matching: find.byType(IconButton)).first).onPressed, isNotNull);
+    });
+
+    testWidgets('có ba mục tiêu, mặc định Duy trì; chọn Giảm cân gửi goalType=LOSE và nhớ lại lựa chọn', (tester) async {
+      await mount(tester);
+      expect(api.queries[Endpoints.dailySummary]!['goalType'], 'MAINTAIN');
+      expect(find.text('Giảm cân'), findsOneWidget);
+      expect(find.text('Duy trì'), findsOneWidget);
+      expect(find.text('Tăng cân'), findsOneWidget);
+
+      api.results[Endpoints.dailySummary] = _summary(target: 1700);
+      await tester.tap(find.text('Giảm cân'));
+      await tester.pumpAndSettle();
+      expect(api.queries[Endpoints.dailySummary]!['goalType'], 'LOSE');
+      expect(find.textContaining('/ 1700 kcal'), findsOneWidget);
+      expect((await SharedPreferences.getInstance()).getString('diary_goal_type'), 'LOSE');
+    });
+
+    testWidgets('mở lại màn hình dùng mục tiêu đã chọn lần trước', (tester) async {
+      SharedPreferences.setMockInitialValues({'diary_goal_type': 'GAIN'});
+      await mount(tester);
+      expect(api.queries[Endpoints.dailySummary]!['goalType'], 'GAIN');
+    });
+
+    testWidgets('hồ sơ chưa đủ (2013): hướng dẫn bổ sung thay vì popup lỗi, không có nút Ghi món', (tester) async {
+      api = _Api()..error = ApiException(localizedError(2013, 'Complete your health record and profile'), code: 2013, statusCode: 400);
+      tester.view.physicalSize = const Size(800, 3200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(Provider<DiaryRepository>.value(
+        value: DiaryRepository(api),
+        child: const MaterialApp(home: DiaryScreen()),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cần bổ sung hồ sơ'), findsOneWidget);
+      expect(find.textContaining('Hãy cập nhật chỉ số sức khỏe và hồ sơ'), findsOneWidget);
+      expect(find.text('Nhập chiều cao, cân nặng'), findsOneWidget);
+      expect(find.text('Cập nhật hồ sơ'), findsOneWidget);
+      expect(find.text('Không tải được nhật ký'), findsNothing); // không phải popup lỗi
+      expect(find.text('Ghi món'), findsNothing);
+      expect(find.text('Giảm cân'), findsNothing); // chưa chọn mục tiêu được khi chưa có hồ sơ
+    });
+
+    testWidgets('dưới 18 tuổi (2014): giải thích rõ, không đòi nhập chiều cao cân nặng, vẫn cho sửa hồ sơ', (tester) async {
+      api = _Api()
+        ..error = ApiException(localizedError(2014, 'A calorie target is only available for users aged 18 or older'),
+            code: 2014, statusCode: 400);
+      tester.view.physicalSize = const Size(800, 3200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(Provider<DiaryRepository>.value(
+        value: DiaryRepository(api),
+        child: const MaterialApp(home: DiaryScreen()),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chưa đủ tuổi để tính mục tiêu'), findsOneWidget);
+      expect(find.text(errorMessagesVi[2014]!), findsOneWidget);
+      expect(find.text('Nhập chiều cao, cân nặng'), findsNothing);
+      expect(find.text('Cập nhật hồ sơ'), findsOneWidget);
+      expect(find.text('Cần bổ sung hồ sơ'), findsNothing);
+      expect(find.text('Không tải được nhật ký'), findsNothing);
+      expect(find.text('Ghi món'), findsNothing);
+    });
+
+    testWidgets('chưa tính được mục tiêu (2012): popup lỗi và nút thử lại, bấm thử lại thì tải được', (tester) async {
+      api = _Api()
+        ..results[Endpoints.dailySummary] = _summary()
+        ..error = ApiException(localizedError(2012, 'Nutrition target is unavailable'), code: 2012, statusCode: 503);
+      await tester.pumpWidget(Provider<DiaryRepository>.value(
+        value: DiaryRepository(api),
+        child: const MaterialApp(home: DiaryScreen()),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Không tải được nhật ký'), findsOneWidget);
+      expect(find.textContaining('Chưa tính được mục tiêu dinh dưỡng'), findsOneWidget);
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Thử lại'));
+      await tester.pumpAndSettle();
+      expect(find.text('650'), findsOneWidget);
     });
 
     testWidgets('lỗi tải hiện popup và nút thử lại', (tester) async {
