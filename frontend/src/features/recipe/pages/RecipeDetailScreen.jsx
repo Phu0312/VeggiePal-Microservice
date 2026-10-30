@@ -7,6 +7,8 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import AuthorAvatar from "@/features/blog/components/AuthorAvatar";
 import { FALLBACK_AUTHOR_NAME, formatTimeAgo } from "@/features/blog/utils/blogFormat";
 import StatusBadge from "@/features/my-content/components/StatusBadge";
+import FavoriteButton from "@/features/profile/components/FavoriteButton";
+import RecipeLikeButton from "@/features/recipe/components/RecipeLikeButton";
 import { getRecipeStatusInfo } from "@/features/my-content/utils/statusInfo";
 import { useRecipe } from "@/features/recipe/hooks/useRecipes";
 import { useRecipeNutrition } from "@/features/recipe/hooks/useRecipeNutrition";
@@ -85,6 +87,7 @@ function RecipeArticle({ recipe, author, nutrition, nutritionGap, canManage, isL
   const ingredients = recipe.ingredients ?? [];
   const warnings = collectIngredientWarnings(recipe);
   const showStatus = recipe.status !== "PUBLISHED";
+  const isPublished = recipe.status === "PUBLISHED";
 
   return (
     <article className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8">
@@ -98,8 +101,13 @@ function RecipeArticle({ recipe, author, nutrition, nutritionGap, canManage, isL
             {formatTimeAgo(recipe.publishedAt ?? recipe.createdAt)}
           </p>
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
           {showStatus && <StatusBadge info={getRecipeStatusInfo(recipe.status)} />}
+          {/* Chỉ công thức đã đăng mới thích / lưu được */}
+          {isPublished && <RecipeLikeButton recipe={recipe} />}
+          {isPublished && (
+            <FavoriteButton targetType="RECIPE" targetId={recipe.id} title={recipe.title} imageUrl={recipe.imageUrl} />
+          )}
           {canManage && (
             <Button
               type="button"

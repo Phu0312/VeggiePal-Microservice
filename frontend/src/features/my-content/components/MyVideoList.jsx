@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import ConfirmDialog from "@/shared/components/ConfirmDialog";
 import FallbackImage from "@/shared/components/FallbackImage";
 import { useContentForm } from "@/shared/hooks/useContentForm";
+import { isAiUnavailableReason, moderationReasonVi } from "@/shared/utils/moderation";
 
 // Tab "Video": lọc theo trạng thái (GET /videos/me?status=) + danh sách "Xem thêm",
 // mỗi dòng có Sửa / Gửi duyệt / Xóa tùy trạng thái.
@@ -170,8 +171,11 @@ function VideoRow({ video }) {
 
         {video.status === "REJECTED" && video.moderationReason && (
           <p className="mt-1 text-xs text-destructive">
-            Lý do từ chối: {video.moderationReason}
+            Lý do từ chối: {moderationReasonVi(video.moderationReason)}
           </p>
+        )}
+        {video.status === "PENDING" && isAiUnavailableReason(video.moderationReason) && (
+          <p className="mt-1 text-xs text-subtle">{moderationReasonVi(video.moderationReason)}</p>
         )}
       </div>
     </>
