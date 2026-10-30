@@ -12,6 +12,7 @@ import 'package:VeggiePal/features/admin/presentation/admin_users_tab.dart';
 import 'package:VeggiePal/features/auth/data/auth_models.dart';
 import 'package:VeggiePal/features/auth/data/auth_repository.dart';
 import 'package:VeggiePal/features/auth/presentation/auth_controller.dart';
+import 'support/filter_dropdown.dart';
 
 /// ApiClient giả: ghi lại GET / PATCH, trả kết quả theo đường dẫn, không đụng tới mạng.
 class _FakeApi extends ApiClient {
@@ -133,8 +134,8 @@ void main() {
       await boot(tester);
       expect(find.text('Quản Trị'), findsOneWidget);
       expect(find.text('An Nguyễn'), findsOneWidget);
-      expect(find.text('Quản trị viên'), findsNWidgets(2)); // badge + chip lọc
-      expect(find.text('Bị khóa'), findsNWidgets(2)); // badge của Bình + chip lọc
+      expect(find.text('Quản trị viên'), findsOneWidget); // badge (ô lọc chỉ hiện "Mọi vai trò")
+      expect(find.text('Bị khóa'), findsOneWidget); // badge của Bình
       expect(find.text('Chưa xác minh email'), findsOneWidget);
     });
 
@@ -146,16 +147,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.gets.last?['keyword'], 'an');
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Quản trị viên'));
+      await pickFilter(tester, 'Mọi vai trò', 'Quản trị viên');
       await tester.pumpAndSettle();
       expect(api.gets.last?['role'], 'ADMIN');
       expect(api.gets.last?['keyword'], 'an');
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Bị khóa'));
+      await pickFilter(tester, 'Mọi trạng thái', 'Bị khóa');
       await tester.pumpAndSettle();
       expect(api.gets.last?['status'], 'BLOCKED');
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Mọi trạng thái'));
+      await pickFilter(tester, 'Bị khóa', 'Mọi trạng thái');
       await tester.pumpAndSettle();
       expect(api.gets.last?.containsKey('status'), isFalse);
     });
@@ -174,7 +175,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.patches[Endpoints.adminUserStatus(2)], {'status': 'BLOCKED'});
-      expect(find.text('Bị khóa'), findsNWidgets(3)); // Bình, An Nguyễn và chip lọc
+      expect(find.text('Bị khóa'), findsNWidgets(2)); // Bình và An Nguyễn
     });
 
     testWidgets('hủy ở hộp xác nhận thì không gọi BE', (tester) async {
@@ -199,7 +200,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.patches[Endpoints.adminUserRole(2)], {'role': 'ADMIN'});
-      expect(find.text('Quản trị viên'), findsNWidgets(3));
+      expect(find.text('Quản trị viên'), findsNWidgets(2)); // Quản Trị và An Nguyễn
     });
 
     testWidgets('tài khoản đang bị khóa chỉ có "Mở khóa", không có "Khóa"', (tester) async {
@@ -214,7 +215,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.patches[Endpoints.adminUserStatus(3)], {'status': 'ACTIVE'});
-      expect(find.text('Bị khóa'), findsOneWidget); // chỉ còn chip lọc
+      expect(find.text('Bị khóa'), findsNothing); // không còn tài khoản nào bị khóa
     });
 
     testWidgets('tài khoản của chính admin không có thao tác khóa / đổi quyền', (tester) async {

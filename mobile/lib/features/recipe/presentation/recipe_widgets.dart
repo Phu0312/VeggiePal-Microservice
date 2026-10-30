@@ -95,6 +95,63 @@ class RecipeCard extends StatelessWidget {
   }
 }
 
+/// Thẻ công thức dạng lưới (2 thẻ mỗi hàng): ảnh trên, dưới là tên, thời gian / khẩu phần / kcal và cảnh báo dị ứng.
+class RecipeGridCard extends StatelessWidget {
+  final Recipe recipe;
+  final VoidCallback onTap;
+  const RecipeGridCard({super.key, required this.recipe, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final n = recipe.nutrition;
+    final hasAllergen = recipe.allergenNames.isNotEmpty;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          VegImage(recipe.imageUrl, height: 110, radius: BorderRadius.zero),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(recipe.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (recipe.totalMinutes != null && recipe.totalMinutes! > 0) '${recipe.totalMinutes} phút',
+                    '${recipe.servings} khẩu phần',
+                    if (n != null) '${n.kcal} kcal',
+                  ].join(' • '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: context.textMuted),
+                ),
+                const Spacer(),
+                if (hasAllergen)
+                  const Row(children: [
+                    Icon(LucideIcons.triangleAlert, size: 13, color: Colors.deepOrange),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Text('Dễ gây dị ứng',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11.5, color: Colors.deepOrange)),
+                    ),
+                  ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 /// Danh sách công thức phân trang: kéo xuống cuối thì tải thêm, kéo từ trên xuống để tải lại.
 /// Dùng chung cho danh sách công khai và "công thức của tôi"; gọi `reload()` qua GlobalKey khi bộ lọc đổi.
 class PagedRecipes extends StatefulWidget {
@@ -104,6 +161,9 @@ class PagedRecipes extends StatefulWidget {
   final String emptyText;
   final EdgeInsets padding;
 
+  /// `true`: lưới 2 cột ([RecipeGridCard]) thay cho danh sách một cột.
+  final bool grid;
+
   const PagedRecipes({
     super.key,
     required this.load,
@@ -111,6 +171,7 @@ class PagedRecipes extends StatefulWidget {
     required this.emptyText,
     this.showStatus = false,
     this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
+    this.grid = false,
   });
 
   @override
@@ -190,6 +251,7 @@ class PagedRecipesState extends State<PagedRecipes> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.grid) return RefreshIndicator(onRefresh: reload, child: _buildGrid());
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_failed) return RetryView(onRetry: reload);
     return RefreshIndicator(
@@ -219,4 +281,44 @@ class PagedRecipesState extends State<PagedRecipes> {
             ),
     );
   }
+
+  Widget _buildGrid() => CustomScrollView(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          if (_loading)
+            const SliverToBoxAdapter(
+                child: Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator())))
+          else if (_failed)
+            SliverToBoxAdapter(child: RetryView(onRetry: reload))
+          else if (_items.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(48),
+                child: Center(
+                    child: Text(widget.emptyText,
+                        textAlign: TextAlign.center, style: TextStyle(color: context.textMuted))),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: widget.padding,
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (_, i) => RecipeGridCard(recipe: _items[i], onTap: () => widget.onTap(_items[i])),
+                  childCount: _items.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  mainAxisExtent: 226,
+                ),
+              ),
+            ),
+          if (_loadingMore)
+            const SliverToBoxAdapter(
+                child: Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator()))),
+        ],
+      );
 }
