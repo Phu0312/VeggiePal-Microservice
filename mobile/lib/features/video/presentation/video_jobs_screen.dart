@@ -117,6 +117,7 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
       });
       if (!mounted) return;
       showSnack(context, 'Đã gửi video, AI đang bóc tách. Bạn có thể rời màn hình này.');
+      context.read<SubscriptionController>().refreshQuota();
       _list.currentState?.reload();
     } catch (e) {
       if (mounted) {
@@ -143,10 +144,11 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
   /// Giới hạn tệp và hạn mức bóc tách còn theo gói hiện tại.
   String _limitHint(BuildContext context) {
     final base = 'Tệp video tối đa 100MB, dài tối đa ${VideoLimits.jobMaxMinutes} phút.';
-    final sub = context.watch<SubscriptionController>().subscription;
+    final subs = context.watch<SubscriptionController>();
+    final sub = subs.subscription;
     if (sub == null) return base;
     return sub.videosPerMonth > 0
-        ? '$base ${planName(sub.planCode)}: ${sub.videosPerMonth} lượt mỗi tháng.'
+        ? '$base ${planName(sub.planCode)}: ${subs.quota?.video.label ?? '${sub.videosPerMonth} lượt mỗi tháng'}.'
         : '$base ${planName(sub.planCode)} chưa có lượt bóc tách, hãy nâng cấp gói.';
   }
 

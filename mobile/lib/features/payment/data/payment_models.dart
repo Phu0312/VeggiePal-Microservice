@@ -71,6 +71,60 @@ class Subscription {
   bool get isPaid => planCode != 'FREE';
 }
 
+/// Hạn mức một tính năng AI trong kỳ hiện tại (ai-service: FeatureQuotaStatus).
+class FeatureQuota {
+  final String feature; // MEAL_PLAN | CHAT | VIDEO
+  final String period; // DAILY | MONTHLY
+  final int limit;
+  final int used;
+  final int remaining;
+  final DateTime? resetsAt;
+
+  const FeatureQuota(
+      {required this.feature,
+      required this.period,
+      required this.limit,
+      required this.used,
+      required this.remaining,
+      this.resetsAt});
+
+  factory FeatureQuota.fromJson(Map<String, dynamic> j) => FeatureQuota(
+        feature: '${j['feature'] ?? ''}',
+        period: '${j['period'] ?? ''}',
+        limit: _i(j['limit']),
+        used: _i(j['used']),
+        remaining: _i(j['remaining']),
+        resetsAt: _t(j['resetsAt']),
+      );
+
+  bool get daily => period == 'DAILY';
+  bool get exhausted => limit > 0 && remaining <= 0;
+
+  /// Tỉ lệ đã dùng, 0..1 (gói chưa có lượt thì coi như đã dùng hết).
+  double get usedRatio => limit <= 0 ? 1 : (used / limit).clamp(0.0, 1.0);
+
+  /// "Còn 3/20 lượt hôm nay" / "Còn 1/8 lượt tháng này".
+  String get label => limit <= 0
+      ? 'Gói hiện tại chưa có lượt'
+      : 'Còn $remaining/$limit lượt ${daily ? 'hôm nay' : 'tháng này'}';
+}
+
+/// Tổng hợp hạn mức đã dùng / còn lại của tôi (ai-service: GET /ai/quotas/me).
+class QuotaOverview {
+  final String planCode;
+  final FeatureQuota mealPlan;
+  final FeatureQuota chat;
+  final FeatureQuota video;
+  const QuotaOverview(
+      {required this.planCode, required this.mealPlan, required this.chat, required this.video});
+
+  factory QuotaOverview.fromJson(Map<String, dynamic> j) {
+    FeatureQuota q(String key) => FeatureQuota.fromJson(Map<String, dynamic>.from(j[key] as Map));
+    return QuotaOverview(
+        planCode: '${j['planCode'] ?? 'FREE'}', mealPlan: q('mealPlan'), chat: q('chat'), video: q('video'));
+  }
+}
+
 const _statusLabels = {
   'PENDING': 'Chưa thanh toán',
   'PAID': 'Đã thanh toán',

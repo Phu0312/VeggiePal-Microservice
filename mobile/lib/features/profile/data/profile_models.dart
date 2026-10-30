@@ -108,3 +108,95 @@ class HealthRecord {
         j['recordedAt'] == null ? null : DateTime.tryParse('${j['recordedAt']}'),
       );
 }
+
+// ---------------- Yêu thích và huy hiệu (identity-service) ----------------
+
+/// Loại mục có thể lưu vào danh sách yêu thích (identity-service: FavoriteTargetType).
+enum FavoriteType {
+  recipe('RECIPE', 'Công thức'),
+  blog('BLOG', 'Bài viết'),
+  video('VIDEO', 'Video');
+
+  final String code;
+  final String label;
+  const FavoriteType(this.code, this.label);
+
+  static FavoriteType? fromCode(String? code) {
+    for (final t in values) {
+      if (t.code == code) return t;
+    }
+    return null;
+  }
+}
+
+/// Một mục yêu thích: chỉ lưu tiêu đề và ảnh tại thời điểm lưu, nội dung đầy đủ mở lại theo [targetId].
+class FavoriteItem {
+  final int id;
+  final FavoriteType type;
+  final int targetId;
+  final String title;
+  final String? imageUrl;
+  final DateTime? createdAt;
+
+  const FavoriteItem(
+      {required this.id,
+      required this.type,
+      required this.targetId,
+      required this.title,
+      this.imageUrl,
+      this.createdAt});
+
+  /// Null nếu BE trả loại mà app chưa biết.
+  static FavoriteItem? tryParse(Map<String, dynamic> j) {
+    final type = FavoriteType.fromCode(j['targetType'] as String?);
+    if (type == null) return null;
+    return FavoriteItem(
+      id: (j['id'] as num?)?.toInt() ?? 0,
+      type: type,
+      targetId: (j['targetId'] as num).toInt(),
+      title: '${j['title'] ?? ''}',
+      imageUrl: j['imageUrl'] as String?,
+      createdAt: j['createdAt'] == null ? null : DateTime.tryParse('${j['createdAt']}'),
+    );
+  }
+}
+
+/// Một huy hiệu xanh và trạng thái đã đạt (identity-service: BadgeItemResponse).
+class GreenBadge {
+  final String code;
+  final String title;
+  final String description;
+  final String icon; // tên biểu tượng: sprout | check | user | calendar | droplets | sparkles
+  final bool earned;
+  final DateTime? earnedAt;
+
+  const GreenBadge(
+      {required this.code,
+      required this.title,
+      required this.description,
+      required this.icon,
+      required this.earned,
+      this.earnedAt});
+
+  factory GreenBadge.fromJson(Map<String, dynamic> j) => GreenBadge(
+        code: '${j['code'] ?? ''}',
+        title: '${j['title'] ?? ''}',
+        description: '${j['description'] ?? ''}',
+        icon: '${j['icon'] ?? ''}',
+        earned: j['earned'] == true,
+        earnedAt: j['earnedAt'] == null ? null : DateTime.tryParse('${j['earnedAt']}'),
+      );
+}
+
+class BadgeCollection {
+  final int earnedCount;
+  final int totalCount;
+  final List<GreenBadge> badges;
+  const BadgeCollection(this.earnedCount, this.totalCount, this.badges);
+
+  factory BadgeCollection.fromJson(Map<String, dynamic> j) => BadgeCollection(
+        (j['earnedCount'] as num?)?.toInt() ?? 0,
+        (j['totalCount'] as num?)?.toInt() ?? 0,
+        [for (final b in (j['badges'] as List? ?? const [])) GreenBadge.fromJson(Map<String, dynamic>.from(b as Map))],
+      );
+}

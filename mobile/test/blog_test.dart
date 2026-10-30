@@ -19,6 +19,7 @@ import 'package:VeggiePal/features/home/data/recommendation_repository.dart';
 import 'package:VeggiePal/features/home/presentation/blog_detail_screen.dart';
 import 'package:VeggiePal/features/home/presentation/home_screen.dart';
 import 'package:VeggiePal/features/home/presentation/post_card.dart';
+import 'package:VeggiePal/features/profile/data/favorites_controller.dart';
 import 'package:VeggiePal/features/profile/data/profile_repository.dart';
 import 'package:VeggiePal/features/recipe/data/recipe_repository.dart';
 
@@ -109,6 +110,7 @@ Future<void> _mount(WidgetTester tester, FakeApi api, Widget child, {AuthSession
       Provider<ProfileRepository>.value(value: ProfileRepository(api)),
       Provider<RecipeRepository>.value(value: RecipeRepository(api)),
       ChangeNotifierProvider<AuthController>.value(value: auth),
+      ChangeNotifierProvider<FavoritesController>(create: (_) => FavoritesController(ProfileRepository(api))),
       ChangeNotifierProvider<RecommendationController>.value(
           value: RecommendationController(RecommendationRepository(api))..bindUser(session?.user.id)),
     ],

@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -51,6 +54,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   final _steps = <TextEditingController>[];
   String? _listError;
   bool _busy = false;
+  bool _uploading = false;
 
   bool get _isEdit => widget.existing != null;
   bool get _canPublish => !_isEdit || widget.existing!.status == 'DRAFT';
@@ -95,6 +99,24 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   void _moveStep(int from, int to) {
     if (to < 0 || to >= _steps.length) return;
     setState(() => _steps.insert(to, _steps.removeAt(from)));
+  }
+
+  /// Chọn ảnh trong máy, tải lên (POST /recipes/images) rồi điền link nhận được vào ô "Link ảnh".
+  Future<void> _pickImage() async {
+    final repo = context.read<RecipeRepository>();
+    setState(() => _uploading = true);
+    try {
+      final f = await ImagePicker()
+          .pickImage(source: ImageSource.gallery, maxWidth: 1600, maxHeight: 1600, imageQuality: 85);
+      if (f == null) return;
+      final Uint8List bytes = await f.readAsBytes();
+      final url = await repo.uploadImage(bytes);
+      if (mounted) setState(() => _imageUrl.text = url);
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không tải được ảnh');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   String? _optionalInt(String? v, String label) {
@@ -218,6 +240,20 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
                       ? null
                       : 'Link ảnh phải bắt đầu bằng http:// hoặc https://';
                 },
+                onChanged: (_) => setState(() {}),
+              ),
+              if (_imageUrl.text.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                VegImage(_imageUrl.text.trim(),
+                    width: double.infinity, height: 160, radius: BorderRadius.circular(12)),
+              ],
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: (_busy || _uploading) ? null : _pickImage,
+                icon: _uploading
+                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(LucideIcons.upload),
+                label: Text(_uploading ? 'Đang tải ảnh lên...' : 'Chọn ảnh từ máy'),
               ),
               const SizedBox(height: 12),
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

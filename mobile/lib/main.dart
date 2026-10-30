@@ -14,6 +14,7 @@ import 'features/ai_nutrition/data/chat_repository.dart';
 import 'features/ai_nutrition/presentation/chat_controller.dart';
 import 'features/auth/data/auth_models.dart';
 import 'features/blog/data/blog_repository.dart';
+import 'features/community/data/community_repository.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/data/google_auth.dart';
 import 'features/auth/presentation/auth_controller.dart';
@@ -28,11 +29,13 @@ import 'features/menu_planner/data/menu_repository.dart';
 import 'features/notifications/notification_controller.dart';
 import 'features/payment/data/payment_repository.dart';
 import 'features/payment/data/subscription_controller.dart';
+import 'features/nutrition/data/diary_repository.dart';
 import 'features/places/data/places_repository.dart';
 import 'features/places/data/user_location.dart';
 import 'features/places/presentation/places_map.dart' show MapTiles;
 import 'features/recipe/data/recipe_repository.dart';
 import 'features/video/data/video_repository.dart';
+import 'features/profile/data/favorites_controller.dart';
 import 'features/profile/data/profile_overview.dart';
 import 'features/profile/data/profile_repository.dart';
 import 'navigation/main_navigation_screen.dart';
@@ -91,6 +94,8 @@ class VeggiePalApp extends StatelessWidget {
         ProxyProvider<ApiClient, RecommendationRepository>(update: (_, api, _) => RecommendationRepository(api)),
         ProxyProvider<ApiClient, AdminRepository>(update: (_, api, _) => AdminRepository(api)),
         ProxyProvider<ApiClient, ProfileRepository>(update: (_, api, _) => ProfileRepository(api)),
+        ProxyProvider<ApiClient, CommunityRepository>(update: (_, api, _) => CommunityRepository(api)),
+        ProxyProvider<ApiClient, DiaryRepository>(update: (_, api, _) => DiaryRepository(api)),
         ProxyProvider<ApiClient, ChatRepository>(update: (_, api, _) => ChatRepository(api)),
         ChangeNotifierProvider<AuthController>(
             create: (c) => AuthController(
@@ -109,6 +114,10 @@ class VeggiePalApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthController, ProfileOverview>(
           create: (c) => ProfileOverview(c.read<ProfileRepository>(), c.read<HomeRepository>(),
               c.read<RecipeRepository>(), c.read<VideoRepository>()),
+          update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
+        ),
+        ChangeNotifierProxyProvider<AuthController, FavoritesController>(
+          create: (c) => FavoritesController(c.read<ProfileRepository>()),
           update: (_, auth, ctrl) => ctrl!..bindUser(auth.isAdmin ? null : auth.user?.id),
         ),
         ChangeNotifierProxyProvider<AuthController, SubscriptionController>(

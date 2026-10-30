@@ -69,6 +69,7 @@ class RecipeCard extends StatelessWidget {
                       '${recipe.totalMinutes} phút',
                     '${recipe.servings} khẩu phần',
                     if (n != null) '${n.kcal} kcal/khẩu phần',
+                    if (recipe.likeCount > 0) '${recipe.likeCount} lượt thích',
                   ].join('  •  '),
                   style: TextStyle(fontSize: 12.5, color: context.textMuted),
                 ),
