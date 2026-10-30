@@ -107,6 +107,7 @@ public enum ErrorCode {
     INVALID_VIDEO_STATUS_TRANSITION(3068, "Video is not in a state that allows this action", HttpStatus.BAD_REQUEST),
 
     MODERATION_UNAVAILABLE(3050, "AI moderation is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    BADGE_AWARD_UNAVAILABLE(3051, "Badge award is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
 
     INVALID_MODERATION_RESPONSE(3051, "AI moderation returned an invalid response", HttpStatus.BAD_GATEWAY),
 

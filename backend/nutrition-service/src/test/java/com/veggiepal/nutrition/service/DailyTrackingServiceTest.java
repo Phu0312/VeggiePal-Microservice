@@ -45,6 +45,9 @@ class DailyTrackingServiceTest {
     @Mock
     HealthRecordRepository healthRecordRepository;
 
+    @Mock
+    NutritionTargetClient nutritionTargetClient;
+
     @InjectMocks
     DailyTrackingService dailyTrackingService;
 
@@ -123,12 +126,9 @@ class DailyTrackingServiceTest {
                         .fiberG(new BigDecimal("11.00"))
                         .build()
         ));
-        HealthRecord latestHealth = new HealthRecord();
-        latestHealth.setWeightKg(new BigDecimal("70.0"));
-        when(healthRecordRepository.findFirstByUserIdOrderByRecordedAtDescIdDesc(7L))
-                .thenReturn(Optional.of(latestHealth));
+        when(nutritionTargetClient.targetCalories("jwt", "MAINTAIN")).thenReturn(2100);
 
-        DailyNutritionSummaryResponse summary = dailyTrackingService.getDailySummary(7L, date);
+        DailyNutritionSummaryResponse summary = dailyTrackingService.getDailySummary(7L, date, "jwt", "MAINTAIN");
         assertThat(summary.getTargetCalories()).isEqualTo(2100);
         assertThat(summary.getConsumedCalories()).isEqualTo(640);
         assertThat(summary.getRemainingCalories()).isEqualTo(1460);

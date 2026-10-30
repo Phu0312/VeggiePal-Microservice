@@ -44,6 +44,7 @@ public class UserBadge {
     Long userId;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "badge_code", nullable = false, updatable = false, length = 40)
     BadgeCode badgeCode;
 

@@ -33,6 +33,7 @@ public class ContentVote {
     Long userId;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "target_type", nullable = false)
     TargetType targetType;
 

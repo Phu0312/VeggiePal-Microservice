@@ -75,7 +75,7 @@ class DailyTrackingControllerTest {
                         .waterGlasses(7)
                         .build());
 
-        when(dailyTrackingService.getDailySummary(eq(USER_ID), any()))
+        when(dailyTrackingService.getDailySummary(eq(USER_ID), any(), any(), eq("MAINTAIN")))
                 .thenReturn(DailyNutritionSummaryResponse.builder()
                         .consumedCalories(1640)
                         .targetCalories(2100)

@@ -49,6 +49,7 @@ public class FoodLog {
     LocalDate logDate;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "meal_type", nullable = false, length = 20)
     MealType mealType;
 

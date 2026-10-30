@@ -188,6 +188,7 @@ public class UserService {
                 .refreshExpiresIn(refresh != null ? refresh.expiresInSeconds() : null)
                 .userId(user.getId())
                 .email(user.getEmail())
+                .emailVerified(user.getEmailVerified())
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .build();

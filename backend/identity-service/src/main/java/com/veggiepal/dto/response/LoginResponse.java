@@ -17,6 +17,7 @@ public class LoginResponse {
     Long refreshExpiresIn;
     Long userId;
     String email;
+    Boolean emailVerified;
     String fullName;
     Role role;
 }

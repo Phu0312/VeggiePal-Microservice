@@ -11,16 +11,16 @@ public enum ErrorCode {
     UNAUTHENTICATED(1008, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1009, "You do not have permission", HttpStatus.FORBIDDEN),
     INVALID_REQUEST(1018, "Invalid request", HttpStatus.BAD_REQUEST),
-    PLAN_REQUIRED(6000, "Subscription plan is required", HttpStatus.BAD_REQUEST),
-    PLAN_NOT_FOUND(6001, "Subscription plan does not exist", HttpStatus.NOT_FOUND),
-    PLAN_NOT_PURCHASABLE(6002, "This subscription plan cannot be purchased", HttpStatus.BAD_REQUEST),
-    PAYMENT_ORDER_NOT_FOUND(6003, "Payment order does not exist", HttpStatus.NOT_FOUND),
-    PAYOS_UNAVAILABLE(6004, "Payment provider is unavailable", HttpStatus.SERVICE_UNAVAILABLE),
-    PAYOS_WEBHOOK_INVALID(6005, "Invalid payOS webhook signature or data", HttpStatus.BAD_REQUEST),
-    PAYMENT_AMOUNT_MISMATCH(6006, "Payment amount does not match the order", HttpStatus.BAD_REQUEST),
-    PAYMENT_NOT_SUCCESSFUL(6007, "Payment was not successful", HttpStatus.BAD_REQUEST),
-    PAYMENT_ORDER_NOT_CANCELLABLE(6008, "Only pending payment orders can be cancelled", HttpStatus.CONFLICT),
-    PAYMENT_CANCELLATION_NOT_CONFIRMED(6009, "Payment provider did not confirm cancellation", HttpStatus.CONFLICT);
+    PLAN_REQUIRED(7000, "Subscription plan is required", HttpStatus.BAD_REQUEST),
+    PLAN_NOT_FOUND(7001, "Subscription plan does not exist", HttpStatus.NOT_FOUND),
+    PLAN_NOT_PURCHASABLE(7002, "This subscription plan cannot be purchased", HttpStatus.BAD_REQUEST),
+    PAYMENT_ORDER_NOT_FOUND(7003, "Payment order does not exist", HttpStatus.NOT_FOUND),
+    PAYOS_UNAVAILABLE(7004, "Payment provider is unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    PAYOS_WEBHOOK_INVALID(7005, "Invalid payOS webhook signature or data", HttpStatus.BAD_REQUEST),
+    PAYMENT_AMOUNT_MISMATCH(7006, "Payment amount does not match the order", HttpStatus.BAD_REQUEST),
+    PAYMENT_NOT_SUCCESSFUL(7007, "Payment was not successful", HttpStatus.BAD_REQUEST),
+    PAYMENT_ORDER_NOT_CANCELLABLE(7008, "Only pending payment orders can be cancelled", HttpStatus.CONFLICT),
+    PAYMENT_CANCELLATION_NOT_CONFIRMED(7009, "Payment provider did not confirm cancellation", HttpStatus.CONFLICT);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code; this.message = message; this.statusCode = statusCode;

@@ -27,6 +27,7 @@ public class Allergen {
     String name;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     AllergenCategory category;
 }
