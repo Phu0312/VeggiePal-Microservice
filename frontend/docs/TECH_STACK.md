@@ -318,4 +318,4 @@ Sau khi thêm: kiểm tra component dùng đúng token màu của VeggiePal (m�
 - [ ] Dữ liệu server dùng React Query; state toàn cục dùng Zustand; form dùng RHF + zod.
 - [ ] Responsive (mobile → desktop) và có trạng thái loading/lỗi.
 - [ ] `npm run lint` chạy sạch. Nếu có viết test tạm thì `npm test` phải pass, rồi **xóa file `*.test.js` đã viết**.
-- [ ] **Cập nhật tài liệu**: có code mới / flow mới / thay đổi cấu trúc, route, API, env, lệnh... thì cập nhật lại `docs/TECH_STACK.md` và `README.md` cho khớp.
+- [ ] **Cập nhật tài liệu**: có code mới / flow mới / thay đổi cấu trúc, route, API, env, lệnh... thì cập nhật lại `docs/TECH_STACK.md` và README gốc của repo (`../README.md`) cho khớp.
