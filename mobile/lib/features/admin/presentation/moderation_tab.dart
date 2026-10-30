@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/moderation.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../data/admin_models.dart';
 import '../data/admin_repository.dart';
@@ -173,7 +174,7 @@ class _CaseCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                       color: context.cs.error.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                  child: Text(k, style: TextStyle(fontSize: 12, color: context.cs.error)),
+                  child: Text(moderationCategoryVi(k), style: TextStyle(fontSize: 12, color: context.cs.error)),
                 ),
             ]),
           ],
@@ -182,7 +183,7 @@ class _CaseCard extends StatelessWidget {
               maxLines: 6, overflow: TextOverflow.ellipsis, style: const TextStyle(height: 1.35)),
           if ((c.reason ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text('AI: ${c.reason!.trim()}', style: TextStyle(fontSize: 13, color: context.textMuted)),
+            Text('AI: ${moderationReasonVi(c.reason!)}', style: TextStyle(fontSize: 13, color: context.textMuted)),
           ],
           const SizedBox(height: 4),
           Text('Độ tin cậy của AI: ${(c.confidence * 100).round()}%'

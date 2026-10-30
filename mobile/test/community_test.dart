@@ -187,14 +187,74 @@ void main() {
       expect(find.textContaining('Hôm nay bạn đã điểm danh'), findsOneWidget);
     });
 
-    testWidgets('ngày thứ 7: báo hoàn thành và mở khoá huy hiệu', (tester) async {
+    testWidgets('ngày thứ 7: báo hoàn thành, huy hiệu do BE cấp nên app không tự mở khoá', (tester) async {
       await mount(tester, _seed(challenge: _challenge(days: 6)));
       api.results[Endpoints.challengeCheckIn] = _challenge(days: 7, today: true, completed: true, just: true);
       await tester.tap(find.text('Điểm danh hôm nay'));
       await tester.pumpAndSettle();
 
       expect(find.text('Hoàn thành thử thách!'), findsOneWidget);
-      expect(api.calls, contains('POST /users/me/badges/VEGGIE_GREEN_HEART'));
+      expect(api.calls.where((c) => c.contains('/users/me/badges/')), isEmpty);
+    });
+
+    testWidgets('BE chưa cấp được huy hiệu (3051): tiến độ vẫn hoàn thành, có nút nhận lại huy hiệu', (tester) async {
+      await mount(tester, _seed(challenge: _challenge(days: 6)));
+      api.errors[Endpoints.challengeCheckIn] =
+          ApiException('Badge award is temporarily unavailable', code: 3051, statusCode: 503);
+      api.results[Endpoints.challengeMe] = _challenge(days: 7, today: true, completed: true);
+      await tester.tap(find.text('Điểm danh hôm nay'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Đã hoàn thành thử thách'), findsOneWidget);
+      expect(find.text('Không điểm danh được'), findsNothing);
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+      expect(find.text('7/7 ngày'), findsOneWidget);
+      expect(find.text('Nhận huy hiệu'), findsOneWidget);
+
+      // Lần nhận lại thành công: BE cấp huy hiệu rồi nút biến mất.
+      api.errors.remove(Endpoints.challengeCheckIn);
+      api.results[Endpoints.challengeCheckIn] = _challenge(days: 7, today: true, completed: true);
+      await tester.tap(find.text('Nhận huy hiệu'));
+      await tester.pumpAndSettle();
+      expect(api.calls.where((c) => c == 'POST /blogs/challenge/check-in'), hasLength(2));
+      expect(find.text('Nhận huy hiệu'), findsNothing);
+    });
+
+    testWidgets('3051 nhưng thử thách chưa hoàn thành: hiện lỗi như thường, không có nút nhận huy hiệu', (tester) async {
+      await mount(tester, _seed(challenge: _challenge(days: 2)));
+      api.errors[Endpoints.challengeCheckIn] = ApiException('Dịch vụ tạm lỗi', code: 3051, statusCode: 503);
+      await tester.tap(find.text('Điểm danh hôm nay'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Không điểm danh được'), findsOneWidget);
+      expect(find.text('Nhận huy hiệu'), findsNothing);
+    });
+
+    Map<String, dynamic> badgesJson({required bool earned}) => {
+          'earnedCount': earned ? 1 : 0,
+          'totalCount': 6,
+          'badges': [
+            {'code': 'VEGGIE_GREEN_HEART', 'title': 'Trái Tim Xanh Veggie', 'description': 'd', 'icon': 'calendar', 'earned': earned},
+          ],
+        };
+
+    testWidgets('mở màn hình khi đã hoàn thành mà hồ sơ chưa có huy hiệu: hiện nút nhận huy hiệu', (tester) async {
+      await mount(
+          tester,
+          _seed(challenge: _challenge(days: 7, today: true, completed: true))
+            ..results[Endpoints.myBadges] = badgesJson(earned: false));
+      expect(find.text('Nhận huy hiệu'), findsOneWidget);
+      expect(find.textContaining('huy hiệu chưa được cấp'), findsOneWidget);
+    });
+
+    testWidgets('mở màn hình khi đã hoàn thành và đã có huy hiệu: không có nút nhận', (tester) async {
+      await mount(
+          tester,
+          _seed(challenge: _challenge(days: 7, today: true, completed: true))
+            ..results[Endpoints.myBadges] = badgesJson(earned: true));
+      expect(find.text('Nhận huy hiệu'), findsNothing);
+      expect(find.textContaining('đã hoàn thành thử thách và nhận huy hiệu'), findsOneWidget);
     });
 
     testWidgets('chuỗi bị đứt: nhắc bắt đầu lại', (tester) async {

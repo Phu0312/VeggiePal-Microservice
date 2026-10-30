@@ -8,7 +8,7 @@ import 'video_models.dart';
 /// Mã lỗi ai-service khi lấy công thức AI của video đã đăng (GET /ai/videos/by-video/{id}).
 const _extractionInProgress = 6022;
 const _extractionFailed = 6023;
-const _sourceUnsupported = 6021;
+const _sourceUnsupported = 6026; // 6021 là AGE_NOT_SUPPORTED của thực đơn, không phải lỗi video
 
 /// Backend xử lý tải lên (Cloudinary / lưu tệp tạm) có thể lâu hơn thời gian chờ mặc định.
 const _uploadReceiveTimeout = Duration(minutes: 3);
@@ -127,7 +127,7 @@ class VideoRepository {
 
   // ---------------- bóc tách công thức bằng AI ----------------
 
-  /// GET /ai/videos/by-video/{id} (công khai, xem không tốn lượt). Các lỗi 6021 / 6022 / 6023 / 404 là trạng thái
+  /// GET /ai/videos/by-video/{id} (công khai, xem không tốn lượt). Các lỗi 6026 / 6022 / 6023 / 404 là trạng thái
   /// bình thường nên được đổi thành [RecipeState]; lỗi khác được ném lại.
   Future<VideoRecipe> recipeOf(int videoId) async {
     try {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/format.dart';
+import '../../../core/utils/moderation.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../core/widgets/header_actions.dart';
 import '../../auth/data/auth_models.dart';
@@ -172,7 +173,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
 
   /// Dòng trạng thái cho bài chưa đăng, kèm lý do kiểm duyệt nếu có.
   Widget _statusBanner(BlogItem b) {
-    final reason = (b.moderationReason ?? '').trim();
+    final reason = moderationReasonVi(b.moderationReason ?? '');
     final hint = switch (_status) {
       'DRAFT' => 'Chỉ mình bạn xem được bài này. Gửi duyệt để đăng công khai.',
       'PENDING' => 'Bài đang chờ kiểm duyệt trước khi hiển thị công khai.',
