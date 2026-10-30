@@ -237,14 +237,14 @@ void main() {
       expect(find.text('Quán xa Đà Lạt'), findsOneWidget);
       expect(find.text('Quán gần'), findsNothing);
       expect(find.textContaining('không giới hạn bán kính'), findsOneWidget);
-      expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '3 km')).onSelected, isNull);
+      expect(tester.widget<InkWell>(find.widgetWithText(InkWell, '5 km')).onTap, isNull); // ô bán kính bị khoá
 
       await tester.tap(find.text('Xoá tìm kiếm'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(api.calls.last, 'GET /restaurants/nearby');
       expect(find.text('Quán gần'), findsOneWidget);
-      expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '3 km')).onSelected, isNotNull);
+      expect(tester.widget<InkWell>(find.widgetWithText(InkWell, '5 km')).onTap, isNotNull);
     });
   });
 

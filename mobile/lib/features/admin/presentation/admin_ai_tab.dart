@@ -109,26 +109,16 @@ class _AiOverviewState extends State<_AiOverview> {
   Widget build(BuildContext context) {
     final s = _summary;
     return Column(children: [
-      SizedBox(
-        height: 48,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          children: [
-            for (final d in _periods) ...[
-              ChoiceChip(
-                label: Text('$d ngày gần nhất'),
-                selected: _days == d,
-                onSelected: (_) {
-                  setState(() => _days = d);
-                  _load();
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
-          ],
+      FilterRow(children: [
+        FilterDropdown<int>(
+          options: {for (final d in _periods) d: '$d ngày gần nhất'},
+          selected: _days,
+          onChanged: (d) {
+            setState(() => _days = d);
+            _load();
+          },
         ),
-      ),
+      ]),
       Expanded(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -196,34 +186,28 @@ class _AiLogsState extends State<_AiLogs> {
   String? _feature;
   String? _status;
 
-  Widget _chips(Map<String?, String> options, String? selected, void Function(String?) onTap) => SizedBox(
-        height: 44,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          children: [
-            for (final e in options.entries) ...[
-              ChoiceChip(
-                  label: Text(e.value), selected: selected == e.key, onSelected: (_) => onTap(e.key)),
-              const SizedBox(width: 8),
-            ],
-          ],
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     final repo = context.read<AdminRepository>();
     return Column(children: [
-      const SizedBox(height: 4),
-      _chips({null: 'Mọi tác vụ', for (final e in aiFeatureLabels.entries) e.key: e.value}, _feature, (v) {
-        setState(() => _feature = v);
-        _list.currentState?.reload();
-      }),
-      _chips(_statuses, _status, (v) {
-        setState(() => _status = v);
-        _list.currentState?.reload();
-      }),
+      FilterRow(children: [
+        FilterDropdown<String?>(
+          options: {null: 'Mọi tác vụ', for (final e in aiFeatureLabels.entries) e.key: e.value},
+          selected: _feature,
+          onChanged: (v) {
+            setState(() => _feature = v);
+            _list.currentState?.reload();
+          },
+        ),
+        FilterDropdown<String?>(
+          options: _statuses,
+          selected: _status,
+          onChanged: (v) {
+            setState(() => _status = v);
+            _list.currentState?.reload();
+          },
+        ),
+      ]),
       Expanded(
         child: PagedListView<UsageLog>(
           key: _list,
