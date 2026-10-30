@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -83,8 +84,9 @@ public class ProfileExtrasController {
                 .build();
     }
 
-    @Operation(summary = "Unlock a green badge for the current user (idempotent)")
+    @Operation(summary = "Admin-only manual badge unlock")
     @PostMapping("/badges/{code}")
+    @PreAuthorize("hasRole('ADMIN')")
     ApiResponse<BadgeItemResponse> unlockBadge(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @PathVariable("code") String code

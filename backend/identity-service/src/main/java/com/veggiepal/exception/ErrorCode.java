@@ -72,7 +72,9 @@ public enum ErrorCode {
 
     FAVORITE_TARGET_REQUIRED(1031, "Favorite target type and id are required", HttpStatus.BAD_REQUEST),
 
-    BADGE_NOT_EXISTED(1032, "Badge code not existed", HttpStatus.BAD_REQUEST);
+    BADGE_NOT_EXISTED(1032, "Badge code not existed", HttpStatus.BAD_REQUEST),
+    OTP_SEND_RATE_LIMITED(1033, "Too many OTP requests; try again later", HttpStatus.TOO_MANY_REQUESTS),
+    MAIL_UNAVAILABLE(1034, "OTP email delivery is not configured", HttpStatus.SERVICE_UNAVAILABLE);
 
     ErrorCode(
             int code,

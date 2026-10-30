@@ -49,6 +49,7 @@ public class Video {
     String description;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "source_type", nullable = false)
     VideoSource sourceType;
 
@@ -60,6 +61,7 @@ public class Video {
     String thumbnailUrl;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     ContentStatus status;
 

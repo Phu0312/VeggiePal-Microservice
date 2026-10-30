@@ -43,17 +43,21 @@ public class User {
     // Nullable: the meal planner needs both to estimate calorie needs and asks the user to fill them in.
     // ddl-auto=update creates native MySQL ENUM columns; a constant added later needs a manual ALTER (see CLAUDE.md).
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     Gender gender;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "activity_level")
     ActivityLevel activityLevel;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     Role role;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     UserStatus status;
 

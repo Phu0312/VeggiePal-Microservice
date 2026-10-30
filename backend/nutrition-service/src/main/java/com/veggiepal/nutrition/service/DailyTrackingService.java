@@ -32,12 +32,12 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DailyTrackingService {
 
-    static final int DEFAULT_TARGET_CALORIES = 2000;
     static final int GLASS_ML = 300;
 
     FoodLogRepository foodLogRepository;
     DailyWellnessLogRepository dailyWellnessLogRepository;
     HealthRecordRepository healthRecordRepository;
+    NutritionTargetClient nutritionTargetClient;
 
     @Transactional
     public FoodLogResponse addFoodLog(Long userId, FoodLogRequest request) {
@@ -141,7 +141,7 @@ public class DailyTrackingService {
     }
 
     @Transactional(readOnly = true)
-    public DailyNutritionSummaryResponse getDailySummary(Long userId, LocalDate date) {
+    public DailyNutritionSummaryResponse getDailySummary(Long userId, LocalDate date, String jwt, String goalType) {
         LocalDate targetDate = resolveDate(date);
         List<FoodLogResponse> entries = getFoodLogs(userId, targetDate);
         DailyActivityResponse activity = getDailyActivity(userId, targetDate);
@@ -154,7 +154,7 @@ public class DailyTrackingService {
         BigDecimal fatG = sum(entries, FoodLogResponse::getFatG);
         BigDecimal fiberG = sum(entries, FoodLogResponse::getFiberG);
 
-        int targetCalories = resolveTargetCalories(userId);
+        int targetCalories = nutritionTargetClient.targetCalories(jwt, goalType);
         // Standard balanced plant-based macro split: 50% carbs (4 kcal/g), 20% protein (4 kcal/g), 30% fat (9 kcal/g)
         BigDecimal targetCarbsG = BigDecimal.valueOf(targetCalories * 0.50 / 4.0).setScale(1, RoundingMode.HALF_UP);
         BigDecimal targetProteinG = BigDecimal.valueOf(targetCalories * 0.20 / 4.0).setScale(1, RoundingMode.HALF_UP);
@@ -181,19 +181,6 @@ public class DailyTrackingService {
                 .activityNote(activity.getActivityNote())
                 .entries(entries)
                 .build();
-    }
-
-    private int resolveTargetCalories(Long userId) {
-        return healthRecordRepository
-                .findFirstByUserIdOrderByRecordedAtDescIdDesc(userId)
-                .map(record -> {
-                    int estimated = record.getWeightKg()
-                            .multiply(BigDecimal.valueOf(30))
-                            .setScale(0, RoundingMode.HALF_UP)
-                            .intValue();
-                    return Math.max(1400, Math.min(3500, estimated));
-                })
-                .orElse(DEFAULT_TARGET_CALORIES);
     }
 
     private FoodLogResponse toFoodLogResponse(FoodLog log) {
