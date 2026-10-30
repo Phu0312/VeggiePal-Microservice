@@ -197,10 +197,10 @@ void main() {
       expect(api.calls.where((c) => c.contains('/users/me/badges/')), isEmpty);
     });
 
-    testWidgets('BE chưa cấp được huy hiệu (3051): tiến độ vẫn hoàn thành, có nút nhận lại huy hiệu', (tester) async {
+    testWidgets('BE chưa cấp được huy hiệu (3053): tiến độ vẫn hoàn thành, có nút nhận lại huy hiệu', (tester) async {
       await mount(tester, _seed(challenge: _challenge(days: 6)));
       api.errors[Endpoints.challengeCheckIn] =
-          ApiException('Badge award is temporarily unavailable', code: 3051, statusCode: 503);
+          ApiException('Badge award is temporarily unavailable', code: 3053, statusCode: 503);
       api.results[Endpoints.challengeMe] = _challenge(days: 7, today: true, completed: true);
       await tester.tap(find.text('Điểm danh hôm nay'));
       await tester.pumpAndSettle();
@@ -221,9 +221,9 @@ void main() {
       expect(find.text('Nhận huy hiệu'), findsNothing);
     });
 
-    testWidgets('3051 nhưng thử thách chưa hoàn thành: hiện lỗi như thường, không có nút nhận huy hiệu', (tester) async {
+    testWidgets('3053 nhưng thử thách chưa hoàn thành: hiện lỗi như thường, không có nút nhận huy hiệu', (tester) async {
       await mount(tester, _seed(challenge: _challenge(days: 2)));
-      api.errors[Endpoints.challengeCheckIn] = ApiException('Dịch vụ tạm lỗi', code: 3051, statusCode: 503);
+      api.errors[Endpoints.challengeCheckIn] = ApiException('Dịch vụ tạm lỗi', code: 3053, statusCode: 503);
       await tester.tap(find.text('Điểm danh hôm nay'));
       await tester.pumpAndSettle();
 

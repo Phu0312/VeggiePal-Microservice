@@ -315,6 +315,7 @@ flowchart LR
 | FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
 | FR-11 | Admin operations | identity-service, ai-service, payment-service, blog-service, recipe-service | User administration (`/admin/users`: search/filter, lock/unlock status, role assignment); AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
 | FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
+| FR-13 | Daily nutrition diary | nutrition-service (calls ai-service) | A signed-in user logs foods per meal (`/nutrition/me/food-logs`), water (`/nutrition/me/water`) and activity (`/nutrition/me/daily-activity`) and reads a daily summary (`GET /nutrition/me/daily-summary?date=&goalType=`). The calorie target is not computed in nutrition-service: it calls `GET /ai/meal-plans/nutrition-target` with the caller's token and the requested goal (`LOSE`, `MAINTAIN` or `GAIN`, default `MAINTAIN`), then splits the target 50% carbohydrate, 20% protein and 30% fat. Without a complete health record and profile the summary fails with error 2013 (HTTP 400), for a user under 18 with error 2014 (HTTP 400), and when ai-service cannot be reached with error 2012 (HTTP 503); an unknown `goalType` gives error 1018. |
 
 ### 4. Non-Functional Requirements (NFR)
 
@@ -346,7 +347,7 @@ VeggiePal uses a REST-based microservices architecture: seven business services 
 |---|---|---|---|
 | api-gateway | 8080 (host 9080) | — | Routing, CORS, aggregated Swagger UI |
 | identity-service | 8081 | `/api/auth/**`, `/api/users/**`, `/api/admin/users/**` | Accounts, login, OTP password reset & email verification, refresh tokens, profile, user administration |
-| nutrition-service | 8082 | `/api/nutrition/**` | Health records, BMI, allergen catalog and user allergens |
+| nutrition-service | 8082 | `/api/nutrition/**` | Health records, BMI, allergen catalog and user allergens, daily food log, water and activity, daily summary |
 | blog-service | 8083 | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Blogs, videos, categories, comments, votes |
 | recipe-service | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Recipes (per-serving nutrition, image upload, likes & popular), ingredients, steps |
 | location-service | 8085 | `/api/restaurants/**` | Restaurant data, keyword search and nearby search |
@@ -407,6 +408,8 @@ flowchart TB
     AI -. "profile" .-> ID
     AI -. "subscription quotas" .-> PA
     BL -. "moderation check" .-> AI
+    BL -. "badge award" .-> ID
+    NU -. "calorie target" .-> AI
 
     subgraph EX["External providers"]
         GQ["Groq (LLM, speech-to-text)"]
@@ -424,7 +427,7 @@ flowchart TB
     PO -. "webhook" .-> GW
 ```
 
-*Figure IV.1 shows that every client request enters through the gateway, which fans out to seven independent services. Each service owns exactly one MySQL schema. Dotted arrows are synchronous REST calls between services (ai-service reads nutrition, recipe, identity and payment data; blog-service asks ai-service to check content). External providers are reached directly by the service that needs them; PayOS reaches the system by sending a webhook to the gateway.*
+*Figure IV.1 shows that every client request enters through the gateway, which fans out to seven independent services. Each service owns exactly one MySQL schema. Dotted arrows are synchronous REST calls between services (ai-service reads nutrition, recipe, identity and payment data; blog-service asks ai-service to check content and identity-service to award the challenge badge; nutrition-service asks ai-service for the daily calorie target). External providers are reached directly by the service that needs them; PayOS reaches the system by sending a webhook to the gateway.*
 
 **Figure IV.2. Docker networking and infrastructure**
 
@@ -1039,7 +1042,7 @@ All clients use the gateway at `http://localhost:9080`; the aggregated Swagger U
 | Group | Examples (gateway path) | Access |
 |---|---|---|
 | Identity | `/api/auth/register`, `/api/auth/login`, `/api/auth/google`, `/api/auth/forgot-password`, `/api/auth/verify-otp`, `/api/auth/reset-password`, `/api/auth/send-verification`, `/api/auth/verify-email`, `/api/auth/refresh`, `/api/auth/logout`, `/api/users/me` (profile, password, avatar), `/api/users/me/favorites`, `/api/users/me/badges`, `/api/users/batch`, `/api/admin/users/**` | Public for auth/OTP/refresh/batch; JWT for `/api/users/me`; ADMIN for `/api/admin/users/**` |
-| Nutrition | `/api/nutrition/me/allergies`, `/api/nutrition/me/health-records/**`, `/api/nutrition/me/food-logs`, `/api/nutrition/me/daily-activity`, `/api/nutrition/me/water`, `/api/nutrition/me/daily-summary`, allergen catalog | JWT |
+| Nutrition | `/api/nutrition/me/allergies`, `/api/nutrition/me/health-records/**`, `/api/nutrition/me/food-logs`, `/api/nutrition/me/daily-activity`, `/api/nutrition/me/water`, `/api/nutrition/me/daily-summary` (`date`, `goalType` = `LOSE`, `MAINTAIN` or `GAIN`), allergen catalog | JWT |
 | Blog and community | `/api/blogs/**` (including `/community/leaderboard`, `/community/trending-topics`, `/community/stats`, `/authors/{id}/follow`, `/me/following`, `/challenge/me`, `/challenge/check-in`), `/api/categories/**`, `/api/comments/**`, `/api/videos/**` (including `/channels`, `/{id}/nutrition`, `/{id}/vote`, `/me/votes`) | Public reads of published content, community stats and video channels; JWT to write/vote/follow/check in; ADMIN for categories and takedowns |
 | Recipes | `/api/recipes/**` (`/popular`, `/{id}/image`, `/images`, `/{id}/like`, `/me/likes`), `/api/ingredients/**` | Public reads of recipe list/popular/detail and ingredients; JWT for recipe authoring, image upload and likes; ADMIN for ingredient changes |
 | Restaurants | `/api/restaurants`, `/api/restaurants/search`, `/api/restaurants/nearby` (`keyword`, `veganOnly`, `lat`, `lng`, `radiusKm`) | Public |
@@ -1073,19 +1076,19 @@ Request and response schemas, status codes and examples for every endpoint are p
 
 ### 3. Test Inventory
 
-The repository contains 106 test classes with 712 test methods (counted from `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in source).
+The repository contains 111 test classes with 732 test methods (counted from `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in source).
 
 | No. | Service | Test methods | Primary test focus |
 |---|---|---|---|
-| 1 | blog-service | 259 | Blogs, videos, comments, votes, categories, moderation fallback, security |
-| 2 | ai-service | 212 | Meal planning, version restore, validation, quota endpoints, chat, video jobs, moderation |
-| 3 | identity-service | 102 | Registration, login, OTP password reset & email verification, refresh tokens, admin users, profile |
-| 4 | nutrition-service | 47 | Health records, BMI, allergen mapping |
+| 1 | blog-service | 263 | Blogs, videos, comments, votes, categories, moderation fallback, security |
+| 2 | ai-service | 215 | Meal planning, version restore, validation, quota endpoints, chat, video jobs, moderation |
+| 3 | identity-service | 108 | Registration, login, OTP password reset & email verification, refresh tokens, admin users, profile |
+| 4 | nutrition-service | 53 | Health records, BMI, allergen mapping, daily food, water and activity tracking, calorie target lookup |
 | 5 | recipe-service | 38 | Recipe CRUD, per-serving nutrition, image upload, likes & popular, ingredient data and units |
 | 6 | payment-service | 26 | PayOS signature, webhook handling, subscriptions |
 | 7 | location-service | 19 | Restaurant keyword search, vegan filter and nearby distance search |
-| 8 | api-gateway | 9 | Routing rules (including admin routes) and Swagger aggregation |
-| | **Total** | **712** | |
+| 8 | api-gateway | 10 | Routing rules (including admin routes) and Swagger aggregation |
+| | **Total** | **732** | |
 
 The result of each test run is recorded by the "Run tests" step of the `maven` job in GitHub Actions (see Figure VI.5).
 
@@ -1290,7 +1293,10 @@ flowchart TD
 #### 3.6. Workflow 6: Tracking Daily Nutrition (mobile app)
 
 1. Open Profile > Nutrition diary. The app calls `GET /nutrition/me/daily-summary?date=` for the chosen day (today by default; the arrows and the calendar move between days, never past today).
-2. The summary shows the calories eaten against the target, the protein, carbohydrate and fat totals against their targets, the water drunk, the exercise and the entries grouped into breakfast, lunch, dinner and snacks. Nutrition-service estimates the calorie target as 30 kcal per kilogram of the weight in the latest health record, limited to 1,400-3,500 kcal, and uses 2,000 kcal when there is no health record; it splits the target 50% carbohydrate, 20% protein and 30% fat.
+2. The summary shows the calories eaten against the target, the protein, carbohydrate and fat totals against their targets, the water drunk, the exercise and the entries grouped into breakfast, lunch, dinner and snacks. Above it, the user picks a goal: lose weight, maintain or gain weight. The app sends it as `goalType` (default maintain, remembered for the next visit) and reloads the summary. Nutrition-service gets the calorie target from ai-service (about 85% of the daily need for losing, 100% for maintaining and 115% for gaining, based on the latest health record and the profile's date of birth, gender and activity level) and splits it 50% carbohydrate, 20% protein and 30% fat.
+   - If the health record or the profile is incomplete, the server answers error 2013. The app then shows a "Cần bổ sung hồ sơ" screen instead of an error pop-up, with buttons to enter height and weight or to update the profile; it reloads the summary when the user comes back. The "Log food" button is hidden on that screen.
+   - For a user under 18 the server answers error 2014. The app shows "Chưa đủ tuổi để tính mục tiêu" with only the "Cập nhật hồ sơ" button, in case the date of birth was entered wrongly.
+   - If ai-service cannot be reached (error 2012), the app shows the message and a retry button.
 3. "Log food" (or the plus button of a meal) opens a form with the food name, the meal and optional calories, protein, carbohydrate, fat and fibre (`POST /nutrition/me/food-logs`; blank values count as 0). The delete button of an entry calls `DELETE /nutrition/me/food-logs/{id}`.
 4. The recipe detail screen has "Log 1 serving to diary" for signed-in users; it opens the same form filled with the recipe name, ID and per-serving nutrition.
 5. Water is added with +250 ml, +500 ml or a custom amount of 1 to 5000 ml (`POST /nutrition/me/water`). The Exercise card edits minutes, steps, calories burned, a note and the water target of the day (`PUT /nutrition/me/daily-activity`, which changes only the fields sent).
@@ -1300,7 +1306,7 @@ flowchart TD
 
 1. Community: the Home tab links to the Community screen (`GET /blogs/community/stats`, `/trending-topics`, `/leaderboard` and `GET /videos/channels`, all readable by guests). It shows the community totals, the trending categories, the top authors and the recommended video channels. Author names come from `GET /users/batch`.
 2. Following: a signed-in user follows or unfollows an author with `POST` or `DELETE /blogs/authors/{id}/follow`; the button, the follower counts and every row of that author update together. A user's own row has no follow button.
-3. 7-day challenge: "Check in today" calls `POST /blogs/challenge/check-in` once a day. The screen shows the 7 days, tells the user when the streak was broken (the next check-in starts again at day 1) and, on day 7, shows that the challenge is complete. blog-service awards the "Trái Tim Xanh Veggie" badge itself (it calls identity-service with the internal service token), so the app no longer unlocks it: `POST /users/me/badges/{code}` is ADMIN-only. If the award fails, the check-in is still saved and the API answers error 3051; the app then reloads the progress, explains that the badge is pending and shows a "Nhận huy hiệu" button, which repeats the check-in so the server awards the badge again. The same button appears when the screen opens with a completed challenge and the badge is missing from `GET /users/me/badges`.
+3. 7-day challenge: "Check in today" calls `POST /blogs/challenge/check-in` once a day. The screen shows the 7 days, tells the user when the streak was broken (the next check-in starts again at day 1) and, on day 7, shows that the challenge is complete. blog-service awards the "Trái Tim Xanh Veggie" badge itself (it calls identity-service with the internal service token), so the app no longer unlocks it: `POST /users/me/badges/{code}` is ADMIN-only. If the award fails, the check-in is still saved and the API answers error 3053; the app then reloads the progress, explains that the badge is pending and shows a "Nhận huy hiệu" button, which repeats the check-in so the server awards the badge again. The same button appears when the screen opens with a completed challenge and the badge is missing from `GET /users/me/badges`.
 4. Saved items: the bookmark button in the title bar of a recipe, a blog post and a video saves it to the favourites of the account (`POST /users/me/favorites` with the type, ID, title and image; `DELETE /users/me/favorites/{type}/{id}`). Profile > Favourites lists them in three tabs and opens the full content.
 5. Badges: Profile > Green badges (`GET /users/me/badges`) shows how many badges are earned out of the total, with the condition and the earning date of each.
 6. Recipes: the recipe list can be sorted by newest or by most popular (`GET /recipes/popular`, available when no keyword is typed). A signed-in user likes or unlikes a published recipe (`POST` or `DELETE /recipes/{id}/like`), and the recipe form can upload an image from the device (`POST /recipes/images`, JPEG, PNG or WEBP up to 5 MB) whose URL fills the image field.
@@ -1361,7 +1367,7 @@ flowchart LR
 | Backend modules | 8 (7 business services + 1 API gateway) |
 | Database schemas | 7 isolated MySQL schemas |
 | Database tables | 36 |
-| Test classes / test methods | 106 / 712 |
+| Test classes / test methods | 111 / 732 |
 | Subscription plans | 3 (FREE, PLUS, PRO) |
 | CI jobs | `maven` and `docker` (matrix of 8 modules each), `compose-check`, `deploy` |
 | Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector) |

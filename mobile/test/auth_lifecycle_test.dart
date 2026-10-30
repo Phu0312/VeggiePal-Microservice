@@ -168,7 +168,7 @@ void main() {
     });
 
     test('mã lỗi OTP và nhật ký mới của BE có thông báo tiếng Việt', () {
-      for (final code in [1033, 1034, 2012, 2013, 3051, 6025, 6026]) {
+      for (final code in [1033, 1034, 2012, 2013, 2014, 3051, 3053, 6025, 6026]) {
         expect(errorMessagesVi[code], isNotNull, reason: 'thiếu mã $code');
       }
       expect(localizedError(1033, 'Too many OTP requests; try again later'), contains('quá nhiều lần'));

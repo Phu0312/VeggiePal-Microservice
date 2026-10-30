@@ -23,6 +23,14 @@ public interface DailyQuotaRepository extends JpaRepository<DailyQuota, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DailyQuota> findByPrincipalKeyAndFeatureAndUsageDate(String principalKey, String feature, LocalDate usageDate);
 
+    /**
+     * Plain read of the used count. Unlike {@link #findByPrincipalKeyAndFeatureAndUsageDate} it takes no row lock,
+     * so it can run in a read-only transaction (MySQL rejects SELECT ... FOR UPDATE there with error 1792).
+     */
+    @Query("select q.requestCount from DailyQuota q where q.principalKey=:principal and q.feature=:feature and q.usageDate=:date")
+    Optional<Integer> findRequestCount(@Param("principal") String principal, @Param("feature") String feature,
+                                       @Param("date") LocalDate date);
+
     @Query("select coalesce(sum(q.inputTokens + q.outputTokens),0) from DailyQuota q where q.principalKey=:principal and q.usageDate=:date")
     long totalTokens(@Param("principal") String principal,@Param("date") LocalDate date);
 }

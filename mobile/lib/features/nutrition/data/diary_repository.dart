@@ -2,8 +2,9 @@ import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
 import 'diary_models.dart';
 
-/// Mã lỗi của nutrition-service trùng số với một vài mã của service khác trong bảng thông báo toàn app
-/// (2010 là "không tìm thấy nguyên liệu" ở đó), nên dịch riêng tại đây.
+/// Mã lỗi của nutrition-service về nhật ký ăn uống, dịch riêng tại đây. Các mã 2012 (chưa tính được mục tiêu) và
+/// 2013 (hồ sơ chưa đủ để tính mục tiêu) và 2014 (dưới 18 tuổi) có thông báo trong bảng toàn app; màn hình nhật ký
+/// xử lý riêng hai mã 2013 và 2014.
 const diaryErrorMessages = {
   2008: 'Vui lòng nhập tên món ăn.',
   2009: 'Giá trị dinh dưỡng phải từ 0 trở lên.',
@@ -26,9 +27,11 @@ class DiaryRepository {
     }
   }
 
-  // GET /nutrition/me/daily-summary?date=yyyy-MM-dd : nạp so với mục tiêu, nước, vận động và các món trong ngày.
-  Future<DailySummary> summary(DateTime date) => _guard(() async {
-        final r = await _api.get(Endpoints.dailySummary, query: {'date': isoDate(date)});
+  // GET /nutrition/me/daily-summary?date=yyyy-MM-dd&goalType=LOSE|MAINTAIN|GAIN : nạp so với mục tiêu, nước, vận động
+  // và các món trong ngày. Mục tiêu calo do BE hỏi ai-service theo hồ sơ + [goalType]; hồ sơ thiếu thì BE trả
+  // 400 mã 2013, dưới 18 tuổi thì 400 mã 2014, ai-service lỗi thì 503 mã 2012.
+  Future<DailySummary> summary(DateTime date, {String goalType = 'MAINTAIN'}) => _guard(() async {
+        final r = await _api.get(Endpoints.dailySummary, query: {'date': isoDate(date), 'goalType': goalType});
         return DailySummary.fromJson(Map<String, dynamic>.from(r as Map));
       });
 
