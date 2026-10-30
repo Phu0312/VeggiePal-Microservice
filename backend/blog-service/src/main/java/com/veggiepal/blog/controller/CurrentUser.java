@@ -27,8 +27,16 @@ public final class CurrentUser {
         throw new AppException(ErrorCode.UNAUTHENTICATED);
     }
 
+    public static Long idOrNull(Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
+        Object userId = jwt.getClaim(USER_ID_CLAIM);
+        return userId instanceof Number number ? number.longValue() : null;
+    }
+
     public static boolean isAdmin(Jwt jwt) {
 
-        return ADMIN_ROLE.equals(jwt.getClaimAsString(ROLE_CLAIM));
+        return jwt != null && ADMIN_ROLE.equals(jwt.getClaimAsString(ROLE_CLAIM));
     }
 }

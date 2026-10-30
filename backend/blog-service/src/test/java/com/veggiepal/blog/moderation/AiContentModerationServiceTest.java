@@ -36,7 +36,7 @@ class AiContentModerationServiceTest {
 
     @Test
     void moderate_readsDecisionAndReasonFromAiService() throws Exception {
-        String baseUrl = respondWith("{\"code\":1000,\"result\":{\"decision\":\"REJECTED\",\"reason\":\"spam\"}}");
+        String baseUrl = respondWith(200, "{\"code\":1000,\"result\":{\"decision\":\"REJECTED\",\"reason\":\"spam\"}}");
         var service = new AiContentModerationService(baseUrl, Duration.ofSeconds(2), Duration.ofSeconds(2));
 
         ModerationResult result = service.moderate("VIDEO", 2L, 7L, "text");
@@ -44,12 +44,31 @@ class AiContentModerationServiceTest {
         assertThat(result).isEqualTo(new ModerationResult(ModerationDecision.REJECTED, "spam"));
     }
 
-    private String respondWith(String json) throws Exception {
+    @Test
+    void moderate_whenAiServiceReturns503_fallsBackToReviewRequired() throws Exception {
+        String baseUrl = respondWith(503, "{\"code\":6004,\"message\":\"unavailable\"}");
+        var service = new AiContentModerationService(baseUrl, Duration.ofSeconds(1), Duration.ofSeconds(1));
+
+        ModerationResult result = service.moderate("BLOG", 10L, 7L, "text");
+
+        assertThat(result.decision()).isEqualTo(ModerationDecision.REVIEW_REQUIRED);
+    }
+
+    @Test
+    void moderate_whenAiServiceUnreachable_fallsBackToReviewRequired() {
+        var service = new AiContentModerationService("http://127.0.0.1:1", Duration.ofMillis(200), Duration.ofMillis(200));
+
+        ModerationResult result = service.moderate("BLOG", 10L, 7L, "text");
+
+        assertThat(result.decision()).isEqualTo(ModerationDecision.REVIEW_REQUIRED);
+    }
+
+    private String respondWith(int status, String json) throws Exception {
         server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         server.createContext("/ai/moderation/check", exchange -> {
             byte[] body = json.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, body.length);
+            exchange.sendResponseHeaders(status, body.length);
             exchange.getResponseBody().write(body);
             exchange.close();
         });

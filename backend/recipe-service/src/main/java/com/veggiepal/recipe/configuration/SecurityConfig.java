@@ -29,6 +29,7 @@ public class SecurityConfig {
             PathPatternRequestMatcher.withDefaults().matcher("/v3/api-docs/**"),
             PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/ingredients/**"),
             PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/recipes"),
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/recipes/popular"),
             PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/recipes/{id:[0-9]+}")
     );
 

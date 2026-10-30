@@ -69,6 +69,9 @@ public final class MealPlanDtos {
             String changeSummary,
             LocalDateTime createdAt) {}
 
+    public record RestoreVersionRequest(
+            @Size(max = 500) String changeSummary) {}
+
     public record UpdateFromHealthRequest(
             Boolean confirm,
             String changeSummary,

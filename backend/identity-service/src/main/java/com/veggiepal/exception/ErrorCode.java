@@ -46,7 +46,33 @@ public enum ErrorCode {
 
     INVALID_REQUEST(1018, "Invalid request data", HttpStatus.BAD_REQUEST),
 
-    GOOGLE_TOKEN_INVALID(1019, "Google sign-in failed", HttpStatus.UNAUTHORIZED);
+    GOOGLE_TOKEN_INVALID(1019, "Google sign-in failed", HttpStatus.UNAUTHORIZED),
+
+    USER_STATUS_UNCHANGED(1020, "User already has this status", HttpStatus.BAD_REQUEST),
+
+    USER_BLOCKED(1021, "User account is locked or not active", HttpStatus.FORBIDDEN),
+
+    CANNOT_MODIFY_SELF(1022, "Admin cannot lock or demote their own account", HttpStatus.BAD_REQUEST),
+
+    USER_ROLE_UNCHANGED(1023, "User already has this role", HttpStatus.BAD_REQUEST),
+
+    OTP_REQUIRED(1024, "OTP code is required", HttpStatus.BAD_REQUEST),
+
+    OTP_INVALID_OR_EXPIRED(1025, "OTP code is invalid or expired", HttpStatus.BAD_REQUEST),
+
+    OTP_MAX_ATTEMPTS_EXCEEDED(1026, "Too many invalid OTP attempts, please request a new code", HttpStatus.TOO_MANY_REQUESTS),
+
+    RESET_TOKEN_INVALID(1027, "Password reset token is invalid or expired", HttpStatus.BAD_REQUEST),
+
+    EMAIL_ALREADY_VERIFIED(1028, "Email is already verified", HttpStatus.BAD_REQUEST),
+
+    REFRESH_TOKEN_REQUIRED(1029, "Refresh token is required", HttpStatus.BAD_REQUEST),
+
+    REFRESH_TOKEN_INVALID(1030, "Refresh token is invalid, expired or revoked", HttpStatus.UNAUTHORIZED),
+
+    FAVORITE_TARGET_REQUIRED(1031, "Favorite target type and id are required", HttpStatus.BAD_REQUEST),
+
+    BADGE_NOT_EXISTED(1032, "Badge code not existed", HttpStatus.BAD_REQUEST);
 
     ErrorCode(
             int code,
@@ -58,9 +84,21 @@ public enum ErrorCode {
         this.statusCode = statusCode;
     }
 
-    final int code;
+    private final int code;
 
-    final String message;
+    private final String message;
 
-    final HttpStatusCode statusCode;
+    private final HttpStatusCode statusCode;
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public HttpStatusCode getStatusCode() {
+        return statusCode;
+    }
 }

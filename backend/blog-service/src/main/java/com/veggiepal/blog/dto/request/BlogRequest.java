@@ -20,6 +20,7 @@ public class BlogRequest {
 
     @NotBlank(message = "BLOG_CONTENT_REQUIRED")
     @Size(min = 20, message = "INVALID_BLOG_CONTENT")
+    @Size(max = 65535, message = "BLOG_CONTENT_TOO_LONG")
     String content;
 
     // Not CATEGORY_NOT_EXISTED: that code carries HTTP 404, and a missing field

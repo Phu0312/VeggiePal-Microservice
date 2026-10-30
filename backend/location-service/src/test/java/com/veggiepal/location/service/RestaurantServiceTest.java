@@ -2,6 +2,7 @@ package com.veggiepal.location.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.projection.SpelAwareProxyProjectionFactory;
 
 import com.veggiepal.location.dto.response.RestaurantResponse;
+import com.veggiepal.location.entity.Restaurant;
 import com.veggiepal.location.exception.AppException;
 import com.veggiepal.location.exception.ErrorCode;
 import com.veggiepal.location.repository.RestaurantRepository;
@@ -71,6 +73,59 @@ class RestaurantServiceTest {
                     .isEqualTo("https://res.cloudinary.com/demo/image/upload/veggiepal/restaurants/restaurant-3");
             assertThat(restaurant.getDistanceKm()).isEqualTo(0.53);
         });
+    }
+
+    @Test
+    void findNearby_withKeyword_trimsAndDelegatesToKeywordQuery() {
+        when(restaurantRepository.findNearbyByKeyword(LAT, LNG, 5000.0, false, "Shamballa"))
+                .thenReturn(List.of(shamballa(530.4)));
+
+        List<RestaurantResponse> result = restaurantService.findNearby(LAT, LNG, 5, false, "  Shamballa  ");
+
+        assertThat(result).hasSize(1);
+        verify(restaurantRepository).findNearbyByKeyword(LAT, LNG, 5000.0, false, "Shamballa");
+    }
+
+    @Test
+    void search_withoutCoordinates_mapsEntityWithNullDistance() {
+        Restaurant entity = Restaurant.builder()
+                .id(10L)
+                .name("Hum Vegetarian")
+                .address("32 Võ Văn Tần, Quận 3")
+                .latitude(10.778)
+                .longitude(106.690)
+                .rating(4.8)
+                .veganOnly(true)
+                .build();
+        when(restaurantRepository.searchByKeyword(true, "Hum")).thenReturn(List.of(entity));
+
+        List<RestaurantResponse> result = restaurantService.search(" Hum ", true, null, null);
+
+        assertThat(result).singleElement().satisfies(r -> {
+            assertThat(r.getId()).isEqualTo(10L);
+            assertThat(r.getName()).isEqualTo("Hum Vegetarian");
+            assertThat(r.getDistanceKm()).isNull();
+        });
+    }
+
+    @Test
+    void search_withCoordinates_computesDistanceAcrossAllLocations() {
+        when(restaurantRepository.searchWithDistance(LAT, LNG, false, "Shamballa"))
+                .thenReturn(List.of(shamballa(12500.0)));
+
+        List<RestaurantResponse> result = restaurantService.search("Shamballa", false, LAT, LNG);
+
+        assertThat(result).singleElement().satisfies(r -> assertThat(r.getDistanceKm()).isEqualTo(12.5));
+    }
+
+    @Test
+    void search_withOnlyOneCoordinate_throwsInvalidCoordinates() {
+        assertThatThrownBy(() -> restaurantService.search("Hum", false, LAT, null))
+                .isInstanceOf(AppException.class)
+                .extracting(e -> ((AppException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_COORDINATES);
+
+        verifyNoInteractions(restaurantRepository);
     }
 
     @Test

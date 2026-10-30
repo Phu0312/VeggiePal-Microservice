@@ -36,8 +36,10 @@ import com.veggiepal.blog.configuration.SecurityExceptionHandler;
 import com.veggiepal.blog.dto.request.VideoRequest;
 import com.veggiepal.blog.dto.response.PageResponse;
 import com.veggiepal.blog.dto.response.VideoResponse;
+import com.veggiepal.blog.dto.response.VoteResponse;
 import com.veggiepal.blog.enums.ContentStatus;
 import com.veggiepal.blog.service.VideoService;
+import com.veggiepal.blog.service.VoteService;
 
 @WebMvcTest(VideoController.class)
 @Import({SecurityConfig.class, JwtConfig.class, SecurityExceptionHandler.class})
@@ -50,6 +52,9 @@ class VideoControllerTest {
 
     @MockitoBean
     VideoService videoService;
+
+    @MockitoBean
+    VoteService voteService;
 
     static RequestPostProcessor member() {
         return jwt().jwt(token -> token.claim("userId", USER_ID).claim("role", "USER"));
@@ -95,7 +100,6 @@ class VideoControllerTest {
         verify(videoService).createVideo(eq(USER_ID), any(VideoRequest.class), isNull());
     }
 
-    // @ModelAttribute validation must reach the same handler as @RequestBody validation
     @Test
     void createVideo_blankTitle_returnsVideoTitleRequired() throws Exception {
         mockMvc.perform(multipart("/videos").file(mp4File()).with(member())
@@ -129,11 +133,12 @@ class VideoControllerTest {
     @Test
     void getPublishedVideo_isPublic() throws Exception {
         when(videoService.getPublishedVideo(10L))
-                .thenReturn(VideoResponse.builder().id(10L).viewCount(5).build());
+                .thenReturn(VideoResponse.builder().id(10L).viewCount(5).voteScore(2).build());
 
         mockMvc.perform(get("/videos/10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result.viewCount").value(5));
+                .andExpect(jsonPath("$.result.viewCount").value(5))
+                .andExpect(jsonPath("$.result.voteScore").value(2));
     }
 
     @Test
@@ -193,5 +198,48 @@ class VideoControllerTest {
                 .andExpect(status().isOk());
 
         verify(videoService).deleteVideo(1L, true, 10L);
+    }
+
+    @Test
+    void voteVideo_withToken_delegatesToVoteService() throws Exception {
+        when(voteService.voteVideo(USER_ID, 10L, 1))
+                .thenReturn(VoteResponse.builder().videoId(10L).myVote(1).voteScore(4).build());
+
+        mockMvc.perform(post("/videos/10/vote").with(member())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.videoId").value(10))
+                .andExpect(jsonPath("$.result.myVote").value(1))
+                .andExpect(jsonPath("$.result.voteScore").value(4));
+    }
+
+    @Test
+    void removeVideoVote_withToken_delegatesToVoteService() throws Exception {
+        when(voteService.removeVideoVote(USER_ID, 10L))
+                .thenReturn(VoteResponse.builder().videoId(10L).myVote(null).voteScore(0).build());
+
+        mockMvc.perform(delete("/videos/10/vote").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.videoId").value(10))
+                .andExpect(jsonPath("$.result.voteScore").value(0));
+    }
+
+    @Test
+    void getMyVideoVotes_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/videos/me/votes").param("videoIds", "10,11"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(1008));
+    }
+
+    @Test
+    void getMyVideoVotes_withToken_returnsVotes() throws Exception {
+        when(voteService.getMyVideoVotes(USER_ID, List.of(10L, 11L)))
+                .thenReturn(List.of(VoteResponse.builder().videoId(10L).myVote(1).build()));
+
+        mockMvc.perform(get("/videos/me/votes").param("videoIds", "10,11").with(member()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result[0].videoId").value(10))
+                .andExpect(jsonPath("$.result[0].myVote").value(1));
     }
 }

@@ -114,4 +114,12 @@ class ApiGatewayApplicationTests {
 				.isEqualTo("StripPrefix=1");
 	}
 
+	@Test
+	void routesAdminUsersToIdentityService() {
+		assertThat(environment.getProperty("spring.cloud.gateway.server.webmvc.routes[22].predicates[0]"))
+				.isEqualTo("Path=/api/admin/users/**");
+		assertThat(environment.getProperty("spring.cloud.gateway.server.webmvc.routes[22].filters[0]"))
+				.isEqualTo("StripPrefix=1");
+	}
+
 }

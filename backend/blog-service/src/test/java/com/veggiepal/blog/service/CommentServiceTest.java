@@ -28,14 +28,15 @@ import com.veggiepal.blog.dto.response.CommentResponse;
 import com.veggiepal.blog.dto.response.PageResponse;
 import com.veggiepal.blog.entity.Blog;
 import com.veggiepal.blog.entity.Comment;
+import com.veggiepal.blog.entity.Video;
 import com.veggiepal.blog.enums.CommentStatus;
 import com.veggiepal.blog.enums.TargetType;
 import com.veggiepal.blog.exception.AppException;
 import com.veggiepal.blog.exception.ErrorCode;
 import com.veggiepal.blog.mapper.CommentMapper;
+import com.veggiepal.blog.moderation.ContentModerationService;
 import com.veggiepal.blog.moderation.ModerationDecision;
 import com.veggiepal.blog.moderation.ModerationResult;
-import com.veggiepal.blog.moderation.ContentModerationService;
 import com.veggiepal.blog.repository.CommentRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +51,9 @@ class CommentServiceTest {
 
     @Mock
     BlogService blogService;
+
+    @Mock
+    VideoService videoService;
 
     @Mock
     ContentModerationService contentModerationService;
@@ -123,16 +127,34 @@ class CommentServiceTest {
         verify(commentRepository, never()).save(any());
     }
 
-    // The column already accepts VIDEO; the API does not, yet
     @Test
-    void createComment_onVideo_throwsUnsupportedTargetType() {
+    void createComment_onPublishedVideo_becomesVisible() {
+        when(videoService.requirePublishedVideo(10L)).thenReturn(Video.builder().id(10L).build());
+        when(contentModerationService.moderate(anyString(), any(), any(), anyString())).thenReturn(ModerationResult.approved());
+        when(commentRepository.save(any(Comment.class))).thenAnswer(call -> call.getArgument(0));
+
+        CommentRequest videoRequest = CommentRequest.builder()
+                .targetType(TargetType.VIDEO).targetId(10L).content("video rất hay").build();
+
+        CommentResponse response = commentService.createComment(AUTHOR_ID, videoRequest);
+
+        assertThat(response.getTargetType()).isEqualTo(TargetType.VIDEO);
+        assertThat(response.getContent()).isEqualTo("video rất hay");
+        verify(blogService, never()).requirePublishedBlog(any());
+    }
+
+    @Test
+    void createComment_onMissingVideo_propagatesVideoNotExisted() {
+        when(videoService.requirePublishedVideo(10L))
+                .thenThrow(new AppException(ErrorCode.VIDEO_NOT_EXISTED));
+
         CommentRequest videoRequest = CommentRequest.builder()
                 .targetType(TargetType.VIDEO).targetId(10L).content("ngon quá").build();
 
         assertThatThrownBy(() -> commentService.createComment(AUTHOR_ID, videoRequest))
                 .isInstanceOf(AppException.class)
                 .extracting(e -> ((AppException) e).getErrorCode())
-                .isEqualTo(ErrorCode.UNSUPPORTED_TARGET_TYPE);
+                .isEqualTo(ErrorCode.VIDEO_NOT_EXISTED);
 
         verify(commentRepository, never()).save(any());
     }
@@ -246,9 +268,6 @@ class CommentServiceTest {
         when(blogService.requirePublishedBlog(10L)).thenReturn(Blog.builder().id(10L).build());
 
         Comment deleted = comment(5L, null, CommentStatus.DELETED);
-        // Spelled out rather than referencing PUBLICLY_VISIBLE: an expectation taken from
-        // the field under test moves with it and can never fail. HIDDEN must stay out —
-        // that is the status a moderator's rejection assigns.
         when(commentRepository.findByTargetTypeAndTargetIdAndParentIsNullAndStatusIn(
                 any(), any(), eq(Set.of(CommentStatus.VISIBLE, CommentStatus.DELETED)), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(deleted)));
@@ -276,8 +295,6 @@ class CommentServiceTest {
         verify(commentRepository, never()).countRepliesByParentIds(any(), any());
     }
 
-    // Sibling of the already-fixed "author revives a deleted comment" bug: a blog
-    // takedown, or a re-moderation to REJECTED, must close the thread to readers too.
     @Test
     void getRootComments_targetNotPublished_throwsBlogNotExisted() {
         when(blogService.requirePublishedBlog(10L))
@@ -292,19 +309,21 @@ class CommentServiceTest {
                 .findByTargetTypeAndTargetIdAndParentIsNullAndStatusIn(any(), any(), any(), any());
     }
 
-    // A VIDEO target must answer UNSUPPORTED_TARGET_TYPE rather than have its id
-    // looked up against blogs (requireSupportedTarget must run before the blog check).
     @Test
-    void getRootComments_videoTarget_throwsUnsupportedTargetTypeWithoutLoadingBlog() {
-        assertThatThrownBy(() -> commentService.getRootComments(TargetType.VIDEO, 10L, 0, 20))
-                .isInstanceOf(AppException.class)
-                .extracting(e -> ((AppException) e).getErrorCode())
-                .isEqualTo(ErrorCode.UNSUPPORTED_TARGET_TYPE);
+    void getRootComments_videoTarget_validatesPublishedVideoWithoutLoadingBlog() {
+        when(videoService.requirePublishedVideo(10L)).thenReturn(Video.builder().id(10L).build());
+        when(commentRepository.findByTargetTypeAndTargetIdAndParentIsNullAndStatusIn(
+                eq(TargetType.VIDEO), eq(10L), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
 
+        PageResponse<CommentResponse> result =
+                commentService.getRootComments(TargetType.VIDEO, 10L, 0, 20);
+
+        assertThat(result.getItems()).isEmpty();
+        verify(videoService).requirePublishedVideo(10L);
         verify(blogService, never()).requirePublishedBlog(any());
     }
 
-    // A reply cannot itself have replies, so its replyCount is always hardcoded to zero
     @Test
     void getReplies_returnsPubliclyVisibleRepliesWithZeroReplyCount() {
         Comment root = comment(5L, null, CommentStatus.VISIBLE);
@@ -323,8 +342,6 @@ class CommentServiceTest {
         verify(commentRepository, never()).countRepliesByParentIds(any(), any());
     }
 
-    // Same sibling-bug coverage as getRootComments, but derived from the parent
-    // comment's target since getReplies is only given a comment id.
     @Test
     void getReplies_targetNotPublished_throwsBlogNotExisted() {
         Comment root = comment(5L, null, CommentStatus.VISIBLE);
@@ -340,8 +357,6 @@ class CommentServiceTest {
         verify(commentRepository, never()).findByParentIdAndStatusIn(any(), any(), any());
     }
 
-    // findComment must still answer COMMENT_NOT_EXISTED for a comment id that
-    // simply does not exist, rather than a confusing BLOG_NOT_EXISTED.
     @Test
     void getReplies_missingComment_throwsCommentNotExisted() {
         when(commentRepository.findById(5L)).thenReturn(Optional.empty());

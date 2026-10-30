@@ -31,6 +31,14 @@ public enum ErrorCode {
 
     ALLERGEN_NOT_EXISTED(2007, "Allergen not existed", HttpStatus.BAD_REQUEST),
 
+    FOOD_NAME_REQUIRED(2008, "Food name is required", HttpStatus.BAD_REQUEST),
+
+    INVALID_NUTRITION_VALUE(2009, "Nutrition or activity values must not be negative", HttpStatus.BAD_REQUEST),
+
+    FOOD_LOG_NOT_EXISTED(2010, "Food log entry not existed", HttpStatus.NOT_FOUND),
+
+    INVALID_WATER_AMOUNT(2011, "Water amount must be between 1 and 5000 ml", HttpStatus.BAD_REQUEST),
+
     INVALID_REQUEST(1018, "Invalid request data", HttpStatus.BAD_REQUEST);
 
     ErrorCode(
@@ -43,9 +51,21 @@ public enum ErrorCode {
         this.statusCode = statusCode;
     }
 
-    final int code;
+    private final int code;
 
-    final String message;
+    private final String message;
 
-    final HttpStatusCode statusCode;
+    private final HttpStatusCode statusCode;
+
+    public int getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public HttpStatusCode getStatusCode() {
+        return statusCode;
+    }
 }

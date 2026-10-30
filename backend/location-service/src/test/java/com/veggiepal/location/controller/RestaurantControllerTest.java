@@ -1,5 +1,6 @@
 package com.veggiepal.location.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.verify;
@@ -33,7 +34,7 @@ class RestaurantControllerTest {
 
     @Test
     void nearby_withoutToken_defaultsTo5KmAndAllRestaurants() throws Exception {
-        when(restaurantService.findNearby(10.7725, 106.698, 5.0, false)).thenReturn(List.of(
+        when(restaurantService.findNearby(10.7725, 106.698, 5.0, false, null)).thenReturn(List.of(
                 RestaurantResponse.builder()
                         .id(2L)
                         .name("Shamballa Vegetarian Restaurant")
@@ -56,19 +57,53 @@ class RestaurantControllerTest {
     }
 
     @Test
-    void nearby_passesRadiusAndVeganOnlyThrough() throws Exception {
-        when(restaurantService.findNearby(10.7725, 106.698, 2.5, true)).thenReturn(List.of());
+    void nearby_passesRadiusVeganOnlyAndKeywordThrough() throws Exception {
+        when(restaurantService.findNearby(10.7725, 106.698, 2.5, true, "Shamballa")).thenReturn(List.of());
 
         mockMvc.perform(get("/restaurants/nearby")
                         .param("lat", "10.7725")
                         .param("lng", "106.698")
                         .param("radiusKm", "2.5")
-                        .param("veganOnly", "true"))
+                        .param("veganOnly", "true")
+                        .param("keyword", "Shamballa"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").isEmpty());
 
-        // @MockitoBean is lenient: an unmatched call would also return an empty list.
-        verify(restaurantService).findNearby(10.7725, 106.698, 2.5, true);
+        verify(restaurantService).findNearby(10.7725, 106.698, 2.5, true, "Shamballa");
+    }
+
+    @Test
+    void search_byKeywordWithoutCoordinates_returnsMatchingRestaurants() throws Exception {
+        when(restaurantService.search("Hum", true, null, null)).thenReturn(List.of(
+                RestaurantResponse.builder()
+                        .id(5L)
+                        .name("Hum Vegetarian")
+                        .veganOnly(true)
+                        .build()));
+
+        mockMvc.perform(get("/restaurants")
+                        .param("keyword", "Hum")
+                        .param("veganOnly", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result[0].id").value(5))
+                .andExpect(jsonPath("$.result[0].name").value("Hum Vegetarian"));
+
+        verify(restaurantService).search("Hum", true, null, null);
+    }
+
+    @Test
+    void search_aliasEndpointWithCoordinates_passesLatAndLng() throws Exception {
+        when(restaurantService.search("Chay", false, 10.7725, 106.698)).thenReturn(List.of());
+
+        mockMvc.perform(get("/restaurants/search")
+                        .param("keyword", "Chay")
+                        .param("lat", "10.7725")
+                        .param("lng", "106.698"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result").isEmpty());
+
+        verify(restaurantService).search("Chay", false, 10.7725, 106.698);
     }
 
     @Test
@@ -91,7 +126,7 @@ class RestaurantControllerTest {
 
     @Test
     void nearby_serviceRejection_returnsItsErrorCode() throws Exception {
-        when(restaurantService.findNearby(anyDouble(), anyDouble(), anyDouble(), anyBoolean()))
+        when(restaurantService.findNearby(anyDouble(), anyDouble(), anyDouble(), anyBoolean(), any()))
                 .thenThrow(new AppException(ErrorCode.INVALID_SEARCH_RADIUS));
 
         mockMvc.perform(get("/restaurants/nearby")
