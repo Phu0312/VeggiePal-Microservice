@@ -1,4 +1,5 @@
 // Tiện ích thuần cho video: kiểm tra định dạng/dung lượng video & diễn giải kết quả kiểm duyệt.
+import { isAiUnavailableReason, moderationReasonVi } from "@/shared/utils/moderation";
 
 export const VIDEO_MAX_BYTES = 30 * 1024 * 1024; // 30MB
 export const VIDEO_TITLE_MAX = 150;
@@ -78,13 +79,15 @@ export function describeVideoOutcome(video) {
     case "PENDING":
       return {
         tone: "info",
-        message: "Video đang chờ kiểm duyệt, bạn sẽ thấy nó khi được duyệt",
+        message: isAiUnavailableReason(video.moderationReason)
+          ? `${moderationReasonVi(video.moderationReason)} Video sẽ hiện khi được duyệt.`
+          : "Video đang chờ kiểm duyệt, bạn sẽ thấy nó khi được duyệt",
       };
     case "REJECTED":
       return {
         tone: "error",
         message: video.moderationReason
-          ? `Video không vượt qua kiểm duyệt: ${video.moderationReason}`
+          ? `Video không vượt qua kiểm duyệt: ${moderationReasonVi(video.moderationReason)}`
           : "Video không vượt qua kiểm duyệt",
       };
     case "BANNED":

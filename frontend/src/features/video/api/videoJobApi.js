@@ -9,6 +9,7 @@ const PROCESS_EXISTING_TIMEOUT_MS = 120_000;
 const EMPTY_PAGE = { content: [], page: 0, size: 0, totalElements: 0, totalPages: 0, first: true, last: true };
 
 // ai-service dùng dải mã 60xx. Message gốc của BE là tiếng Anh nên đổi sang tiếng Việt theo `code`.
+// Hàng đợi đầy là 6025, nguồn video chưa hỗ trợ là 6026 (6020 / 6021 nay là lỗi hồ sơ / tuổi của thực đơn).
 const VI_MESSAGES = {
   6000: "Tệp không phải video hợp lệ, vui lòng chọn tệp video khác",
   6001: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại",
@@ -19,11 +20,11 @@ const VI_MESSAGES = {
   6007: "AI chưa bóc tách được công thức từ video này, vui lòng thử lại",
   6008: "Không xử lý được video này: tệp bị lỗi hoặc dài hơn 30 phút",
   6009: "Tệp video vượt quá dung lượng cho phép (tối đa 100MB)",
-  6020: "Hệ thống đang bận xử lý nhiều video, vui lòng thử lại sau ít phút",
-  6021: "Chưa hỗ trợ bóc tách video YouTube, chỉ bóc tách được video tải lên trực tiếp",
   6022: "Video này đang được bóc tách, vui lòng chờ trong giây lát",
   6023: "Lần bóc tách trước của video này chưa thành công",
   6024: "Video không có đủ thông tin công thức (nguyên liệu kèm số lượng và các bước) để AI bóc tách",
+  6025: "Hệ thống đang bận xử lý nhiều video, vui lòng thử lại sau ít phút",
+  6026: "Chưa hỗ trợ bóc tách video YouTube, chỉ bóc tách được video tải lên trực tiếp",
   6999: "Máy chủ đang gặp lỗi, vui lòng thử lại sau ít phút",
 };
 

@@ -20,6 +20,7 @@ const VI_VIDEO_MESSAGES = {
   3066: "Tệp video vượt quá dung lượng cho phép (tối đa 30MB)",
   3067: "Liên kết YouTube không hợp lệ",
   3068: "Video đang ở trạng thái không cho phép thao tác này",
+  3071: "Giá trị dinh dưỡng không được âm",
 };
 
 /** Trả `res.data.result`, hoặc ném Error với thông báo tiếng Việt nếu status >= 400. */

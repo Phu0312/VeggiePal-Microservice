@@ -7,7 +7,7 @@ import MapBanner from "@/features/restaurant-map/components/MapBanner";
 import MapFrame from "@/features/restaurant-map/components/MapFrame";
 import MapSearchBar from "@/features/restaurant-map/components/MapSearchBar";
 import RestaurantList from "@/features/restaurant-map/components/RestaurantList";
-import { useNearbyRestaurants } from "@/features/restaurant-map/hooks/useNearbyRestaurants";
+import { useNearbyRestaurants, useRestaurantSearch } from "@/features/restaurant-map/hooks/useNearbyRestaurants";
 import { useUserLocation } from "@/features/restaurant-map/hooks/useUserLocation";
 import { DEFAULT_RADIUS_KM } from "@/features/restaurant-map/utils/mapConfig";
 import {
@@ -31,8 +31,10 @@ const LOCATION_FAILED_MESSAGES = {
     "Trình duyệt không hỗ trợ định vị. Đang dùng vị trí mặc định (Quận 1, TP.HCM).",
 };
 
-// Trang Bản đồ quán chay (location-service: GET /restaurants/nearby).
+// Trang Bản đồ quán chay (location-service). Không có từ khóa: quán quanh vị trí (GET /restaurants/nearby, theo bán kính).
+// Có từ khóa: tìm theo tên / địa chỉ trên mọi khu vực (GET /restaurants/search, gửi kèm vị trí để có khoảng cách).
 // Màn hình giữ toàn bộ state; danh sách và bản đồ cùng đọc một mảng quán đã lọc.
+const SEARCH_DEBOUNCE_MS = 400;
 export default function RestaurantMapScreen() {
   const { location, isDefaultLocation, status, request, resetToDefault } =
     useUserLocation();
@@ -41,17 +43,28 @@ export default function RestaurantMapScreen() {
   const [sort, setSort] = useState(SORT_NEAREST);
   const [selectedId, setSelectedId] = useState(null);
 
-  const { restaurants, isLoading, isError, error, refetch, isFetching } =
-    useNearbyRestaurants({
-      lat: location.lat,
-      lng: location.lng,
-      radiusKm,
-    });
+  // Chờ người dùng gõ xong mới gọi tìm kiếm.
+  const [searchKeyword, setSearchKeyword] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchKeyword(keyword.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+  const searching = searchKeyword !== "";
 
-  // BE chưa tìm theo tên nên lọc từ khóa và sắp xếp lại ngay trên danh sách đã tải.
+  const nearby = useNearbyRestaurants({
+    lat: location.lat,
+    lng: location.lng,
+    radiusKm,
+    enabled: !searching,
+  });
+  const search = useRestaurantSearch({ keyword: searchKeyword, lat: location.lat, lng: location.lng });
+  const { restaurants, isLoading, isError, error, refetch, isFetching } = searching ? search : nearby;
+
+  // Kết quả tìm kiếm của BE dùng nguyên; trong lúc chờ gõ xong thì lọc tạm trên danh sách đang có để phản hồi tức thì.
+  const searchSettled = searching && keyword.trim() === searchKeyword;
   const visible = useMemo(
-    () => sortRestaurants(filterRestaurants(restaurants, keyword), sort),
-    [restaurants, keyword, sort],
+    () => sortRestaurants(searchSettled ? restaurants : filterRestaurants(restaurants, keyword), sort),
+    [restaurants, keyword, sort, searchSettled],
   );
 
   // Mỗi lần kết quả hiển thị đổi (vị trí, bán kính, từ khóa, cách xếp) danh sách quay về 10 quán đầu.

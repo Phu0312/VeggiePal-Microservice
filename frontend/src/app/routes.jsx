@@ -15,6 +15,7 @@ import EditProfileScreen from "@/features/profile/pages/EditProfileScreen";
 import ChatbotScreen from "@/features/chatbot/pages/ChatbotScreen";
 import BlogScreen from "@/features/blog/pages/BlogScreen";
 import BlogDetailScreen from "@/features/blog/pages/BlogDetailScreen";
+import CommunityScreen from "@/features/community/pages/CommunityScreen";
 import AdminLayout from "@/features/admin/components/AdminLayout";
 import AdminCategoriesScreen from "@/features/admin/pages/AdminCategoriesScreen";
 import AdminDashboardScreen from "@/features/admin/pages/AdminDashboardScreen";
@@ -22,9 +23,11 @@ import AdminAiMonitoringScreen from "@/features/admin/pages/AdminAiMonitoringScr
 import AdminPaymentsScreen from "@/features/admin/pages/AdminPaymentsScreen";
 import AdminModerationScreen from "@/features/admin/pages/AdminModerationScreen";
 import AdminIngredientsScreen from "@/features/admin/pages/AdminIngredientsScreen";
+import AdminUsersScreen from "@/features/admin/pages/AdminUsersScreen";
 import RecipeListScreen from "@/features/recipe/pages/RecipeListScreen";
 import RecipeDetailScreen from "@/features/recipe/pages/RecipeDetailScreen";
 import MyContentScreen from "@/features/my-content/pages/MyContentScreen";
+import DiaryScreen from "@/features/diary/pages/DiaryScreen";
 import PricingScreen from "@/features/payment/pages/PricingScreen";
 import CheckoutScreen from "@/features/payment/pages/CheckoutScreen";
 import PaymentSuccessScreen from "@/features/payment/pages/PaymentSuccessScreen";
@@ -50,11 +53,21 @@ export default function AppRoutes() {
           </RedirectIfAuthenticated>
         }
       />
+      <Route
+        path="/forgot-password"
+        element={
+          <RedirectIfAuthenticated>
+            <AuthScreen />
+          </RedirectIfAuthenticated>
+        }
+      />
       <Route path="/" element={<HomeScreen />} />
 
       {/* Blog công khai với khách (BE cho GET /blogs không cần token) */}
       <Route path="/blog" element={<BlogScreen />} />
       <Route path="/blog/:blogId" element={<BlogDetailScreen />} />
+      {/* Cộng đồng: số liệu, bảng vàng, kênh video công khai; thử thách / theo dõi cần đăng nhập */}
+      <Route path="/community" element={<CommunityScreen />} />
 
       <Route path="/recipes" element={<RecipeListScreen />} />
       <Route path="/recipes/:recipeId" element={<RecipeDetailScreen />} />
@@ -96,6 +109,16 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <EditProfileScreen />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 3. Nhật ký dinh dưỡng (liên kết ở trang Hồ sơ) */}
+      <Route
+        path="/diary"
+        element={
+          <ProtectedRoute>
+            <DiaryScreen />
           </ProtectedRoute>
         }
       />
@@ -155,6 +178,7 @@ export default function AppRoutes() {
           <Route path="/admin/moderation" element={<AdminModerationScreen />} />
           <Route path="/admin/ai-monitoring" element={<AdminAiMonitoringScreen />} />
           <Route path="/admin/payments" element={<AdminPaymentsScreen />} />
+          <Route path="/admin/users" element={<AdminUsersScreen />} />
         </Route>
       </Route>
 
@@ -163,7 +187,7 @@ export default function AppRoutes() {
   );
 }
 
-// Ngược với ProtectedRoute: đã đăng nhập thì không cho vào trang login/register nữa.
+// Ngược với ProtectedRoute: đã đăng nhập thì không cho vào trang login/register/quên mật khẩu nữa.
 function RedirectIfAuthenticated({ children }) {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const user = useAuthStore((s) => s.user);

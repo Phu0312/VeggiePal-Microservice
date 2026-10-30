@@ -2,15 +2,17 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import AuthLayout from "@/features/auth/components/AuthLayout";
 import AuthShowcase from "@/features/auth/components/AuthShowcase";
+import ForgotPasswordForm from "@/features/auth/components/ForgotPasswordForm";
 import LoginForm from "@/features/auth/components/LoginForm";
 import RegisterForm from "@/features/auth/components/RegisterForm";
 import Logo from "@/shared/components/Logo";
 
 const MODE_BY_PATH = {
   "/register": "register",
+  "/forgot-password": "forgot",
 };
 
-// 2 mode (login/register) dùng chung 1 khung ảnh+card,
+// 3 mode (login/register/quên mật khẩu) dùng chung 1 khung ảnh+card,
 // URL quyết định mode nào hiển thị — không còn tách thành page riêng nữa.
 export default function AuthScreen() {
   const location = useLocation();
@@ -19,6 +21,7 @@ export default function AuthScreen() {
 
   const toRegister = () => navigate("/register", { replace: true, state: location.state });
   const toLogin = () => navigate("/login", { replace: true, state: location.state });
+  const toForgot = () => navigate("/forgot-password", { replace: true, state: location.state });
 
   return (
     <AuthLayout className="px-6 py-10">
@@ -32,7 +35,8 @@ export default function AuthScreen() {
         <div className="relative z-10 flex min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-black/15 px-5 pb-10 pt-20 backdrop-blur-xl no-scrollbar sm:px-6 lg:px-10 lg:py-10">
           <div key={mode} className="auth-form-enter w-full flex justify-center">
             {mode === "register" && <RegisterForm onSwitchMode={toLogin} />}
-            {mode === "login" && <LoginForm onSwitchMode={toRegister} />}
+            {mode === "login" && <LoginForm onSwitchMode={toRegister} onForgotPassword={toForgot} />}
+            {mode === "forgot" && <ForgotPasswordForm onBackToLogin={toLogin} />}
           </div>
         </div>
       </div>

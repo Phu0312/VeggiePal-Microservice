@@ -22,7 +22,7 @@ import NutritionTargetCard from "@/features/meal-planner/components/NutritionTar
 import NutritionTargetFields from "@/features/meal-planner/components/NutritionTargetFields";
 import { flavorPreferences } from "@/features/meal-planner/data/mealPlannerOptions";
 import { useCreateMealPlan } from "@/features/meal-planner/hooks/useMealPlanMutations";
-import { useNutritionTarget } from "@/features/meal-planner/hooks/useMealPlans";
+import { useMealPlanQuota, useNutritionTarget } from "@/features/meal-planner/hooks/useMealPlans";
 import { MEAL_PLAN_LIMITS, mealPlanSchema } from "@/features/meal-planner/schema";
 import {
   buildGeneratePayload,
@@ -69,6 +69,12 @@ const AUTO_TARGET_BLOCKING_CODES = new Set([6020, 6021]);
  * - Tên, mục tiêu, mô tả, mục tiêu dinh dưỡng: react-hook-form + zod.
  * `onCreated(plan)` được gọi khi tạo xong để trang chuyển sang xem thực đơn mới.
  */
+// resetsAt là LocalDate "YYYY-MM-DD" -> "dd/mm/yyyy" (không qua Date để khỏi lệch múi giờ).
+function formatQuotaDate(value) {
+  const [y, m, d] = String(value).split("-");
+  return d ? `${d}/${m}/${y}` : value;
+}
+
 export default function AiMealSuggestion({ onCreated }) {
   const idPrefix = useId();
   const createPlan = useCreateMealPlan();
@@ -76,10 +82,14 @@ export default function AiMealSuggestion({ onCreated }) {
   // (đã tải xong, không lỗi); nếu không tải được thì vẫn cho thử, BE sẽ là bên quyết định.
   const healthRecord = useLatestHealthRecord();
   const missingHealthRecord = !healthRecord.isPending && !healthRecord.isError && healthRecord.data == null;
-  // Gói quy định số thực đơn được tạo mỗi tháng (BE báo lỗi 6003 khi hết). Chưa biết gói (đang tải / lỗi) thì
-  // không chặn, để BE quyết định; BE chưa có API số lượt đã dùng nên chỉ hiện được tổng lượt của gói.
+  // Gói quy định số thực đơn được tạo mỗi tháng (BE báo lỗi 6003 khi hết). Số lượt còn lại lấy từ
+  // GET /ai/meal-plans/quota; chưa tải được thì dựa vào tổng lượt của gói, không biết gì thì để BE quyết định.
   const { subscription } = useMySubscription();
-  const noQuota = subscription?.mealPlansPerMonth === 0;
+  const { data: quota } = useMealPlanQuota();
+  const planLimit = quota?.limit ?? subscription?.mealPlansPerMonth;
+  const noQuota = quota ? quota.remaining <= 0 : planLimit === 0;
+  const planName = PLAN_DETAILS[quota?.planCode ?? subscription?.planCode]?.name ?? quota?.planCode ?? subscription?.planCode;
+  const planCode = quota?.planCode ?? subscription?.planCode;
 
   const [ingredients, setIngredients] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -381,7 +391,11 @@ export default function AiMealSuggestion({ onCreated }) {
             role="alert"
             className="relative mt-7 flex flex-col items-start gap-3 rounded-2xl bg-warning/10 p-4 text-sm text-ink sm:flex-row sm:items-center sm:justify-between"
           >
-            <p>Gói hiện tại của bạn chưa có lượt tạo thực đơn. Nâng cấp lên gói PLUS hoặc PRO để dùng tính năng này.</p>
+            <p>
+              {planLimit === 0
+                ? "Gói hiện tại của bạn chưa có lượt tạo thực đơn. Nâng cấp lên gói PLUS hoặc PRO để dùng tính năng này."
+                : `Bạn đã dùng hết ${planLimit} lượt tạo thực đơn tháng này.${quota?.resetsAt ? ` Lượt mới có từ ngày ${formatQuotaDate(quota.resetsAt)}.` : ""}`}
+            </p>
             <Link
               to="/pricing"
               className="shrink-0 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-brand-foreground transition hover:bg-brand/90"
@@ -410,11 +424,12 @@ export default function AiMealSuggestion({ onCreated }) {
           </Button>
         </div>
 
-        {subscription && !noQuota && (
+        {planCode && !noQuota && (
           <p className="relative mt-3 text-center text-xs text-subtle">
-            {PLAN_DETAILS[subscription.planCode]?.name ?? subscription.planCode}: tối đa {subscription.mealPlansPerMonth}{" "}
-            thực đơn mỗi tháng.
-            {subscription.planCode !== "PRO" && (
+            {quota
+              ? `${planName}: còn ${quota.remaining}/${quota.limit} lượt tạo thực đơn tháng này.`
+              : `${planName}: tối đa ${planLimit} thực đơn mỗi tháng.`}
+            {planCode !== "PRO" && (
               <>
                 {" "}
                 <Link to="/pricing" className="font-semibold text-brand underline underline-offset-2">
