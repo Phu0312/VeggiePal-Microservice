@@ -1,3 +1,5 @@
+# Host development mode only: stop docker-compose.yml before starting this file.
+# Ngrok targets the gateway process running on the host at port 8080.
 name: veggiepal-prm
 
 services:

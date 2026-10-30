@@ -8,7 +8,8 @@ import lombok.*;
 public class SubscriptionPlan {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR) @Column(nullable = false, length = 20)
     private PlanCode code;
     @Column(nullable = false)
     private long price;

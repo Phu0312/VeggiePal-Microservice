@@ -116,10 +116,11 @@ public class DailyTrackingController {
     ApiResponse<DailyNutritionSummaryResponse> getDailySummary(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @RequestParam(name = "date", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(name = "goalType", defaultValue = "MAINTAIN") String goalType
     ) {
         return ApiResponse.<DailyNutritionSummaryResponse>builder()
-                .result(dailyTrackingService.getDailySummary(CurrentUser.id(jwt), date))
+                .result(dailyTrackingService.getDailySummary(CurrentUser.id(jwt), date, jwt.getTokenValue(), goalType))
                 .build();
     }
 }

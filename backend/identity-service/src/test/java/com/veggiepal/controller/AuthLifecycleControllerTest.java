@@ -1,6 +1,7 @@
 package com.veggiepal.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -42,16 +43,18 @@ class AuthLifecycleControllerTest {
 
     @Test
     void forgotVerifyAndResetPasswordArePublicAndAcceptContactAlias() throws Exception {
-        when(otpService.sendForgotPasswordOtp(any()))
+        when(otpService.sendForgotPasswordOtp(any(), any()))
                 .thenReturn(OtpSentResponse.builder().message("sent").expiresInSeconds(300).build());
         when(otpService.verifyForgotPasswordOtp(any()))
                 .thenReturn(VerifyOtpResponse.builder().verified(true).resetToken("rst-1").expiresInSeconds(600).build());
 
         mockMvc.perform(post("/auth/forgot-password")
+                        .header("X-Forwarded-For", "192.0.2.3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"contact\":\"an@gmail.com\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.expiresInSeconds").value(300));
+        verify(otpService).sendForgotPasswordOtp(any(), eq("192.0.2.3"));
 
         mockMvc.perform(post("/auth/verify-otp")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -69,7 +72,7 @@ class AuthLifecycleControllerTest {
 
     @Test
     void emailVerificationAndRefreshLogoutEndpointsWork() throws Exception {
-        when(otpService.sendEmailVerificationOtp(7L, null))
+        when(otpService.sendEmailVerificationOtp(eq(7L), eq(null), any()))
                 .thenReturn(OtpSentResponse.builder().message("sent").expiresInSeconds(300).build());
         when(otpService.verifyEmail(any()))
                 .thenReturn(UserProfileResponse.builder().id(7L).email("an@gmail.com").emailVerified(true).build());

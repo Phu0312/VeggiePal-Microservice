@@ -19,6 +19,7 @@ import com.veggiepal.blog.dto.response.LeaderboardEntryResponse;
 import com.veggiepal.blog.dto.response.TrendingTopicResponse;
 import com.veggiepal.blog.dto.response.VideoChannelResponse;
 import com.veggiepal.blog.service.CommunityService;
+import com.veggiepal.blog.service.BadgeAwardClient;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,9 +30,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 public class CommunityController {
 
     private final CommunityService communityService;
+    private final BadgeAwardClient badgeAwardClient;
 
-    public CommunityController(CommunityService communityService) {
+    public CommunityController(CommunityService communityService, BadgeAwardClient badgeAwardClient) {
         this.communityService = communityService;
+        this.badgeAwardClient = badgeAwardClient;
     }
 
     @Operation(summary = "Top community authors ranked by published posts and likes")
@@ -121,8 +124,13 @@ public class CommunityController {
     ApiResponse<ChallengeProgressResponse> checkInChallenge(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
+        Long userId = CurrentUser.id(jwt);
+        ChallengeProgressResponse progress = communityService.checkInChallenge(userId);
+        if (progress.isCompleted()) {
+            badgeAwardClient.awardGreenHeart(userId);
+        }
         return ApiResponse.<ChallengeProgressResponse>builder()
-                .result(communityService.checkInChallenge(CurrentUser.id(jwt)))
+                .result(progress)
                 .build();
     }
 }
