@@ -12,7 +12,8 @@ import 'otp_widgets.dart';
 enum _Step { email, code, password }
 
 /// Quên mật khẩu, ba bước trên một màn hình:
-/// 1. Nhập email -> POST /auth/forgot-password, BE gửi mã 6 số (luôn báo đã gửi, kể cả khi email chưa đăng ký).
+/// 1. Nhập email -> POST /auth/forgot-password, BE gửi mã 6 số (luôn báo thành công, kể cả khi email chưa đăng ký
+///    hoặc đã quá 3 mã/giờ cho email đó; quá 10 lần/giờ từ một IP thì trả 429, mã 1033; chưa cấu hình SMTP thì 503, mã 1034).
 /// 2. Nhập mã -> POST /auth/verify-otp, BE trả `resetToken` dùng một lần.
 /// 3. Nhập mật khẩu mới -> POST /auth/reset-password; BE thu hồi mọi phiên đăng nhập cũ.
 /// Đặt lại thành công thì màn hình đóng và trả về email để màn đăng nhập điền sẵn.
@@ -85,7 +86,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       final sent = await _repo.forgotPassword(_email.text);
       _expiresInSeconds = sent.expiresInSeconds;
     }, 'Không gửi được mã');
-    if (ok && mounted) showSnack(context, 'Đã gửi lại mã tới ${_email.text.trim()}');
+    if (ok && mounted) showSnack(context, 'Đã gửi yêu cầu gửi lại mã. Nếu email đã đăng ký, mã mới sẽ đến trong ít phút.');
     return ok;
   }
 
@@ -138,7 +139,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         return [
           Text(
               'Nếu ${_email.text.trim()} đã đăng ký, mã gồm 6 chữ số đã được gửi tới đó. '
-              'Mã có hiệu lực trong ${(_expiresInSeconds / 60).ceil()} phút.',
+              'Mã có hiệu lực trong ${(_expiresInSeconds / 60).ceil()} phút. '
+              'Mỗi email nhận tối đa 3 mã mỗi giờ, nếu chưa thấy hãy kiểm tra cả thư rác.',
               textAlign: TextAlign.center,
               style: TextStyle(color: context.textMuted)),
           const SizedBox(height: 16),

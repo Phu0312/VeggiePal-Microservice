@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:VeggiePal/core/constants/endpoints.dart';
 import 'package:VeggiePal/core/network/api_client.dart';
+import 'package:VeggiePal/core/network/error_messages.dart';
 import 'package:VeggiePal/core/storage/session_store.dart';
 import 'package:VeggiePal/features/auth/data/auth_models.dart';
 import 'package:VeggiePal/features/auth/data/auth_repository.dart';
@@ -80,6 +81,7 @@ class _Repo extends AuthRepository {
   _Repo(super.api);
   final calls = <String>[];
   Object? verifyOtpError;
+  Object? sendOtpError; // lỗi khi xin mã (forgot-password / send-verification)
   Object? refreshError;
   Duration refreshDelay = Duration.zero;
   Map<String, dynamic> profileJson = {'fullName': 'An', 'avatarUrl': null, 'emailVerified': true};
@@ -99,6 +101,8 @@ class _Repo extends AuthRepository {
   @override
   Future<OtpSent> forgotPassword(String email) async {
     calls.add('forgot $email');
+    final e = sendOtpError;
+    if (e != null) throw e;
     return const OtpSent(300);
   }
 
@@ -116,6 +120,8 @@ class _Repo extends AuthRepository {
   @override
   Future<OtpSent> sendVerification(String email) async {
     calls.add('sendVerification $email');
+    final e = sendOtpError;
+    if (e != null) throw e;
     return const OtpSent(300);
   }
 
@@ -153,6 +159,22 @@ void main() {
       final s = AuthSession.fromLogin(_loginJson(refresh: 'abc'));
       expect(s.refreshToken, 'abc');
       expect(AuthSession.fromLogin(_loginJson(refresh: null)).refreshToken, isNull);
+    });
+
+    test('login đọc emailVerified của BE; thiếu trường thì coi như đã xác minh để không nhắc nhầm', () {
+      expect(AuthSession.fromLogin({..._loginJson(), 'emailVerified': false}).user.emailVerified, isFalse);
+      expect(AuthSession.fromLogin({..._loginJson(), 'emailVerified': true}).user.emailVerified, isTrue);
+      expect(AuthSession.fromLogin(_loginJson()).user.emailVerified, isTrue);
+    });
+
+    test('mã lỗi OTP và nhật ký mới của BE có thông báo tiếng Việt', () {
+      for (final code in [1033, 1034, 2012, 2013, 3051, 6025, 6026]) {
+        expect(errorMessagesVi[code], isNotNull, reason: 'thiếu mã $code');
+      }
+      expect(localizedError(1033, 'Too many OTP requests; try again later'), contains('quá nhiều lần'));
+      // 2010 / 2011 của nutrition-service là nhật ký ăn uống và lượng nước, không phải nguyên liệu.
+      expect(errorMessagesVi[2010], contains('nhật ký'));
+      expect(errorMessagesVi[2011], contains('ml'));
     });
 
     test('quên mật khẩu: gửi email, đổi OTP lấy resetToken, đặt mật khẩu bằng resetToken', () async {
@@ -516,6 +538,36 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Quên mật khẩu'), findsOneWidget);
       expect(find.text('Gửi mã'), findsOneWidget);
+    });
+
+    testWidgets('Quên mật khẩu: gửi quá nhiều mã (1033) hiện thông báo rõ và ở lại bước nhập email', (tester) async {
+      final (repo, _) = await pumpApp(tester, () => const ForgotPasswordScreen(initialEmail: 'an@gmail.com'));
+      repo.sendOtpError = ApiException(localizedError(1033, 'Too many OTP requests'), code: 1033, statusCode: 429);
+      await tester.tap(find.text('Gửi mã'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Không gửi được mã'), findsOneWidget);
+      expect(find.text(errorMessagesVi[1033]!), findsOneWidget);
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gửi mã'), findsOneWidget); // vẫn ở bước nhập email
+    });
+
+    testWidgets('Xác minh email: máy chủ chưa cấu hình email (1034) hiện thông báo, không báo đã gửi', (tester) async {
+      final (repo, _) = await pumpApp(tester, () => const VerifyEmailScreen(sendOnOpen: true), loggedIn: true);
+      repo.sendOtpError = ApiException(localizedError(1034, 'OTP email delivery is not configured'),
+          code: 1034, statusCode: 503);
+      // Mã đã được gửi một lần lúc mở màn hình; bấm gửi lại sau khi hết đếm ngược để chạm lỗi.
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 61));
+      await tester.tap(find.text('Gửi lại mã'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Không gửi được mã'), findsOneWidget);
+      expect(find.text(errorMessagesVi[1034]!), findsOneWidget);
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
     });
 
     testWidgets('Gửi lại mã bị khóa trong lúc đếm ngược rồi mở lại sau 60 giây', (tester) async {
