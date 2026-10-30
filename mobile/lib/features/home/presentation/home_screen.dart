@@ -15,6 +15,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../video/presentation/video_form_screen.dart';
 import '../../video/presentation/video_widgets.dart';
 import '../data/home_models.dart';
+import '../../community/presentation/community_screen.dart';
 import '../data/home_repository.dart';
 import 'blog_detail_screen.dart';
 import 'create_content_sheet.dart';
@@ -310,6 +311,19 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.only(bottom: 100),
               children: [
                 HomeHighlights(key: _highlights),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: Card(
+                    child: ListTile(
+                      leading: Icon(Icons.groups_rounded, color: context.cs.primary),
+                      title: const Text('Cộng đồng VeggiePal', style: TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: const Text('Bảng xếp hạng, chủ đề nổi bật, thử thách 7 ngày'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context)
+                          .push(MaterialPageRoute(builder: (_) => const CommunityScreen())),
+                    ),
+                  ),
+                ),
                 VegSearchBar(
                   controller: _search,
                   hint: 'Tìm bài viết, công thức, mẹo nấu chay...',

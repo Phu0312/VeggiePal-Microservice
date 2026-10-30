@@ -188,6 +188,7 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
         _show(plan);
         setState(() => _name.text = _defaultName());
         showSnack(context, 'Đã tạo và lưu thực đơn');
+        context.read<SubscriptionController>().refreshQuota();
       } on ApiException catch (e) {
         // 6003: hết lượt tạo thực đơn trong tháng theo gói -> mời nâng cấp thay vì chỉ báo lỗi.
         if (e.code != 6003 || !mounted) rethrow;
@@ -257,6 +258,32 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
     if (current != null && mounted) setState(() => _plan = current);
   }
 
+  /// Đưa phiên bản đang xem về làm thực đơn hiện tại (POST .../versions/{version}/restore).
+  Future<void> _restoreVersion() async {
+    final plan = _plan!;
+    final version = plan.viewingVersion;
+    if (version == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Khôi phục phiên bản $version?'),
+        content: const Text('Thực đơn hiện tại sẽ được thay bằng nội dung phiên bản này. '
+            'Nội dung hiện tại vẫn được giữ lại trong lịch sử phiên bản.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Khôi phục')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _run(() async {
+      final restored = await context.read<MealPlanRepository>().restoreVersion(plan.id, version);
+      if (!mounted) return;
+      _show(restored);
+      showSnack(context, 'Đã khôi phục phiên bản $version');
+    });
+  }
+
   Future<void> _fixProfile() async {
     await Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => const EditProfileScreen(highlightFields: {'dateOfBirth', 'gender', 'activityLevel'})));
@@ -302,6 +329,7 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
             onMealTap: _openMeal,
             onToggleFavorite: _toggleFavorite,
             onLeaveVersion: _plan!.viewingVersion == null ? null : _leaveVersion,
+            onRestoreVersion: _plan!.viewingVersion == null ? null : _restoreVersion,
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -444,10 +472,13 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
               child: Text('Đăng nhập để tạo và lưu thực đơn cá nhân.',
                   style: TextStyle(color: context.textMuted)),
             )
-          else if (context.watch<SubscriptionController>().subscription case final sub?)
+          else if (context.watch<SubscriptionController>() case final subs when subs.subscription != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text('${planName(sub.planCode)}: tối đa ${sub.mealPlansPerMonth} thực đơn mỗi tháng.',
+              child: Text(
+                  subs.quota != null
+                      ? '${planName(subs.subscription!.planCode)}: ${subs.quota!.mealPlan.label}.'
+                      : '${planName(subs.subscription!.planCode)}: tối đa ${subs.subscription!.mealPlansPerMonth} thực đơn mỗi tháng.',
                   style: TextStyle(fontSize: 12.5, color: context.textMuted)),
             ),
         ]),
