@@ -10,6 +10,7 @@ import '../../auth/presentation/login_screen.dart';
 import '../../auth/presentation/verify_email_screen.dart';
 import '../../menu_planner/data/health_sync.dart';
 import '../../menu_planner/data/menu_models.dart';
+import '../../nutrition/presentation/diary_screen.dart';
 import '../../blog/presentation/my_blogs_screen.dart';
 import '../../payment/data/subscription_controller.dart';
 import '../../payment/data/payment_models.dart';
@@ -20,6 +21,8 @@ import '../../video/presentation/my_videos_screen.dart';
 import '../../video/presentation/video_jobs_screen.dart';
 import '../data/profile_overview.dart';
 import 'allergies_screen.dart';
+import 'badges_screen.dart';
+import 'favorites_screen.dart';
 import 'bmi_tracker_card.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -211,6 +214,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _MenuTile(LucideIcons.userPen, 'Thông tin cá nhân',
                   'Họ tên, số điện thoại, ngày sinh, giới tính, mức vận động, ảnh đại diện',
                   () => _open(context, const EditProfileScreen())),
+              const Divider(height: 1),
+              _MenuTile(LucideIcons.notebookPen, 'Nhật ký dinh dưỡng', 'Món đã ăn, nước uống và vận động theo ngày',
+                  () => _open(context, const DiaryScreen())),
+              const Divider(height: 1),
+              _MenuTile(LucideIcons.bookmark, 'Yêu thích', 'Công thức, bài viết và video đã lưu',
+                  () => _open(context, const FavoritesScreen())),
+              const Divider(height: 1),
+              _MenuTile(LucideIcons.trophy, 'Huy hiệu xanh', 'Thành tích sống xanh của bạn',
+                  () => _open(context, const BadgesScreen())),
               const Divider(height: 1),
               _MenuTile(LucideIcons.fileText, 'Bài viết của tôi', 'Viết bài, sửa, gửi duyệt, xem trạng thái',
                   () => _open(context, const MyBlogsScreen())),
