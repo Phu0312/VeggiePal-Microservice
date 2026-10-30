@@ -8,12 +8,15 @@ import '../../../core/widgets/common_widgets.dart';
 import '../data/auth_validators.dart';
 import '../data/google_auth.dart';
 import 'auth_controller.dart';
+import 'forgot_password_screen.dart';
+import 'verify_email_screen.dart';
 
 /// Màn hình Đăng nhập / Đăng ký (chuyển đổi bằng một nút) và "Tiếp tục với Google".
 /// - Đăng nhập: email + mật khẩu (POST /auth/login). Tick "Ghi nhớ đăng nhập" thì phiên được lưu lại,
 ///   lần mở app sau không phải đăng nhập lại.
 /// - Đăng ký: họ tên, số điện thoại (không bắt buộc), email, mật khẩu (tối thiểu 6 ký tự) và nhập lại mật khẩu
-///   (POST /auth/register) rồi tự đăng nhập.
+///   (POST /auth/register) rồi tự đăng nhập và mở màn xác minh email (BE đã gửi mã 6 số tới email đó).
+/// - "Quên mật khẩu?": mở [ForgotPasswordScreen]; đặt lại xong thì điền sẵn email để đăng nhập.
 /// - Google: lấy ID token từ Google rồi gửi POST /auth/google; backend tạo tài khoản mới nếu email chưa có.
 ///   Luồng này luôn ghi nhớ đăng nhập.
 class LoginScreen extends StatefulWidget {
@@ -57,7 +60,14 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await auth.login(_email.text, _password.text, remember: _remember);
       }
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      if (_register) {
+        // Thay chính màn này để đóng màn xác minh là quay về nơi đã mở đăng nhập.
+        await Navigator.of(context)
+            .pushReplacement(MaterialPageRoute(builder: (_) => const VerifyEmailScreen()));
+      } else {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (mounted) {
         // Ngừng vòng quay trước khi hiện popup, nếu không nó quay mãi sau lưng popup.
@@ -87,6 +97,17 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _googleBusy = false);
     }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (_) => ForgotPasswordScreen(initialEmail: _email.text.trim())));
+    if (email == null || !mounted) return;
+    setState(() {
+      _email.text = email;
+      _password.clear();
+    });
+    showSnack(context, 'Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
   }
 
   void _toggleMode() => setState(() => _register = !_register);
@@ -166,6 +187,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: Icon(LucideIcons.lockKeyhole)),
                     validator: (v) => validateConfirmPassword(v, _password.text)),
               ],
+              if (!_register)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(onPressed: busy ? null : _forgotPassword, child: const Text('Quên mật khẩu?')),
+                ),
               const SizedBox(height: 4),
               CheckboxListTile(
                 value: _remember,
