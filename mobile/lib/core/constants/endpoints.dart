@@ -22,6 +22,13 @@ class Endpoints {
   static const login = '/auth/login';
   static const register = '/auth/register';
   static const googleLogin = '/auth/google';
+  static const forgotPassword = '/auth/forgot-password';
+  static const verifyOtp = '/auth/verify-otp';
+  static const resetPassword = '/auth/reset-password';
+  static const sendVerification = '/auth/send-verification';
+  static const verifyEmail = '/auth/verify-email';
+  static const refreshToken = '/auth/refresh';
+  static const logout = '/auth/logout';
   static const me = '/users/me';
   static const myPassword = '/users/me/password';
   static const myAvatar = '/users/me/avatar';
