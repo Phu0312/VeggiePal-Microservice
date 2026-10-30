@@ -109,6 +109,9 @@ class Endpoints {
   static const aiUsageLogs = '/ai/admin/monitoring/logs/search';
   static const aiModels = '/ai/admin/monitoring/models';
   static const aiLimits = '/ai/admin/monitoring/limits';
+  static const adminUsers = '/admin/users';
+  static String adminUserStatus(int id) => '/admin/users/$id/status';
+  static String adminUserRole(int id) => '/admin/users/$id/role';
   static const adminPaymentSummary = '/admin/payments/summary';
   static const adminPaymentStatistics = '/admin/payments/statistics';
   static const adminPaymentRevenue = '/admin/payments/revenue';

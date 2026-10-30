@@ -41,7 +41,7 @@ class IngredientPayload {
       };
 }
 
-/// API dành cho ADMIN: kiểm duyệt nội dung, giám sát AI, thanh toán và quản lý nguyên liệu.
+/// API dành cho ADMIN: tài khoản, kiểm duyệt nội dung, giám sát AI, thanh toán và quản lý nguyên liệu.
 /// Danh mục do BlogRepository phụ trách. Mọi lỗi được ném lại cho UI hiển thị popup.
 class AdminRepository {
   final ApiClient _api;
@@ -55,6 +55,34 @@ class AdminRepository {
       (m['totalPages'] as num?)?.toInt() ?? 1,
       (m['totalElements'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  // ---------------- tài khoản người dùng (identity-service) ----------------
+
+  // GET /admin/users?keyword=&role=&status=&page=&size= : mới nhất trước. keyword tìm theo email và họ tên.
+  Future<PageData<AdminUser>> users(
+      {String? keyword, String? role, String? status, int page = 0, int size = 20}) async {
+    final r = await _api.get(Endpoints.adminUsers, query: {
+      if ((keyword ?? '').isNotEmpty) 'keyword': keyword,
+      'role': ?role,
+      'status': ?status,
+      'page': page,
+      'size': size,
+    });
+    return _page(r, page, AdminUser.fromJson);
+  }
+
+  // PATCH /admin/users/{id}/status {status}: khoá / mở khoá. Khoá thì BE thu hồi mọi refresh token của tài khoản.
+  // Lỗi 1020 = đã ở trạng thái đó, 1022 = admin tự khoá chính mình.
+  Future<AdminUser> setUserStatus(int id, String status) async {
+    final r = await _api.patch(Endpoints.adminUserStatus(id), body: {'status': status});
+    return AdminUser.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  // PATCH /admin/users/{id}/role {role: USER|ADMIN}. Lỗi 1023 = đã có vai trò đó, 1022 = admin tự hạ quyền mình.
+  Future<AdminUser> setUserRole(int id, String role) async {
+    final r = await _api.patch(Endpoints.adminUserRole(id), body: {'role': role});
+    return AdminUser.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
   // ---------------- kiểm duyệt nội dung (ai-service) ----------------

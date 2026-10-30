@@ -1,4 +1,5 @@
-// Model của app quản trị: kiểm duyệt nội dung và giám sát AI (ai-service), thanh toán (payment-service).
+// Model của app quản trị: tài khoản (identity-service), kiểm duyệt nội dung và giám sát AI (ai-service),
+// thanh toán (payment-service).
 
 double _d(Object? v) => v is num ? v.toDouble() : 0;
 int _i(Object? v) => v is num ? v.toInt() : 0;
@@ -269,4 +270,58 @@ class PaymentOrder {
         paidAt: _t(j['paidAt']),
         expiredAt: _t(j['expiredAt']),
       );
+}
+
+// ---------------- Tài khoản người dùng (identity-service) ----------------
+
+const userStatusLabels = {
+  'PENDING': 'Chờ kích hoạt',
+  'ACTIVE': 'Đang hoạt động',
+  'INACTIVE': 'Ngừng hoạt động',
+  'BLOCKED': 'Bị khóa',
+};
+
+const userRoleLabels = {'USER': 'Thành viên', 'ADMIN': 'Quản trị viên'};
+
+/// Một tài khoản trong danh sách quản trị (identity-service: UserProfileResponse).
+class AdminUser {
+  final int id;
+  final String email;
+  final String fullName;
+  final String? phone;
+  final String? avatarUrl;
+  final String role; // USER | ADMIN
+  final String status; // PENDING | ACTIVE | INACTIVE | BLOCKED
+  final bool emailVerified;
+  final DateTime? createdAt;
+
+  const AdminUser({
+    required this.id,
+    required this.email,
+    this.fullName = '',
+    this.phone,
+    this.avatarUrl,
+    this.role = 'USER',
+    this.status = 'ACTIVE',
+    this.emailVerified = false,
+    this.createdAt,
+  });
+
+  factory AdminUser.fromJson(Map<String, dynamic> j) => AdminUser(
+        id: _i(j['id']),
+        email: '${j['email'] ?? ''}',
+        fullName: '${j['fullName'] ?? ''}',
+        phone: j['phone'] as String?,
+        avatarUrl: j['avatarUrl'] as String?,
+        role: '${j['role'] ?? 'USER'}',
+        status: '${j['status'] ?? 'ACTIVE'}',
+        emailVerified: j['emailVerified'] == true,
+        createdAt: _t(j['createdAt']),
+      );
+
+  bool get isAdmin => role == 'ADMIN';
+  bool get isBlocked => status == 'BLOCKED';
+  String get displayName => fullName.trim().isEmpty ? email : fullName.trim();
+  String get roleLabel => userRoleLabels[role] ?? role;
+  String get statusLabel => userStatusLabels[status] ?? status;
 }
