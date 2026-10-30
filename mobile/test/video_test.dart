@@ -192,7 +192,7 @@ void main() {
       expect(r.extraction!.title, 'Món');
     });
 
-    test('đổi các mã lỗi 6022 / 6023 / 6021 / 404 thành trạng thái, không ném lỗi', () async {
+    test('đổi các mã lỗi 6022 / 6023 / 6026 / 404 thành trạng thái, không ném lỗi', () async {
       final api = FakeApi();
       final repo = VideoRepository(api);
       Future<RecipeState> stateFor(ApiException e) async {
@@ -202,8 +202,13 @@ void main() {
 
       expect(await stateFor(ApiException('x', code: 6022, statusCode: 409)), RecipeState.processing);
       expect(await stateFor(ApiException('x', code: 6023, statusCode: 422)), RecipeState.failed);
-      expect(await stateFor(ApiException('x', code: 6021, statusCode: 422)), RecipeState.unsupported);
+      expect(await stateFor(ApiException('x', code: 6026, statusCode: 422)), RecipeState.unsupported);
       expect(await stateFor(ApiException('x', code: 6002, statusCode: 404)), RecipeState.none);
+    });
+
+    test('6021 nay là "dưới 18 tuổi" của thực đơn, không còn bị coi là nguồn video không hỗ trợ', () async {
+      final api = FakeApi()..getResult = ApiException('x', code: 6021, statusCode: 400);
+      await expectLater(VideoRepository(api).recipeOf(5), throwsA(isA<ApiException>()));
     });
 
     test('lỗi khác được ném lại', () async {
