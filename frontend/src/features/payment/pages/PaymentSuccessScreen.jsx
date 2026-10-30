@@ -88,6 +88,7 @@ export default function PaymentSuccessScreen() {
   useEffect(() => {
     if (isPaid) {
       queryClient.invalidateQueries({ queryKey: paymentKeys.subscription() });
+      queryClient.invalidateQueries({ queryKey: paymentKeys.quotas() });
       queryClient.invalidateQueries({ queryKey: paymentKeys.history() });
       sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY);
     }

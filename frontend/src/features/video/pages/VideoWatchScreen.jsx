@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/variants/button-variants";
 import AiSummaryCard from "@/features/video/components/AiSummaryCard";
 import SuggestedVideoList from "@/features/video/components/SuggestedVideoList";
 import VideoMetaHeader from "@/features/video/components/VideoMetaHeader";
+import VideoNutritionCard from "@/features/video/components/VideoNutritionCard";
 import VideoPlayerFrame from "@/features/video/components/VideoPlayerFrame";
 import { useVideo } from "@/features/video/hooks/useVideos";
 import AppHeader from "@/shared/components/AppHeader";
@@ -61,6 +62,7 @@ export default function VideoWatchScreen() {
             <Reveal>
               <AiSummaryCard video={video} />
             </Reveal>
+            <VideoNutritionCard video={video} />
           </div>
 
           <div className="flex flex-col gap-6">

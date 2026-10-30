@@ -30,3 +30,24 @@ export const registerSchema = z
         message: "Mật khẩu nhập lại không khớp",
         path: ["confirmPassword"],
     });
+
+const emailField = z.string().trim().min(1, "Vui lòng nhập email").email("Email không hợp lệ");
+// Mã OTP của identity-service luôn là 6 chữ số.
+const otpField = z.string().trim().regex(/^\d{6}$/, "Mã OTP gồm 6 chữ số");
+
+// Quên mật khẩu, bước 1: email nhận mã.
+export const forgotEmailSchema = z.object({ email: emailField });
+
+// Bước 2 (và xác minh email): mã OTP 6 số.
+export const otpSchema = z.object({ otp: otpField });
+
+// Bước 3: mật khẩu mới (ResetPasswordRequest: tối thiểu 6 ký tự).
+export const resetPasswordSchema = z
+    .object({
+        newPassword: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
+        confirmPassword: z.string().min(1, "Vui lòng nhập lại mật khẩu"),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+        message: "Mật khẩu nhập lại không khớp",
+        path: ["confirmPassword"],
+    });

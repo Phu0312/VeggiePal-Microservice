@@ -16,6 +16,7 @@ import {
 
 import AppHeader from "@/shared/components/AppHeader";
 import { Button } from "@/components/ui/button";
+import QuotaUsageList from "@/features/payment/components/QuotaUsageList";
 import { useOrder, useCheckout, useCancelOrder } from "@/features/payment/hooks";
 import { paymentKeys } from "@/features/payment/queryKeys";
 import {
@@ -121,6 +122,7 @@ export default function CheckoutScreen() {
     if (!status) return;
     if (status === "PAID") {
       queryClient.invalidateQueries({ queryKey: paymentKeys.subscription() });
+      queryClient.invalidateQueries({ queryKey: paymentKeys.quotas() });
       queryClient.invalidateQueries({ queryKey: paymentKeys.history() });
       if (order?.id != null) {
         sessionStorage.setItem(PENDING_ORDER_STORAGE_KEY, String(order.id));
@@ -311,6 +313,11 @@ export default function CheckoutScreen() {
         <p className="text-center text-xs text-subtle">
           Vui lòng giữ nguyên số tiền và nội dung chuyển khoản để hệ thống tự xác nhận.
         </p>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-ink">Hạn mức hiện tại của bạn</p>
+          <QuotaUsageList compact />
+        </div>
 
         <Button
           type="button"

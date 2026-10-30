@@ -69,10 +69,10 @@ function GoogleButtonWithOverlay({ onError }) {
     }
     setBusy(true);
     try {
-      const { token, user } = await loginWithGoogle(credential);
+      const session = await loginWithGoogle(credential);
       // Không có ô "Ghi nhớ đăng nhập" ở luồng Google nên giữ phiên lâu dài (localStorage).
-      setAuth({ token, user, remember: true });
-      navigate(resolvePostLoginPath(user, from), { replace: true });
+      setAuth({ ...session, remember: true });
+      navigate(resolvePostLoginPath(session.user, from), { replace: true });
     } catch (err) {
       onError(err.message || "Đăng nhập bằng Google thất bại");
       setBusy(false);

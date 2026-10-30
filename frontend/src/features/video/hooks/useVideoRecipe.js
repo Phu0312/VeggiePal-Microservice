@@ -13,7 +13,7 @@ import { recipeStateFromJob, VIDEO_JOB_POLL_MS } from "@/features/video/utils/vi
  *
  * status:
  * - "loading"     đang tải video hoặc đang hỏi BE
- * - "unsupported" video YouTube (BE chỉ bóc tách video tải lên, mã 6021)
+ * - "unsupported" video YouTube (BE chỉ bóc tách video tải lên, mã 6026)
  * - "login"       chưa đăng nhập (chỉ áp dụng khi video chưa có công thức và cần đăng nhập để bóc tách)
  * - "none"        chưa có kết quả, có thể bóc tách (trừ 1 lượt của gói)
  * - "processing"  AI đang bóc tách (kể cả đang gửi yêu cầu), tự hỏi lại mỗi vài giây

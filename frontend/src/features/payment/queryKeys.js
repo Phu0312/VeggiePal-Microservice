@@ -7,4 +7,6 @@ export const paymentKeys = {
   subscription: () => [...paymentKeys.all, "subscription", "me"],
   history: () => [...paymentKeys.all, "history"],
   order: (id) => [...paymentKeys.all, "order", String(id)],
+  // Hạn mức AI đã dùng / còn lại (ai-service GET /ai/quotas/me).
+  quotas: () => ["ai", "quotas", "me"],
 };

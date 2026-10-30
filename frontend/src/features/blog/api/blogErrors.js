@@ -36,12 +36,17 @@ const VI_MESSAGES = {
   3050: "Hệ thống kiểm duyệt tạm thời không khả dụng, vui lòng thử lại sau",
   3051: "Kết quả kiểm duyệt không hợp lệ, vui lòng thử lại sau",
   3052: "Dữ liệu kiểm duyệt không khớp tác giả",
+  3053: "Đã ghi nhận điểm danh nhưng huy hiệu chưa được cấp, vui lòng bấm \"Nhận huy hiệu\" để thử lại",
+  3070: "Bạn không thể theo dõi chính mình",
 };
 
-/** Trả `res.data.result`, hoặc ném Error với thông báo tiếng Việt nếu status >= 400. */
+/** Trả `res.data.result`, hoặc ném Error với thông báo tiếng Việt nếu status >= 400 (kèm `code` của BE). */
 export function unwrapBlogResponse(res, fallbackMessage) {
   if (res.status >= 400) {
-    throw new Error(VI_MESSAGES[res.data?.code] ?? res.data?.message ?? fallbackMessage);
+    const error = new Error(VI_MESSAGES[res.data?.code] ?? res.data?.message ?? fallbackMessage);
+    error.code = res.data?.code;
+    error.status = res.status;
+    throw error;
   }
   return res.data?.result;
 }

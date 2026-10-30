@@ -1,10 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
+  changeRecipeImage,
   createRecipe,
   deleteRecipe,
+  likeRecipe,
   publishRecipe,
+  unlikeRecipe,
   updateRecipe,
+  uploadRecipeImageFile,
 } from "@/features/recipe/api/recipeApi";
 import { recipeKeys } from "@/features/recipe/queryKeys";
 
@@ -39,4 +43,31 @@ export function usePublishRecipe() {
 export function useDeleteRecipe() {
   const invalidate = useInvalidateRecipes();
   return useMutation({ mutationFn: deleteRecipe, onSuccess: invalidate });
+}
+
+/** Tải ảnh cho form tạo mới. mutate(file) -> imageUrl. */
+export function useUploadRecipeImage() {
+  return useMutation({ mutationFn: uploadRecipeImageFile });
+}
+
+/** Đổi ảnh công thức đã có (lưu ngay). mutate({ id, file }) -> RecipeResponse. */
+export function useChangeRecipeImage() {
+  const invalidate = useInvalidateRecipes();
+  return useMutation({ mutationFn: ({ id, file }) => changeRecipeImage(id, file), onSuccess: invalidate });
+}
+
+/**
+ * Thích / bỏ thích. mutate({ id, liked }) với liked là trạng thái muốn đặt.
+ * Ghi kết quả của BE vào cache trạng thái thích và số lượt thích ở trang chi tiết, không tải lại cả danh sách.
+ */
+export function useToggleRecipeLike() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, liked }) => (liked ? likeRecipe(id) : unlikeRecipe(id)),
+    onSuccess: (result, { id }) => {
+      if (!result) return;
+      queryClient.setQueryData(recipeKeys.likes([id]), [result]);
+      queryClient.setQueryData(recipeKeys.detail(id), (old) => (old ? { ...old, likeCount: result.likeCount } : old));
+    },
+  });
 }

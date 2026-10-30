@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { History, Loader2 } from "lucide-react";
+import { History, Loader2, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PlanDaysPreview from "@/features/meal-planner/components/PlanDaysPreview";
+import { useRestoreMealPlanVersion } from "@/features/meal-planner/hooks/useMealPlanMutations";
 import { useMealPlan, useMealPlanVersion, useMealPlanVersions } from "@/features/meal-planner/hooks/useMealPlans";
 import { averageDailyTotals, formatDateTime } from "@/features/meal-planner/utils/mealPlan";
 
@@ -25,7 +27,8 @@ function describeAverage(plan) {
 }
 
 /**
- * Nút "Lịch sử" + hộp thoại liệt kê các phiên bản cũ của một thực đơn (chỉ xem, BE chưa có API khôi phục).
+ * Nút "Lịch sử" + hộp thoại liệt kê các phiên bản cũ của một thực đơn, xem và khôi phục từng bản
+ * (POST /ai/meal-plans/:id/versions/:version/restore; BE lưu bản hiện tại vào lịch sử trước khi khôi phục).
  * Đầu hộp thoại là phiên bản hiện tại lấy mới từ server (GET /ai/meal-plans/:id); bấm "Xem nội dung" ở một phiên bản
  * cũ để xem 7 ngày của bản đó (GET /ai/meal-plans/:id/versions/:version).
  * BE chỉ lưu phiên bản khi thực đơn được cập nhật theo sức khỏe hoặc sửa thủ công; đổi món bằng AI thì không.
@@ -34,6 +37,7 @@ function describeAverage(plan) {
 export default function PlanVersionsButton({ plan }) {
   const [open, setOpen] = useState(false);
   const [expandedVersion, setExpandedVersion] = useState(null);
+  const [restoringVersion, setRestoringVersion] = useState(null);
   const { data: versions, isPending, isError, error, refetch } = useMealPlanVersions(plan.id, open);
   const { data: current } = useMealPlan(plan.id, open);
   // Phiên bản hiện tại lấy mới từ server; chưa tải xong thì dùng bản đã có trong danh sách trang.
@@ -41,7 +45,10 @@ export default function PlanVersionsButton({ plan }) {
 
   const handleOpenChange = (next) => {
     setOpen(next);
-    if (!next) setExpandedVersion(null);
+    if (!next) {
+      setExpandedVersion(null);
+      setRestoringVersion(null);
+    }
   };
 
   return (
@@ -96,16 +103,38 @@ export default function PlanVersionsButton({ plan }) {
                     </div>
                     {item.changeSummary && <p className="mt-1 text-body">{item.changeSummary}</p>}
                     {average && <p className="mt-1 text-xs text-subtle">{average}</p>}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      aria-expanded={expandedVersion === item.version}
-                      onClick={() => setExpandedVersion((value) => (value === item.version ? null : item.version))}
-                    >
-                      {expandedVersion === item.version ? "Ẩn nội dung" : "Xem nội dung"}
-                    </Button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-expanded={expandedVersion === item.version}
+                        onClick={() => setExpandedVersion((value) => (value === item.version ? null : item.version))}
+                      >
+                        {expandedVersion === item.version ? "Ẩn nội dung" : "Xem nội dung"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="soft"
+                        size="sm"
+                        aria-expanded={restoringVersion === item.version}
+                        onClick={() => setRestoringVersion((value) => (value === item.version ? null : item.version))}
+                      >
+                        <RotateCcw className="size-4" />
+                        Khôi phục
+                      </Button>
+                    </div>
+                    {restoringVersion === item.version && (
+                      <RestoreConfirm
+                        planId={plan.id}
+                        version={item.version}
+                        onCancel={() => setRestoringVersion(null)}
+                        onDone={() => {
+                          setRestoringVersion(null);
+                          setExpandedVersion(null);
+                        }}
+                      />
+                    )}
                     {expandedVersion === item.version && <VersionDetail planId={plan.id} version={item.version} />}
                   </li>
                 );
@@ -121,6 +150,48 @@ export default function PlanVersionsButton({ plan }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Xác nhận khôi phục kèm ghi chú tùy chọn (tối đa 500 ký tự, bỏ trống thì BE ghi "Khôi phục từ phiên bản N").
+function RestoreConfirm({ planId, version, onCancel, onDone }) {
+  const [note, setNote] = useState("");
+  const restore = useRestoreMealPlanVersion();
+
+  const confirm = async () => {
+    try {
+      await restore.mutateAsync({ planId, version, changeSummary: note.trim() || undefined });
+      toast.success(`Đã khôi phục phiên bản ${version}`);
+      onDone();
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-surface p-3">
+      <p className="text-xs text-body">
+        Thực đơn sẽ quay về nội dung của phiên bản {version}. Bản hiện tại vẫn được giữ trong lịch sử. Khẩu phần đã tự
+        chỉnh ở bản hiện tại sẽ theo phiên bản được khôi phục.
+      </p>
+      <input
+        value={note}
+        maxLength={500}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder="Ghi chú thay đổi (không bắt buộc)"
+        aria-label="Ghi chú thay đổi"
+        className="h-10 w-full rounded-xl border border-border bg-card px-3.5 text-sm text-ink outline-none transition placeholder:text-subtle focus:border-brand/40 focus:ring-2 focus:ring-brand/15"
+      />
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={restore.isPending}>
+          Hủy
+        </Button>
+        <Button type="button" size="sm" onClick={confirm} disabled={restore.isPending}>
+          {restore.isPending && <Loader2 className="size-4 animate-spin" />}
+          Xác nhận khôi phục
+        </Button>
+      </div>
+    </div>
   );
 }
 

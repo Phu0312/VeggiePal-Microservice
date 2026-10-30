@@ -8,4 +8,8 @@ export const profileKeys = {
   healthRecords: ["nutrition", "health-records"],
   latestHealthRecord: ["nutrition", "health-records", "latest"],
   healthHistory: (size) => ["nutrition", "health-records", "history", { size }],
+  // Yêu thích và huy hiệu (identity-service /users/me/favorites, /users/me/badges).
+  favoritesRoot: ["profile", "favorites"],
+  favorites: (type) => ["profile", "favorites", type],
+  badges: ["profile", "badges"],
 };

@@ -5,4 +5,6 @@ export const recipeKeys = {
   feed: (params) => ["recipes", "feed", params],
   detail: (id) => ["recipes", "detail", id],
   mine: (size) => ["recipes", "mine", { size }],
+  // Trạng thái "tôi đã thích" của một nhóm công thức (GET /recipes/me/likes).
+  likes: (ids) => ["recipes", "likes", ids],
 };

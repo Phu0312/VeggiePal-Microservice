@@ -3,6 +3,8 @@ import apiClient from "@/shared/api/apiClient";
 /**
  * Restaurant APIs (location-service qua api-gateway). Công khai, không cần token.
  *   GET /restaurants/nearby?lat=&lng=[&radiusKm=5][&veganOnly=false]
+ *   GET /restaurants/search?keyword=[&veganOnly=false][&lat=&lng=]  tìm theo tên / địa chỉ trên mọi khu vực
+ *     (có lat/lng thì BE tính thêm distanceKm)
  *
  * Restaurant: {
  *   id, name, address, latitude, longitude, phoneNumber, rating,
@@ -47,4 +49,17 @@ export async function getNearbyRestaurants({
     throw new Error("Không kết nối được máy chủ, vui lòng thử lại");
   }
   return unwrap(res, "Không lấy được danh sách quán chay") ?? [];
+}
+
+/** GET /restaurants/search — tìm quán theo tên hoặc địa chỉ ở mọi khu vực (không giới hạn bán kính). */
+export async function searchRestaurants({ keyword, veganOnly = false, lat, lng }) {
+  let res;
+  try {
+    res = await apiClient.get("/restaurants/search", {
+      params: { keyword, veganOnly, lat, lng },
+    });
+  } catch {
+    throw new Error("Không kết nối được máy chủ, vui lòng thử lại");
+  }
+  return unwrap(res, "Không tìm được quán chay") ?? [];
 }

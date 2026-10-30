@@ -12,7 +12,7 @@ import { login } from "@/features/auth/api/authApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { resolvePostLoginPath } from "@/features/auth/utils/roleRedirect";
 
-export default function LoginForm({ onSwitchMode }) {
+export default function LoginForm({ onSwitchMode, onForgotPassword }) {
   const navigate = useNavigate();
   const location = useLocation();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -36,10 +36,10 @@ export default function LoginForm({ onSwitchMode }) {
 
   const onSubmit = async (values) => {
     try {
-      const { token, user } = await login(values);
-      setAuth({ token, user, remember: Boolean(values.remember) });
+      const session = await login(values);
+      setAuth({ ...session, remember: Boolean(values.remember) });
       // ADMIN vào thẳng trang quản trị; người dùng thường quay lại trang trước đó (hoặc "/").
-      navigate(resolvePostLoginPath(user, from), { replace: true });
+      navigate(resolvePostLoginPath(session.user, from), { replace: true });
     } catch (err) {
       setError("root", { message: err.message || "Đăng nhập thất bại" });
     }
@@ -105,7 +105,7 @@ export default function LoginForm({ onSwitchMode }) {
           )}
         </div>
 
-        <div className="flex items-center text-[13px]">
+        <div className="flex items-center justify-between gap-3 text-[13px]">
           <label className="flex items-center gap-2 font-medium text-white/75">
             <input
               type="checkbox"
@@ -114,6 +114,9 @@ export default function LoginForm({ onSwitchMode }) {
             />
             Ghi nhớ đăng nhập
           </label>
+          <button type="button" onClick={onForgotPassword} className="font-semibold text-white/85 hover:text-white hover:underline">
+            Quên mật khẩu?
+          </button>
         </div>
 
         <Button

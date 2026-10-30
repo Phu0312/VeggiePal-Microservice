@@ -1,5 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useAutoLogout } from "@/features/auth/hooks/useAutoLogout";
+import { useSessionRefresh } from "@/features/auth/hooks/useSessionRefresh";
 
 import ScrollToTop from "@/shared/components/ScrollToTop";
 
@@ -8,7 +8,7 @@ import ContentFormHost from "./ContentFormHost";
 import AppRoutes from "./routes";
 
 function App() {
-  useAutoLogout();
+  useSessionRefresh();
 
   return (
     <div className="relative min-h-screen">

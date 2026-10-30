@@ -13,6 +13,11 @@ import apiClient from "@/shared/api/apiClient";
  *   POST   /recipes/:id/publish đăng (DRAFT -> PUBLISHED, không kiểm duyệt)
  *   DELETE /recipes/:id         xóa mềm (chuyển ARCHIVED)
  *   GET    /recipes/me          (không gồm công thức đã xóa)
+ *   POST   /recipes/:id/like, DELETE /recipes/:id/like   thích / bỏ thích (chỉ công thức đã đăng)
+ *   GET    /recipes/me/likes?recipeIds=1,2               tôi đã thích các công thức nào (tối đa 200 id)
+ *   POST   /recipes/images      multipart "file" -> { imageUrl } (ảnh cho form tạo mới)
+ *   POST   /recipes/:id/image   multipart "file" -> RecipeResponse (đổi ảnh công thức đã có, lưu ngay)
+ *   Ảnh: JPEG / PNG / WEBP, tối đa 5MB.
  * Công thức ARCHIVED / HIDDEN không sửa, đăng, xóa được (lỗi 4108).
  * Recipe: { id, userId, title, description, imageUrl, servings, prepTime, cookTime,
  *   status, ingredients: [{ ingredientId, ingredientName, quantity, unit, note }],
@@ -48,6 +53,11 @@ const VI_MESSAGES = {
   4106: "Các bước thực hiện bị trùng số thứ tự, vui lòng thử lại",
   4107: "Có đơn vị nguyên liệu chưa được hỗ trợ, vui lòng chọn lại đơn vị",
   4108: "Công thức đã bị xóa hoặc đang bị ẩn nên không thể thực hiện thao tác này",
+  4127: "Vui lòng chọn ảnh",
+  4128: "Ảnh phải là JPEG, PNG hoặc WEBP",
+  4129: "Ảnh không được vượt quá 5MB",
+  4130: "Không tải được ảnh lên, vui lòng thử lại sau",
+  4131: "Thiếu danh sách công thức cần kiểm tra",
 };
 
 function unwrap(res, fallbackMessage) {
@@ -109,4 +119,46 @@ export async function publishRecipe(id) {
 export async function deleteRecipe(id) {
   const res = await apiClient.delete(`/recipes/${id}`);
   unwrap(res, "Xóa công thức thất bại");
+}
+
+/** POST /recipes/:id/like -> { recipeId, liked, likeCount } */
+export async function likeRecipe(id) {
+  const res = await apiClient.post(`/recipes/${id}/like`);
+  return unwrap(res, "Không thích được công thức này");
+}
+
+/** DELETE /recipes/:id/like -> { recipeId, liked, likeCount } */
+export async function unlikeRecipe(id) {
+  const res = await apiClient.delete(`/recipes/${id}/like`);
+  return unwrap(res, "Không bỏ thích được công thức này");
+}
+
+/** GET /recipes/me/likes?recipeIds=... -> [{ recipeId, liked, likeCount }] (BE nhận tối đa 200 id). */
+export async function getMyRecipeLikes(recipeIds) {
+  const res = await apiClient.get("/recipes/me/likes", {
+    params: { recipeIds: recipeIds.join(",") },
+  });
+  return unwrap(res, "Không lấy được trạng thái yêu thích") ?? [];
+}
+
+function imageForm(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return formData;
+}
+
+/** POST /recipes/images — tải ảnh lên trước khi tạo công thức, trả URL để điền vào form. */
+export async function uploadRecipeImageFile(file) {
+  const res = await apiClient.post("/recipes/images", imageForm(file), {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return unwrap(res, "Không tải được ảnh lên")?.imageUrl ?? "";
+}
+
+/** POST /recipes/:id/image — đổi ảnh của công thức đã có (BE lưu ngay), trả công thức đã cập nhật. */
+export async function changeRecipeImage(id, file) {
+  const res = await apiClient.post(`/recipes/${id}/image`, imageForm(file), {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return unwrap(res, "Không đổi được ảnh công thức");
 }

@@ -1,21 +1,22 @@
 import apiClient from "@/shared/api/apiClient";
 
 /**
- * Bảng dịch lỗi dành riêng cho payment-service (mã 6000–6007 của payment-service,
+ * Bảng dịch lỗi dành riêng cho payment-service (mã 7000–7009 của payment-service,
  * không dùng chung với ai-service hay các service khác).
  */
 const PAYMENT_ERROR_MESSAGES = {
   1008: "Phiên đăng nhập hết hạn",
-  6000: "Vui lòng chọn gói thành viên",
-  6001: "Gói không tồn tại",
-  6002: "Gói này không thể mua",
-  6003: "Không tìm thấy đơn hàng",
-  6004: "Cổng thanh toán đang bận, thử lại sau",
-  6005: "Chữ ký thanh toán không hợp lệ",
-  6006: "Số tiền thanh toán không khớp với đơn hàng",
-  6007: "Thanh toán không thành công",
-  6008: "Đơn hàng này không thể huỷ",
-  6009: "Chưa huỷ được đơn, vui lòng thử lại",
+  1018: "Dữ liệu chưa hợp lệ, vui lòng kiểm tra lại",
+  7000: "Vui lòng chọn gói thành viên",
+  7001: "Gói không tồn tại",
+  7002: "Gói này không thể mua",
+  7003: "Không tìm thấy đơn hàng",
+  7004: "Cổng thanh toán đang bận, thử lại sau",
+  7005: "Chữ ký thanh toán không hợp lệ",
+  7006: "Số tiền thanh toán không khớp với đơn hàng",
+  7007: "Thanh toán không thành công",
+  7008: "Đơn hàng này không thể huỷ",
+  7009: "Chưa huỷ được đơn, vui lòng thử lại",
 };
 
 function toPaymentMessage(res, fallbackMessage) {
@@ -27,7 +28,7 @@ function toPaymentMessage(res, fallbackMessage) {
     return PAYMENT_ERROR_MESSAGES[1008];
   }
   if (res.status === 503) {
-    return PAYMENT_ERROR_MESSAGES[6004];
+    return PAYMENT_ERROR_MESSAGES[7004];
   }
   return res.data?.message || fallbackMessage;
 }
@@ -106,7 +107,7 @@ export async function cancelOrder(id) {
   } catch (error) {
     throw networkError(error, "Yêu cầu huỷ đơn quá thời gian chờ");
   }
-  return unwrap(res, PAYMENT_ERROR_MESSAGES[6009]);
+  return unwrap(res, PAYMENT_ERROR_MESSAGES[7009]);
 }
 
 /**

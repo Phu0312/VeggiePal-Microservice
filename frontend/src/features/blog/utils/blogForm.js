@@ -1,4 +1,5 @@
 // Logic thuần của form bài viết: kiểm tra ảnh bìa + diễn giải kết quả kiểm duyệt của BE.
+import { isAiUnavailableReason, moderationReasonVi } from "@/shared/utils/moderation";
 
 export const THUMBNAIL_MAX_BYTES = 5 * 1024 * 1024;
 export const THUMBNAIL_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -21,12 +22,18 @@ export function describeBlogOutcome(blog) {
     case "PUBLISHED":
       return { tone: "success", message: "Bài viết đã được đăng" };
     case "PENDING":
-      return { tone: "info", message: "Bài viết đang chờ kiểm duyệt, bạn sẽ thấy nó khi được duyệt" };
+      // AI kiểm duyệt gián đoạn thì BE chuyển bài sang PENDING kèm lý do tiếng Anh cố định -> dịch và nói rõ.
+      return {
+        tone: "info",
+        message: isAiUnavailableReason(blog.moderationReason)
+          ? `${moderationReasonVi(blog.moderationReason)} Bài viết sẽ hiện khi được duyệt.`
+          : "Bài viết đang chờ kiểm duyệt, bạn sẽ thấy nó khi được duyệt",
+      };
     case "REJECTED":
       return {
         tone: "error",
         message: blog.moderationReason
-          ? `Bài viết không vượt qua kiểm duyệt: ${blog.moderationReason}`
+          ? `Bài viết không vượt qua kiểm duyệt: ${moderationReasonVi(blog.moderationReason)}`
           : "Bài viết không vượt qua kiểm duyệt",
       };
     default:

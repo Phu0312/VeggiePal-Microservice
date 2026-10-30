@@ -55,7 +55,7 @@ export function jobSourceLabel(job) {
 
 /**
  * Trạng thái công thức AI của một video đã đăng, suy ra từ phản hồi của GET /ai/videos/by-video/:id:
- * "ready" (có kết quả) | "processing" (409, mã 6022) | "failed" (mã 6023) | "unsupported" (mã 6021)
+ * "ready" (có kết quả) | "processing" (409, mã 6022) | "failed" (mã 6023) | "unsupported" (mã 6026)
  * | "none" (404, chưa từng bóc tách hoặc kết quả đã hết hạn).
  * Trả null với lỗi khác để nơi gọi ném lỗi.
  */
@@ -67,7 +67,7 @@ export function recipeStateFromResponse(res) {
   }
   if (code === 6022 || res.status === 409) return { state: "processing" };
   if (code === 6023) return { state: "failed" };
-  if (code === 6021) return { state: "unsupported" };
+  if (code === 6026) return { state: "unsupported" };
   if (res.status === 404) return { state: "none" };
   return null;
 }

@@ -9,4 +9,9 @@ export const restaurantKeys = {
     "nearby",
     { lat: round(lat), lng: round(lng), radiusKm, veganOnly },
   ],
+  search: ({ keyword, lat, lng, veganOnly }) => [
+    "restaurants",
+    "search",
+    { keyword, lat: round(lat), lng: round(lng), veganOnly },
+  ],
 };
