@@ -21,6 +21,7 @@ class PlanView extends StatelessWidget {
   final void Function(PlanDay day, PlanMeal meal) onMealTap;
   final VoidCallback onToggleFavorite;
   final VoidCallback? onLeaveVersion;
+  final VoidCallback? onRestoreVersion;
   final bool busy;
 
   const PlanView({
@@ -31,6 +32,7 @@ class PlanView extends StatelessWidget {
     required this.onMealTap,
     required this.onToggleFavorite,
     this.onLeaveVersion,
+    this.onRestoreVersion,
     this.busy = false,
   });
 
@@ -39,7 +41,7 @@ class PlanView extends StatelessWidget {
     final day = plan.dayOf(selectedDay) ?? (plan.days.isEmpty ? null : plan.days.first);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _PlanHeader(
-          plan: plan, busy: busy, onToggleFavorite: onToggleFavorite, onLeaveVersion: onLeaveVersion),
+          plan: plan, busy: busy, onToggleFavorite: onToggleFavorite, onLeaveVersion: onLeaveVersion, onRestoreVersion: onRestoreVersion),
       const SizedBox(height: 12),
       if (day == null)
         const Padding(padding: EdgeInsets.all(16), child: Text('Thực đơn này chưa có dữ liệu ngày.'))
@@ -57,8 +59,13 @@ class _PlanHeader extends StatelessWidget {
   final bool busy;
   final VoidCallback onToggleFavorite;
   final VoidCallback? onLeaveVersion;
+  final VoidCallback? onRestoreVersion;
   const _PlanHeader(
-      {required this.plan, required this.busy, required this.onToggleFavorite, this.onLeaveVersion});
+      {required this.plan,
+      required this.busy,
+      required this.onToggleFavorite,
+      this.onLeaveVersion,
+      this.onRestoreVersion});
 
   @override
   Widget build(BuildContext context) {
@@ -95,13 +102,20 @@ class _PlanHeader extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                   color: AppColors.star.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                const Icon(LucideIcons.history, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text('Đang xem phiên bản cũ (chỉ đọc).',
-                        style: TextStyle(color: context.cs.onSurface, fontSize: 13))),
-                TextButton(onPressed: onLeaveVersion, child: const Text('Về bản hiện tại')),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(LucideIcons.history, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text('Đang xem phiên bản ${plan.viewingVersion} (chỉ đọc).',
+                          style: TextStyle(color: context.cs.onSurface, fontSize: 13))),
+                ]),
+                Wrap(spacing: 8, children: [
+                  TextButton(onPressed: onLeaveVersion, child: const Text('Về bản hiện tại')),
+                  if (onRestoreVersion != null)
+                    FilledButton.tonal(
+                        onPressed: busy ? null : onRestoreVersion, child: const Text('Khôi phục phiên bản này')),
+                ]),
               ]),
             ),
           ],

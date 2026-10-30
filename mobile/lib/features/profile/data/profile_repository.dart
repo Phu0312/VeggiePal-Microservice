@@ -59,6 +59,41 @@ class ProfileRepository {
     return UserProfile.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
+  // GET /users/me/favorites?type= : mới lưu trước. Loại lạ mà app chưa biết bị bỏ qua.
+  Future<List<FavoriteItem>> favorites({FavoriteType? type}) async {
+    final r = await _api.get(Endpoints.myFavorites, query: {if (type != null) 'type': type.code});
+    return [
+      for (final e in asList(r)) ?FavoriteItem.tryParse(Map<String, dynamic>.from(e as Map)),
+    ];
+  }
+
+  // POST /users/me/favorites {targetType, targetId, title, imageUrl}: thêm (lưu lại thì cập nhật tiêu đề / ảnh).
+  Future<FavoriteItem?> saveFavorite(FavoriteType type, int id, String title, String? imageUrl) async {
+    final r = await _api.post(Endpoints.myFavorites, body: {
+      'targetType': type.code,
+      'targetId': id,
+      'title': title.length > 255 ? title.substring(0, 255) : title,
+      if ((imageUrl ?? '').isNotEmpty && imageUrl!.length <= 512) 'imageUrl': imageUrl,
+    });
+    return FavoriteItem.tryParse(Map<String, dynamic>.from(r as Map));
+  }
+
+  // DELETE /users/me/favorites/{type}/{id}
+  Future<void> removeFavorite(FavoriteType type, int id) async {
+    await _api.delete(Endpoints.myFavorite(type.code, id));
+  }
+
+  // GET /users/me/badges : đủ 6 huy hiệu kèm trạng thái đã đạt.
+  Future<BadgeCollection> badges() async {
+    final r = await _api.get(Endpoints.myBadges);
+    return BadgeCollection.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  // POST /users/me/badges/{code} : mở khoá một huy hiệu (idempotent, gọi lại không báo lỗi).
+  Future<void> unlockBadge(String code) async {
+    await _api.post(Endpoints.myBadge(code));
+  }
+
   // GET /users/batch?ids=1&ids=2 (công khai, tối đa 50) -> tên + avatar của tác giả.
   Future<List<PublicUser>> publicUsers(List<int> ids) async {
     if (ids.isEmpty) return const [];

@@ -71,14 +71,18 @@ Swagger UI tổng hợp của gateway gom tài liệu API của các service (xe
 | Tài khoản | Đăng ký, đăng nhập, đăng nhập Google, hồ sơ, ảnh đại diện, đổi mật khẩu | ✓ | ✓ |
 | Quên mật khẩu, xác minh email, giữ phiên | Đặt lại mật khẩu bằng mã OTP 6 số, xác minh email, tự làm mới phiên bằng refresh token | — | ✓ |
 | Sức khỏe | Ghi chiều cao/cân nặng, lịch sử BMI, khai báo dị ứng | ✓ | ✓ |
+| Nhật ký dinh dưỡng | Ghi món ăn theo bữa, nước uống, vận động; calo và macro so với mục tiêu theo ngày | — | ✓ |
 | Thực đơn AI | Thực đơn 7 ngày × 3 bữa từ công thức thật, loại món chứa chất dị ứng đã khai báo, mục tiêu calo/macro do BE tính, đổi món, thực đơn yêu thích, lịch sử phiên bản | ✓ | ✓ |
 | Chatbot | Hỏi đáp dinh dưỡng chay, nhiều đoạn chat; khách được dùng thử có giới hạn theo ngày | ✓ | ✓ |
 | Video | Đăng video (.mp4 hoặc liên kết YouTube), bóc tách nguyên liệu và các bước nấu bằng AI | ✓ | ✓ |
 | Blog | Blog, bình luận nhiều cấp, vote, danh mục, kiểm duyệt tự động | ✓ | ✓ |
-| Công thức, nguyên liệu | Tra cứu, tạo và đăng công thức, danh mục nguyên liệu | ✓ | ✓ |
-| Bản đồ | Tìm quán chay gần vị trí của bạn | ✓ (Mapbox) | ✓ (flutter_map) |
+| Công thức, nguyên liệu | Tra cứu, tạo và đăng công thức, danh mục nguyên liệu; mobile có thêm thích công thức, sắp xếp phổ biến, tải ảnh lên | ✓ | ✓ |
+| Bản đồ | Tìm quán chay gần vị trí của bạn; mobile có thêm tìm theo từ khoá trên toàn bộ quán | ✓ (Mapbox) | ✓ (flutter_map) |
 | Gói thành viên | FREE / PLUS (29.000 VND) / PRO (59.000 VND), thanh toán PayOS VietQR, hạn mức chat, thực đơn và video theo gói | ✓ | ✓ |
 | Quản trị (ADMIN) | Hàng đợi kiểm duyệt, giám sát AI, thống kê thanh toán | ✓ | ✓ |
+| Cộng đồng | Bảng xếp hạng tác giả, chủ đề nổi bật, theo dõi tác giả, thử thách 7 ngày | — | ✓ |
+| Yêu thích, huy hiệu | Lưu công thức / bài viết / video, huy hiệu xanh; vote video và dinh dưỡng của video | — | ✓ |
+| Hạn mức AI | Xem lượt chat, thực đơn, bóc tách video đã dùng và còn lại; khôi phục phiên bản thực đơn | — | ✓ |
 | Quản lý tài khoản (ADMIN) | Tìm và lọc tài khoản, khóa / mở khóa, cấp hoặc gỡ quyền quản trị | — | ✓ |
 
 ## Công nghệ

@@ -47,6 +47,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     final outcome = await pending;
     if (!mounted) return;
     _scrollToEnd();
+    if (outcome.ok) context.read<SubscriptionController>().refreshQuota();
     if (outcome.ok || outcome.error == null) return;
     // Gửi thất bại: trả câu hỏi về ô nhập để người dùng gửi lại, không phải gõ lại.
     if (_input.text.isEmpty) _input.text = text.trim();

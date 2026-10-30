@@ -12,10 +12,12 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../profile/data/profile_models.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/favorite_button.dart';
 import '../../payment/presentation/upgrade_dialog.dart';
 import '../data/video_models.dart';
 import '../data/video_repository.dart';
 import 'extraction_view.dart';
+import 'video_nutrition_widgets.dart';
 import 'video_player_view.dart';
 
 /// Xem video (GET /videos/{id}, mỗi lần mở tính một lượt xem): trình phát, tác giả, mô tả và thẻ
@@ -35,6 +37,9 @@ class _VideoWatchScreenState extends State<VideoWatchScreen> {
   PublicUser? _author;
   bool _loading = true;
   bool _failed = false;
+  int? _myVote;
+  int? _score; // điểm sau khi bầu; null = dùng điểm trong dữ liệu video
+  bool _voting = false;
 
   @override
   void initState() {
@@ -59,6 +64,7 @@ class _VideoWatchScreenState extends State<VideoWatchScreen> {
       if (!mounted) return;
       setState(() => _video = v);
       _loadAuthor(v.authorId);
+      _loadMyVote(v.id);
     } catch (e) {
       if (!mounted) return;
       setState(() => _failed = _video == null);
@@ -66,6 +72,65 @@ class _VideoWatchScreenState extends State<VideoWatchScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Phiếu bầu của tôi chỉ là thông tin phụ, lỗi được bỏ qua.
+  Future<void> _loadMyVote(int id) async {
+    if (!context.read<AuthController>().isLoggedIn) return;
+    try {
+      final votes = await context.read<VideoRepository>().myVotes([id]);
+      if (mounted && votes.isNotEmpty) setState(() => _myVote = votes.first.myVote);
+    } catch (_) {}
+  }
+
+  Future<void> _vote(int value) async {
+    final v = _video;
+    if (v == null) return;
+    if (!context.read<AuthController>().isLoggedIn) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      return;
+    }
+    setState(() => _voting = true);
+    try {
+      // Bầu lại đúng giá trị đang chọn thì BE tự rút phiếu.
+      final r = await context.read<VideoRepository>().vote(v.id, value);
+      if (mounted) {
+        setState(() {
+          _myVote = r.myVote;
+          _score = r.voteScore;
+        });
+      }
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không bầu chọn được');
+    } finally {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
+  bool get _canEditNutrition {
+    final v = _video;
+    final auth = context.read<AuthController>();
+    return v != null && auth.isLoggedIn && (v.authorId == auth.user?.id || auth.isAdmin);
+  }
+
+  Future<void> _editNutrition() async {
+    final v = _video!;
+    final saved = await showEditVideoNutrition(context, v.id, v.nutrition);
+    if (saved != null && mounted) {
+      setState(() => _video = v.withNutrition(saved));
+      showSnack(context, 'Đã cập nhật dinh dưỡng');
+    }
+  }
+
+  Widget _voteButton(IconData icon, int value, String label) {
+    final selected = _myVote == value;
+    return IconButton.filledTonal(
+      tooltip: label,
+      onPressed: _voting ? null : () => _vote(value),
+      isSelected: selected,
+      icon: Icon(icon),
+      selectedIcon: Icon(icon, color: context.cs.primary),
+    );
   }
 
   /// Tên tác giả chỉ là thông tin phụ, lỗi được bỏ qua.
@@ -81,7 +146,13 @@ class _VideoWatchScreenState extends State<VideoWatchScreen> {
   Widget build(BuildContext context) {
     final v = _video;
     return Scaffold(
-      appBar: AppBar(title: Text(v?.title ?? 'Video', maxLines: 1, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(
+        title: Text(v?.title ?? 'Video', maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (v != null)
+            FavoriteButton(type: FavoriteType.video, targetId: v.id, title: v.title, imageUrl: v.thumbnailUrl),
+        ],
+      ),
       body: v == null
           ? (_loading
               ? const Center(child: CircularProgressIndicator())
@@ -115,6 +186,16 @@ class _VideoWatchScreenState extends State<VideoWatchScreen> {
                     Text(v.description!.trim(), style: const TextStyle(height: 1.4)),
                   ],
                   if (v.status == 'PUBLISHED') ...[
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      _voteButton(LucideIcons.thumbsUp, 1, 'Thích'),
+                      const SizedBox(width: 8),
+                      Text('${_score ?? v.voteScore}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      const SizedBox(width: 8),
+                      _voteButton(LucideIcons.thumbsDown, -1, 'Không thích'),
+                    ]),
+                    const SizedBox(height: 12),
+                    VideoNutritionCard(nutrition: v.nutrition, onEdit: _canEditNutrition ? _editNutrition : null),
                     const SizedBox(height: 16),
                     _AiRecipeCard(video: v),
                   ],

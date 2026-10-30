@@ -33,6 +33,10 @@ class Endpoints {
   static const myPassword = '/users/me/password';
   static const myAvatar = '/users/me/avatar';
   static const usersBatch = '/users/batch';
+  static const myFavorites = '/users/me/favorites';
+  static String myFavorite(String type, int id) => '/users/me/favorites/$type/$id';
+  static const myBadges = '/users/me/badges';
+  static String myBadge(String code) => '/users/me/badges/$code';
 
   // ---- Blog service ----
   static const blogs = '/blogs';
@@ -50,7 +54,18 @@ class Endpoints {
   static const myVideos = '/videos/me';
   static String videoById(int id) => '/videos/$id';
   static String videoSubmit(int id) => '/videos/$id/submit';
+  static String videoVote(int id) => '/videos/$id/vote';
+  static const myVideoVotes = '/videos/me/votes';
+  static String videoNutrition(int id) => '/videos/$id/nutrition';
   static const categories = '/categories';
+  static const communityStats = '/blogs/community/stats';
+  static const communityTrending = '/blogs/community/trending-topics';
+  static const communityLeaderboard = '/blogs/community/leaderboard';
+  static const videoChannels = '/videos/channels';
+  static String authorFollow(int authorId) => '/blogs/authors/$authorId/follow';
+  static const myFollowing = '/blogs/me/following';
+  static const challengeMe = '/blogs/challenge/me';
+  static const challengeCheckIn = '/blogs/challenge/check-in';
   static const comments = '/comments';
 
   // ---- Nutrition service ----
@@ -59,6 +74,11 @@ class Endpoints {
   static const healthRecords = '/nutrition/me/health-records';
   static String healthRecordById(int id) => '/nutrition/me/health-records/$id';
   static const healthRecordLatest = '/nutrition/me/health-records/latest';
+  static const foodLogs = '/nutrition/me/food-logs';
+  static String foodLog(int id) => '/nutrition/me/food-logs/$id';
+  static const water = '/nutrition/me/water';
+  static const dailyActivity = '/nutrition/me/daily-activity';
+  static const dailySummary = '/nutrition/me/daily-summary';
   // ---- AI service: thực đơn tuần ----
   static const aiMealPlans = '/ai/meal-plans';
   static String aiMealPlan(int id) => '/ai/meal-plans/$id';
@@ -66,6 +86,7 @@ class Endpoints {
   static String aiMealPlanFavorite(int id) => '/ai/meal-plans/$id/favorite';
   static const aiMealPlanFavorites = '/ai/meal-plans/favorites';
   static String aiMealPlanVersions(int id) => '/ai/meal-plans/$id/versions';
+  static String aiMealPlanRestore(int id, int version) => '/ai/meal-plans/$id/versions/$version/restore';
   static const aiNutritionTarget = '/ai/meal-plans/nutrition-target';
 
   // ---- Recipe service ----
@@ -73,10 +94,15 @@ class Endpoints {
   static const myRecipes = '/recipes/me';
   static String recipeById(int id) => '/recipes/$id';
   static String recipePublish(int id) => '/recipes/$id/publish';
+  static const recipesPopular = '/recipes/popular';
+  static const myRecipeLikes = '/recipes/me/likes';
+  static const recipeImages = '/recipes/images';
+  static String recipeLike(int id) => '/recipes/$id/like';
   static const ingredients = '/ingredients';
   static String ingredientById(int id) => '/ingredients/$id';
 
   static const restaurantsNearby = '/restaurants/nearby';
+  static const restaurantsSearch = '/restaurants/search';
   // ---- AI service: bóc tách công thức từ video ----
   static const videoJobs = '/ai/videos';
   static const videoProcess = '/ai/videos/process';
@@ -101,6 +127,7 @@ class Endpoints {
   static String paymentOrderCancel(int id) => '/payments/orders/$id/cancel';
   static const paymentHistory = '/payments/history';
   static const mySubscription = '/subscriptions/me';
+  static const myQuotas = '/ai/quotas/me';
 
   // ---- Quản trị ----
   static const aiModeration = '/ai/admin/moderation';

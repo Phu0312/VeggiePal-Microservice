@@ -20,6 +20,81 @@ String videoStatusLabel(String status) => switch (status) {
       _ => status,
     };
 
+/// Một nguyên liệu trong phần dinh dưỡng của video (VideoNutritionResponse.IngredientLine).
+class VideoIngredient {
+  final String name;
+  final String? amount;
+  const VideoIngredient(this.name, [this.amount]);
+}
+
+/// Dinh dưỡng và nguyên liệu do người đăng khai báo cho video (blog-service: VideoNutritionResponse).
+class VideoNutrition {
+  final String? servingLabel;
+  final int? kcal;
+  final double? protein, carbs, fat, fiber;
+  final List<VideoIngredient> ingredients;
+
+  const VideoNutrition(
+      {this.servingLabel, this.kcal, this.protein, this.carbs, this.fat, this.fiber, this.ingredients = const []});
+
+  factory VideoNutrition.fromJson(Map<String, dynamic> j) => VideoNutrition(
+        servingLabel: j['servingLabel'] as String?,
+        kcal: (j['kcal'] as num?)?.toInt(),
+        protein: (j['proteinG'] as num?)?.toDouble(),
+        carbs: (j['carbsG'] as num?)?.toDouble(),
+        fat: (j['fatG'] as num?)?.toDouble(),
+        fiber: (j['fiberG'] as num?)?.toDouble(),
+        ingredients: [
+          for (final i in (j['ingredients'] as List? ?? const []))
+            VideoIngredient('${(i as Map)['name'] ?? ''}', i['amount'] as String?),
+        ],
+      );
+
+  bool get hasMacros => kcal != null || protein != null || carbs != null || fat != null || fiber != null;
+
+  /// Nội dung gửi lên PUT /videos/{id}/nutrition.
+  Map<String, dynamic> toJson() => {
+        'servingLabel': servingLabel,
+        'kcal': kcal,
+        'proteinG': protein,
+        'carbsG': carbs,
+        'fatG': fat,
+        'fiberG': fiber,
+        'ingredients': [
+          for (final i in ingredients) {'name': i.name, 'amount': i.amount},
+        ],
+      };
+
+  /// Đọc ô nhập "mỗi dòng một nguyên liệu, dạng `tên | lượng`". Dòng trống bị bỏ qua.
+  static List<VideoIngredient> parseIngredientLines(String text) {
+    final result = <VideoIngredient>[];
+    for (final raw in text.split(RegExp(r'\r?\n'))) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      final sep = line.indexOf('|');
+      final name = (sep < 0 ? line : line.substring(0, sep)).trim();
+      final amount = sep < 0 ? '' : line.substring(sep + 1).trim();
+      if (name.isNotEmpty) result.add(VideoIngredient(name, amount.isEmpty ? null : amount));
+    }
+    return result;
+  }
+
+  /// Ngược lại của [parseIngredientLines], để điền vào ô nhập khi sửa.
+  static String ingredientLines(List<VideoIngredient> items) =>
+      items.map((i) => (i.amount ?? '').isEmpty ? i.name : '${i.name} | ${i.amount}').join('\n');
+}
+
+/// Phiếu bầu của tôi và điểm hiện tại của một video (blog-service: VoteResponse với videoId).
+class VideoVote {
+  final int videoId;
+  final int? myVote; // 1, -1 hoặc null (chưa bầu)
+  final int? voteScore; // null khi lấy theo GET /videos/me/votes
+  const VideoVote(this.videoId, this.myVote, this.voteScore);
+
+  factory VideoVote.fromJson(Map<String, dynamic> j) =>
+      VideoVote((j['videoId'] as num).toInt(), (j['myVote'] as num?)?.toInt(), (j['voteScore'] as num?)?.toInt());
+}
+
 /// Một video (blog-service: VideoResponse).
 class Video {
   final int id;
@@ -33,6 +108,8 @@ class Video {
   final String? thumbnailUrl;
   final String status; // DRAFT | PENDING | PUBLISHED | REJECTED | BANNED
   final int viewCount;
+  final int voteScore;
+  final VideoNutrition? nutrition; // null khi người đăng chưa khai báo
   final DateTime? publishedAt;
   final DateTime? createdAt;
   final String? moderationReason; // chỉ có khi kiểm duyệt từ chối / hoãn
@@ -49,6 +126,8 @@ class Video {
     this.thumbnailUrl,
     required this.status,
     this.viewCount = 0,
+    this.voteScore = 0,
+    this.nutrition,
     this.publishedAt,
     this.createdAt,
     this.moderationReason,
@@ -66,12 +145,33 @@ class Video {
         thumbnailUrl: j['thumbnailUrl'] as String?,
         status: '${j['status'] ?? 'DRAFT'}',
         viewCount: (j['viewCount'] as num?)?.toInt() ?? 0,
+        voteScore: (j['voteScore'] as num?)?.toInt() ?? 0,
+        nutrition: j['nutrition'] is Map ? VideoNutrition.fromJson(Map<String, dynamic>.from(j['nutrition'] as Map)) : null,
         publishedAt: j['publishedAt'] == null ? null : DateTime.tryParse('${j['publishedAt']}'),
         createdAt: j['createdAt'] == null ? null : DateTime.tryParse('${j['createdAt']}'),
         moderationReason: j['moderationReason'] as String?,
       );
 
   bool get isYoutube => sourceType == 'YOUTUBE';
+
+  Video withNutrition(VideoNutrition? n) => Video(
+        id: id,
+        authorId: authorId,
+        categoryId: categoryId,
+        categoryName: categoryName,
+        title: title,
+        description: description,
+        sourceType: sourceType,
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        status: status,
+        viewCount: viewCount,
+        voteScore: voteScore,
+        nutrition: n,
+        publishedAt: publishedAt,
+        createdAt: createdAt,
+        moderationReason: moderationReason,
+      );
 
   /// Mã 11 ký tự của video YouTube (lấy từ link nhúng); null với video tải lên.
   String? get youtubeId => isYoutube ? extractYouTubeId(videoUrl) : null;

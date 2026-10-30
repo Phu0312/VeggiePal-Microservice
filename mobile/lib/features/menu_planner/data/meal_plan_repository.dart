@@ -80,6 +80,13 @@ class MealPlanRepository {
         .toList();
   }
 
+  // POST /ai/meal-plans/{id}/versions/{version}/restore : đưa nội dung phiên bản cũ về làm thực đơn hiện tại. BE lưu
+  // nội dung hiện tại thành một phiên bản trong lịch sử trước khi thay nên không mất gì. Lỗi 6017 = không có phiên bản đó.
+  Future<MealPlan> restoreVersion(int id, int version) async {
+    _requireLogin();
+    return _plan(await _api.post(Endpoints.aiMealPlanRestore(id, version)));
+  }
+
   // GET /ai/meal-plans/nutrition-target?goalType= -> mục tiêu calo backend tính từ hồ sơ.
   // Lỗi 6010 (thiếu chỉ số sức khỏe) / 6020 (thiếu hồ sơ) / 6021 (dưới 18 tuổi) được ném lại.
   Future<NutritionTargetInfo> nutritionTarget(PlanGoal goal) async {

@@ -13,7 +13,7 @@ import 'recipe_form_screen.dart';
 import 'recipe_widgets.dart';
 
 /// Phần "Công thức" của tab Thực đơn: công thức đã đăng (công khai) với tìm kiếm theo từ khoá và phân trang.
-/// API: GET /recipes?keyword=&page=&size=. Thành viên có thêm lối vào "Của tôi" và "Tạo công thức".
+/// API: GET /recipes?keyword=&page=&size= (mới nhất) hoặc GET /recipes/popular (phổ biến, không có từ khoá). Thành viên có thêm lối vào "Của tôi" và "Tạo công thức".
 class RecipesTab extends StatefulWidget {
   const RecipesTab({super.key});
 
@@ -28,6 +28,7 @@ class _RecipesTabState extends State<RecipesTab> with AutomaticKeepAliveClientMi
   final _search = TextEditingController();
   final _list = GlobalKey<PagedRecipesState>();
   String _keyword = '';
+  bool _popular = false; // true: GET /recipes/popular (nhiều lượt thích nhất), chỉ khi không tìm theo từ khoá
 
   @override
   void dispose() {
@@ -37,6 +38,15 @@ class _RecipesTabState extends State<RecipesTab> with AutomaticKeepAliveClientMi
 
   void _submit(String text) {
     _keyword = text.trim();
+    // /recipes/popular không hỗ trợ từ khoá nên tìm kiếm luôn sắp theo mới nhất.
+    if (_keyword.isNotEmpty) _popular = false;
+    setState(() {});
+    _list.currentState?.reload();
+  }
+
+  void _setPopular(bool value) {
+    if (_popular == value) return;
+    setState(() => _popular = value);
     _list.currentState?.reload();
   }
 
@@ -92,10 +102,23 @@ class _RecipesTabState extends State<RecipesTab> with AutomaticKeepAliveClientMi
                   label: const Text('Tạo công thức'))),
         ]),
       ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(children: [
+          ChoiceChip(label: const Text('Mới nhất'), selected: !_popular, onSelected: (_) => _setPopular(false)),
+          const SizedBox(width: 8),
+          ChoiceChip(
+              label: const Text('Phổ biến'),
+              selected: _popular,
+              onSelected: _keyword.isNotEmpty ? null : (_) => _setPopular(true)),
+        ]),
+      ),
       Expanded(
         child: PagedRecipes(
           key: _list,
-          load: (page) => repo.published(keyword: _keyword, page: page),
+          load: (page) => _popular && _keyword.isEmpty
+              ? repo.popular(page: page)
+              : repo.published(keyword: _keyword, page: page),
           onTap: _open,
           emptyText: _keyword.isEmpty
               ? 'Chưa có công thức nào được đăng.'

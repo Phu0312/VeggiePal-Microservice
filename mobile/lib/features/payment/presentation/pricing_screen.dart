@@ -13,6 +13,7 @@ import '../data/payment_repository.dart';
 import '../data/subscription_controller.dart';
 import 'checkout_screen.dart';
 import 'payment_history_screen.dart';
+import 'quota_meter.dart';
 
 /// Gói thành viên (GET /payments/plans, công khai): gói đang dùng, hạn mức từng gói và nút mua / gia hạn.
 /// Mua gói trả phí tạo đơn (POST /payments/checkout) rồi mở màn thanh toán QR. Khách bấm mua thì được mời đăng nhập.
@@ -151,10 +152,12 @@ class _CurrentPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = sub.subscription;
+    final q = sub.quota;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(children: [
+        child: Column(children: [
+          Row(children: [
           Container(
             width: 48,
             height: 48,
@@ -181,6 +184,13 @@ class _CurrentPlanCard extends StatelessWidget {
                         style: TextStyle(fontSize: 13, color: context.textMuted)),
                   ]),
           ),
+          ]),
+          if (q != null) ...[
+            const Divider(height: 24),
+            QuotaMeter(title: 'Hỏi trợ lý AI', quota: q.chat),
+            QuotaMeter(title: 'Tạo thực đơn tuần', quota: q.mealPlan),
+            QuotaMeter(title: 'Bóc tách công thức từ video', quota: q.video),
+          ],
         ]),
       ),
     );

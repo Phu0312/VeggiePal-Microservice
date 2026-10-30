@@ -22,6 +22,8 @@ const Map<int, String> errorMessagesVi = {
   1018: 'Dữ liệu không hợp lệ.',
   1019: 'Không xác thực được tài khoản Google. Vui lòng thử lại.',
   1020: 'Tài khoản đã ở trạng thái này.',
+  1031: 'Thiếu loại hoặc mã của mục cần lưu.',
+  1032: 'Huy hiệu không tồn tại.',
   1021: 'Tài khoản đang bị khóa hoặc chưa được kích hoạt.',
   1022: 'Quản trị viên không thể tự khóa hoặc tự hạ quyền chính mình.',
   1023: 'Tài khoản đã có vai trò này.',
@@ -43,6 +45,9 @@ const Map<int, String> errorMessagesVi = {
   // ai-service
   6000: 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại nội dung đã nhập.',
   6002: 'Không tìm thấy dữ liệu yêu cầu (có thể đã bị xoá).',
+  6014: 'Thực đơn này đã có trong danh sách yêu thích.',
+  6015: 'Thực đơn yêu thích không tồn tại.',
+  6017: 'Phiên bản thực đơn không tồn tại.',
   6012: 'Nội dung đã bị xoá nên không áp dụng được quyết định.',
   6013: 'Ca kiểm duyệt này đã được xử lý.',
   6003: 'Bạn đã hết lượt sử dụng tính năng AI theo gói hiện tại.',
@@ -76,6 +81,10 @@ const Map<int, String> errorMessagesVi = {
   4105: 'Có nguyên liệu bị chọn trùng, mỗi nguyên liệu chỉ được thêm một lần.',
   4106: 'Các bước thực hiện bị trùng số thứ tự, vui lòng thử lại.',
   4107: 'Có đơn vị nguyên liệu chưa được hỗ trợ, vui lòng chọn lại đơn vị.',
+  4111: 'Link ảnh công thức quá dài.',
+  4127: 'Vui lòng chọn ảnh công thức.',
+  4128: 'Ảnh công thức phải là JPEG, PNG hoặc WEBP.',
+  4129: 'Ảnh công thức không được vượt quá 5MB.',
   4108: 'Công thức đã bị xoá hoặc đang bị ẩn nên không thể thực hiện thao tác này.',
   // blog-service
   3001: 'Vui lòng nhập tên danh mục.',
@@ -116,6 +125,8 @@ const Map<int, String> errorMessagesVi = {
   3065: 'Video phải là tệp MP4.',
   3066: 'Video vượt quá dung lượng cho phép (tối đa 30MB).',
   3067: 'Link YouTube không hợp lệ.',
+  3070: 'Bạn không thể tự theo dõi chính mình.',
+  3071: 'Giá trị dinh dưỡng phải từ 0 trở lên.',
   3068: 'Video đang ở trạng thái không cho phép thực hiện thao tác này.',
 };
 

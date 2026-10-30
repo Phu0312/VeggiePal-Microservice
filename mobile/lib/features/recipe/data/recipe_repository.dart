@@ -1,5 +1,10 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+
 import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/image_type.dart';
 import '../../blog/data/blog_models.dart';
 import 'recipe_models.dart';
 
@@ -48,6 +53,9 @@ class RecipePayload {
       };
 }
 
+/// Dung lượng ảnh công thức tối đa (recipe-service: 5MB).
+const maxRecipeImageBytes = 5 * 1024 * 1024;
+
 /// recipe-service: công thức và danh mục nguyên liệu. Đọc là công khai; tạo / sửa / đăng / xoá cần JWT
 /// và chỉ chủ công thức hoặc ADMIN được sửa. Mọi lỗi được ném lại cho UI hiển thị popup.
 class RecipeRepository {
@@ -81,6 +89,42 @@ class RecipeRepository {
       'size': size,
     });
     return _page(r, page);
+  }
+
+  // GET /recipes/popular?page=&size= : công thức đã đăng, nhiều lượt thích nhất trước (không có tìm theo từ khoá).
+  Future<PageData<Recipe>> popular({int page = 0, int size = 10}) async {
+    final r = await _api.get(Endpoints.recipesPopular, query: {'page': page, 'size': size});
+    return _page(r, page);
+  }
+
+  // GET /recipes/me/likes?recipeIds=1,2 : tôi đã thích công thức nào (trả đủ từng id được hỏi).
+  Future<Map<int, RecipeLike>> myLikes(List<int> ids) async {
+    _requireLogin();
+    if (ids.isEmpty) return {};
+    final r = await _api.get(Endpoints.myRecipeLikes, query: {'recipeIds': ids.join(',')});
+    return {
+      for (final e in asList(r))
+        (e['recipeId'] as num).toInt(): RecipeLike.fromJson(Map<String, dynamic>.from(e as Map)),
+    };
+  }
+
+  // POST /recipes/{id}/like và DELETE cùng đường dẫn : thích / bỏ thích, trả trạng thái và tổng lượt mới.
+  Future<RecipeLike> setLike(int id, bool like) async {
+    _requireLogin();
+    final r = like ? await _api.post(Endpoints.recipeLike(id)) : await _api.delete(Endpoints.recipeLike(id));
+    _cache.remove(id);
+    return RecipeLike.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  // POST /recipes/images (multipart `file`; JPEG/PNG/WEBP, tối đa 5MB) -> {imageUrl}: tải ảnh lên Cloudinary
+  // trước khi tạo công thức; gửi URL nhận được trong `imageUrl` của công thức.
+  Future<String> uploadImage(Uint8List bytes) async {
+    _requireLogin();
+    final type = sniffImageType(bytes);
+    if (type == null) throw ApiException('Ảnh công thức phải là JPEG, PNG hoặc WEBP.');
+    if (bytes.length > maxRecipeImageBytes) throw ApiException('Ảnh công thức không được vượt quá 5MB.');
+    final r = await _api.post(Endpoints.recipeImages, body: FormData.fromMap({'file': imagePart(bytes, type)}));
+    return '${(r as Map)['imageUrl']}';
   }
 
   // GET /recipes/me : của tôi ở mọi trạng thái trừ đã xoá.
