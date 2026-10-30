@@ -69,6 +69,7 @@ Swagger UI tổng hợp của gateway gom tài liệu API của các service (xe
 | Nhóm | Mô tả | Web | Mobile |
 |---|---|:---:|:---:|
 | Tài khoản | Đăng ký, đăng nhập, đăng nhập Google, hồ sơ, ảnh đại diện, đổi mật khẩu | ✓ | ✓ |
+| Quên mật khẩu, xác minh email, giữ phiên | Đặt lại mật khẩu bằng mã OTP 6 số, xác minh email, tự làm mới phiên bằng refresh token | — | ✓ |
 | Sức khỏe | Ghi chiều cao/cân nặng, lịch sử BMI, khai báo dị ứng | ✓ | ✓ |
 | Thực đơn AI | Thực đơn 7 ngày × 3 bữa từ công thức thật, loại món chứa chất dị ứng đã khai báo, mục tiêu calo/macro do BE tính, đổi món, thực đơn yêu thích, lịch sử phiên bản | ✓ | ✓ |
 | Chatbot | Hỏi đáp dinh dưỡng chay, nhiều đoạn chat; khách được dùng thử có giới hạn theo ngày | ✓ | ✓ |

@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../constants/endpoints.dart';
+import '../storage/session_store.dart';
 import 'error_messages.dart';
 
 /// Lỗi nghiệp vụ/mạng đã chuẩn hoá để repository và UI xử lý thống nhất.
@@ -25,25 +27,68 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 15),
       contentType: 'application/json',
     ));
-    _dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
+    _dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) async {
+      // Access token sắp/đã hết hạn: đổi token mới trước khi gửi. Lỗi làm mới được AuthController xử lý
+      // (đăng xuất nếu BE từ chối); ở đây cứ gửi tiếp, 401 nếu có sẽ do onError bên dưới xử lý.
+      final t = token;
+      if (t != null && _canRefresh(o.path) && SessionStore.isJwtExpired(t, leeway: _refreshLeeway)) {
+        await refreshSession!();
+      }
       if (token != null) o.headers['Authorization'] = 'Bearer $token';
       h.next(o);
-    }, onError: (e, h) {
+    }, onError: (e, h) async {
       // 401 trên request đã gắn token của phiên hiện tại = phiên hết hạn/bị thu hồi.
-      final sent = e.requestOptions.headers['Authorization'];
-      if (e.response?.statusCode == 401 && sent != null && sent == 'Bearer $token') {
+      final req = e.requestOptions;
+      final sent = req.headers['Authorization'];
+      if (e.response?.statusCode == 401 && sent != null && sent == 'Bearer $token' && !_isAuthPath(req.path)) {
+        // Thử đổi refresh token lấy access token mới rồi gửi lại đúng một lần. Request multipart không gửi lại
+        // được (luồng dữ liệu đã đọc hết): chỉ làm mới để lần thử sau của người dùng thành công.
+        if (_canRefresh(req.path) && req.extra['retried'] != true) {
+          final ok = await refreshSession!();
+          if (!ok) return h.next(e); // BE từ chối thì AuthController đã đăng xuất; mất mạng thì báo lỗi như thường
+          if (req.data is! FormData) {
+            req.extra['retried'] = true;
+            req.headers['Authorization'] = 'Bearer $token';
+            try {
+              return h.resolve(await _dio.fetch(req));
+            } on DioException catch (retryError) {
+              return h.next(retryError);
+            }
+          }
+          return h.next(e);
+        }
         onSessionExpired?.call();
       }
       h.next(e);
     }));
   }
 
+  /// Làm mới access token trước khi hết hạn chừng này để request không chết giữa đường.
+  static const _refreshLeeway = Duration(seconds: 30);
+
+  /// Các endpoint /auth/* tự xử lý phiên của mình (đăng nhập, làm mới, đăng xuất...), không đi qua cơ chế làm mới.
+  static bool _isAuthPath(String path) => path.startsWith('/auth/');
+
+  bool _canRefresh(String path) => refreshToken != null && refreshSession != null && !_isAuthPath(path);
+
+  /// Dio bên dưới, để test thay `httpClientAdapter`.
+  @visibleForTesting
+  Dio get dio => _dio;
+
   late final Dio _dio;
 
   /// JWT hiện tại (AuthController cập nhật khi đăng nhập/đăng xuất).
   String? token;
 
-  /// Được gọi khi BE trả 401 cho request đang dùng token của phiên hiện tại (AuthController đăng ký).
+  /// Refresh token của phiên hiện tại (AuthController cập nhật cùng với [token]).
+  String? refreshToken;
+
+  /// AuthController đăng ký: đổi [refreshToken] lấy token mới và cập nhật [token]. Trả `false` nếu không làm mới
+  /// được (BE từ chối, hoặc không kết nối được máy chủ). Chỉ được gọi khi [refreshToken] khác null.
+  Future<bool> Function()? refreshSession;
+
+  /// Được gọi khi BE trả 401 cho request đang dùng token của phiên hiện tại mà không làm mới được
+  /// (AuthController đăng ký).
   void Function()? onSessionExpired;
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>

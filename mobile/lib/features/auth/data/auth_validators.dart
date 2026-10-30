@@ -30,3 +30,10 @@ String? validateConfirmPassword(String? v, String password) {
   if ((v ?? '').isEmpty) return 'Vui lòng nhập lại mật khẩu';
   return v == password ? null : 'Mật khẩu nhập lại không khớp';
 }
+
+/// Mã OTP của BE gồm đúng 6 chữ số.
+String? validateOtp(String? v) {
+  final t = (v ?? '').trim();
+  if (t.isEmpty) return 'Vui lòng nhập mã xác nhận';
+  return RegExp(r'^\d{6}$').hasMatch(t) ? null : 'Mã gồm 6 chữ số';
+}
