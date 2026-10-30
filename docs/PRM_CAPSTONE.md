@@ -1170,6 +1170,9 @@ The result of each test run is recorded by the "Run tests" step of the `maven` j
 4. Open Profile > Personal Information and enter date of birth, gender and activity level; the meal planner needs them to compute the daily calorie target.
 5. Select all personal allergens (for example soybeans, peanuts, wheat gluten, mushrooms).
 6. The Profile screen of the mobile app summarises the account: the current plan, the number of the user's blogs, recipes and videos, the latest BMI and a line chart of BMI or weight over the last six health records with the change since the first of them. It reminds the user to add any of date of birth, gender and activity level that is missing (or says that calorie targets are only available from age 18), and the allergy menu shows how many substances are avoided; the health history lists each record with the weight change since the previous one.
+7. Email verification (mobile app): right after registration the app opens the Verify email screen. Identity-service has already emailed a 6-digit code at registration; the user enters it and the app calls `POST /auth/verify-email`. The step can be skipped with "Later" because an unverified account can still use the app. While the email is unverified, Profile shows a banner whose button opens the same screen and requests a new code with `POST /auth/send-verification`. Resend is disabled for 60 seconds after each send.
+8. Forgot password (mobile app): on the login screen, "Forgot password?" opens a three-step screen. The user enters the email (`POST /auth/forgot-password`, which always answers that a code was sent, whether or not the email is registered), then the 6-digit code (`POST /auth/verify-otp`, which returns a one-time `resetToken`), then a new password typed twice (`POST /auth/reset-password`). Identity-service revokes all refresh tokens of the account when the password changes, and the app returns to the login screen with the email filled in. After too many wrong codes (error 1026) or an expired reset token (error 1027), the screen returns to the email step.
+9. Staying signed in (mobile app): login and Google sign-in return an access token and a refresh token, and the app keeps both together with the session in the device's secure storage when "Remember me" is ticked (otherwise in memory only). When the access token is about to expire, or a request is rejected with HTTP 401, the app calls `POST /auth/refresh` once, stores the rotated tokens and repeats the request; concurrent requests share one refresh call because the refresh token is single-use. If identity-service rejects the refresh token, the app signs the user out and shows the session-expired message. Signing out calls `POST /auth/logout` to revoke the refresh token.
 
 **Figure VI.1. Registration and health profile workflow**
 
@@ -1178,8 +1181,11 @@ flowchart TD
     A["Open app"] --> B{"Account?"}
     B -- "New" --> C["Register with email / password<br/>or Google sign-in"]
     B -- "Existing" --> D["Login"]
-    C --> E["JWT stored on device"]
+    D -. "Forgot password" .-> R["Email OTP, reset token,<br/>new password"]
+    R -.-> D
+    C --> E["JWT and refresh token<br/>stored on device"]
     D --> E
+    E -. "Email not verified" .-> V["Optional: verify email<br/>with 6-digit OTP"]
     E --> F["Profile > Health Profile"]
     F --> G["Enter height and weight<br/>(BMI computed by server)"]
     G --> G2["Enter date of birth, gender,<br/>activity level"]
@@ -1187,7 +1193,7 @@ flowchart TD
     H --> I["Saved in nutrition-service"]
 ```
 
-*Figure VI.1 shows the first-use workflow: authenticate, store the token, then enter body measurements, the profile details used for the calorie target, and allergens, which later drive meal planning.*
+*Figure VI.1 shows the first-use workflow: authenticate, store the tokens, then enter body measurements, the profile details used for the calorie target, and allergens, which later drive meal planning. The dotted branches are the mobile app's optional email verification and the password recovery that returns to the login screen.*
 
 #### 3.2. Workflow 2: Generating a 7-Day Personalized Meal Plan
 

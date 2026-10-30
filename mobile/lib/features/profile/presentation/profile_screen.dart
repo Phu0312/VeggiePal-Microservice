@@ -7,6 +7,7 @@ import '../../../core/utils/format.dart';
 import '../../../core/widgets/header_actions.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../auth/presentation/verify_email_screen.dart';
 import '../../menu_planner/data/health_sync.dart';
 import '../../menu_planner/data/menu_models.dart';
 import '../../blog/presentation/my_blogs_screen.dart';
@@ -178,6 +179,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   TextButton(
                       onPressed: () => _open(context, EditProfileScreen(highlightFields: issue.missing.toSet())),
                       child: const Text('Bổ sung')),
+              ]),
+            ),
+          ],
+          if (!user.emailVerified) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: Colors.deepOrange.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+              child: Row(children: [
+                const Icon(LucideIcons.mailWarning, size: 18, color: Colors.deepOrange),
+                const SizedBox(width: 10),
+                const Expanded(
+                    child: Text('Email chưa được xác minh. Xác minh để bảo vệ tài khoản và nhận lại mật khẩu khi quên.',
+                        style: TextStyle(fontSize: 13))),
+                TextButton(
+                    onPressed: () => _open(context, const VerifyEmailScreen(sendOnOpen: true)),
+                    child: const Text('Xác minh')),
               ]),
             ),
           ],

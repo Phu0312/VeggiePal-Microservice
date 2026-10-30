@@ -18,16 +18,14 @@ class AuthRepository {
       }
       rethrow;
     }
-    final m = Map<String, dynamic>.from(r as Map);
-    return AuthSession('${m['accessToken']}', AuthUser.fromLogin(m));
+    return AuthSession.fromLogin(Map<String, dynamic>.from(r as Map));
   }
 
   /// POST /auth/google {idToken}: backend tự kiểm tra ID token, liên kết với tài khoản cùng email
   /// (chưa có thì tạo mới, vai trò USER) và trả cùng dạng phản hồi như /auth/login.
   Future<AuthSession> loginWithGoogle(String idToken) async {
     final r = await _api.post(Endpoints.googleLogin, body: {'idToken': idToken});
-    final m = Map<String, dynamic>.from(r as Map);
-    return AuthSession('${m['accessToken']}', AuthUser.fromLogin(m));
+    return AuthSession.fromLogin(Map<String, dynamic>.from(r as Map));
   }
 
   // GET /users/me -> thông tin hồ sơ (có avatarUrl).
@@ -46,5 +44,44 @@ class AuthRepository {
       'phone': phone,
     });
     return login(email, password);
+  }
+
+  /// POST /auth/forgot-password: gửi mã 6 số tới email. BE luôn báo thành công, kể cả khi email chưa đăng ký.
+  Future<OtpSent> forgotPassword(String email) async {
+    final r = await _api.post(Endpoints.forgotPassword, body: {'email': email.trim()});
+    return OtpSent.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  /// POST /auth/verify-otp: đổi mã 6 số lấy `resetToken` dùng một lần cho [resetPassword].
+  Future<String> verifyResetOtp(String email, String otp) async {
+    final r = await _api.post(Endpoints.verifyOtp, body: {'email': email.trim(), 'otp': otp.trim()});
+    return '${(r as Map)['resetToken']}';
+  }
+
+  /// POST /auth/reset-password: đặt mật khẩu mới. BE thu hồi mọi phiên đăng nhập cũ của tài khoản.
+  Future<void> resetPassword(String resetToken, String newPassword) =>
+      _api.post(Endpoints.resetPassword, body: {'resetToken': resetToken, 'newPassword': newPassword});
+
+  /// POST /auth/send-verification: gửi (hoặc gửi lại) mã xác minh email. Endpoint công khai nên phải gửi kèm email.
+  Future<OtpSent> sendVerification(String email) async {
+    final r = await _api.post(Endpoints.sendVerification, body: {'email': email.trim()});
+    return OtpSent.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  /// POST /auth/verify-email.
+  Future<void> verifyEmail(String email, String otp) =>
+      _api.post(Endpoints.verifyEmail, body: {'email': email.trim(), 'otp': otp.trim()});
+
+  /// POST /auth/refresh: đổi refresh token lấy access token mới. BE xoay vòng, refresh token cũ hết hiệu lực.
+  Future<AuthSession> refresh(String refreshToken) async {
+    final r = await _api.post(Endpoints.refreshToken, body: {'refreshToken': refreshToken});
+    return AuthSession.fromLogin(Map<String, dynamic>.from(r as Map));
+  }
+
+  /// POST /auth/logout: thu hồi refresh token. Lỗi (mất mạng, token đã hết hạn) bị bỏ qua vì app đã đăng xuất cục bộ.
+  Future<void> logout(String refreshToken) async {
+    try {
+      await _api.post(Endpoints.logout, body: {'refreshToken': refreshToken});
+    } catch (_) {}
   }
 }
