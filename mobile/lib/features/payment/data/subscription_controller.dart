@@ -13,6 +13,9 @@ class SubscriptionController extends ChangeNotifier {
 
   int? _userId;
   Subscription? subscription;
+
+  /// Lượt đã dùng / còn lại (GET /ai/quotas/me). Null khi chưa tải được: giao diện chỉ hiện hạn mức của gói.
+  QuotaOverview? quota;
   bool loading = false;
   String? error;
 
@@ -21,6 +24,7 @@ class SubscriptionController extends ChangeNotifier {
     if (userId == _userId) return;
     _userId = userId;
     subscription = null;
+    quota = null;
     error = null;
     loading = false;
     // Được gọi từ ProxyProvider.update (đang trong build) nên hoãn thông báo sang microtask.
@@ -39,6 +43,7 @@ class SubscriptionController extends ChangeNotifier {
       if (user != _userId) return null;
       subscription = s;
       error = null;
+      _loadQuota(user); // phần phụ: lỗi không làm hỏng thông tin gói
     } catch (e) {
       if (user != _userId) return null;
       error = errorMessage(e);
@@ -49,5 +54,20 @@ class SubscriptionController extends ChangeNotifier {
       }
     }
     return error;
+  }
+
+  /// Tải lại lượt đã dùng sau khi người dùng vừa dùng một tính năng AI. Lỗi bị bỏ qua.
+  Future<void> refreshQuota() async {
+    final user = _userId;
+    if (user != null) await _loadQuota(user);
+  }
+
+  Future<void> _loadQuota(int user) async {
+    try {
+      final q = await _repo.myQuotas();
+      if (user != _userId) return;
+      quota = q;
+      notifyListeners();
+    } catch (_) {}
   }
 }

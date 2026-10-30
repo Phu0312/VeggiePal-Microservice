@@ -53,6 +53,14 @@ class PaymentRepository {
         return Subscription.fromJson(Map<String, dynamic>.from(r as Map));
       });
 
+  // GET /ai/quotas/me (ai-service): lượt chat / thực đơn / video đã dùng và còn lại trong kỳ. Không qua _guard vì
+  // mã lỗi của ai-service khác bảng của payment-service.
+  Future<QuotaOverview> myQuotas() async {
+    _requireLogin();
+    final r = await _api.get(Endpoints.myQuotas);
+    return QuotaOverview.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
   // POST /payments/checkout {planCode}: tạo đơn và liên kết PayOS; còn đơn PENDING chưa hết hạn của gói này thì dùng lại.
   Future<UserOrder> checkout(String planCode) => _guard(() async {
         _requireLogin();

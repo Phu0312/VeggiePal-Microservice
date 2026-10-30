@@ -16,6 +16,7 @@ import '../../blog/presentation/blog_editor_screen.dart';
 import '../../blog/presentation/comments_section.dart';
 import '../../profile/data/profile_models.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/favorite_button.dart';
 import '../data/home_models.dart';
 import '../data/home_repository.dart';
 
@@ -225,6 +226,9 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
       appBar: AppBar(
         title: const Text('Bài viết'),
         actions: [
+          if (_detail != null && (_detail!.status == null || _detail!.status == 'PUBLISHED'))
+            FavoriteButton(
+                type: FavoriteType.blog, targetId: _id, title: _detail!.title, imageUrl: _detail!.thumbnailUrl),
           if (_detail != null && _isOwner)
             PopupMenuButton<String>(
               tooltip: 'Tuỳ chọn',

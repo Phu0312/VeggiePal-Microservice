@@ -34,6 +34,30 @@ class VideoRepository {
 
   // ---------------- video cộng đồng ----------------
 
+  // POST /videos/{id}/vote {value: 1 | -1}; bầu lại cùng giá trị = rút phiếu. DELETE cùng đường dẫn: bỏ phiếu.
+  Future<VideoVote> vote(int id, int value) async {
+    final r = await _api.post(Endpoints.videoVote(id), body: {'value': value});
+    return VideoVote.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  Future<VideoVote> removeVote(int id) async {
+    final r = await _api.delete(Endpoints.videoVote(id));
+    return VideoVote.fromJson(Map<String, dynamic>.from(r as Map));
+  }
+
+  // GET /videos/me/votes?videoIds=1&videoIds=2 -> phiếu bầu của tôi cho từng video.
+  Future<List<VideoVote>> myVotes(List<int> videoIds) async {
+    if (videoIds.isEmpty) return const [];
+    final r = await _api.get(Endpoints.myVideoVotes, query: {'videoIds': videoIds});
+    return asList(r).map((e) => VideoVote.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  // PUT /videos/{id}/nutrition (chủ video hoặc ADMIN): ghi đè dinh dưỡng và nguyên liệu. Lỗi 3071 = số âm.
+  Future<VideoNutrition?> updateNutrition(int id, VideoNutrition n) async {
+    final r = await _api.put(Endpoints.videoNutrition(id), body: n.toJson());
+    return r is Map ? VideoNutrition.fromJson(Map<String, dynamic>.from(r)) : null;
+  }
+
   // GET /videos?categoryId=&page=&size= : video đã đăng, mới đăng trước (công khai).
   Future<PageData<Video>> published({int? categoryId, int page = 0, int size = 10}) async {
     final r = await _api.get(Endpoints.videos, query: {
