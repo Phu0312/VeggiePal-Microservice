@@ -84,6 +84,19 @@ Map<String, dynamic> _recipe(int id, {int likes = 0}) => {
       'steps': [],
     };
 
+/// Trả `/recipes` theo số trang trong query (mỗi trang một danh sách, tổng cộng [pages].length trang).
+class _PagedApi extends _Api {
+  final Map<int, List<Map<String, dynamic>>> pages;
+  _PagedApi(this.pages);
+
+  @override
+  Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
+    super._hit('GET', path, query);
+    final n = (query?['page'] as int?) ?? 0;
+    return {'content': pages[n] ?? const [], 'page': n, 'totalPages': pages.length};
+  }
+}
+
 /// PaymentRepository giả: gói cố định, hạn mức lấy từ biến, đếm số lần gọi.
 class _PayRepo extends PaymentRepository {
   _PayRepo(super.api);
@@ -262,6 +275,42 @@ void main() {
       expect(api.calls.last, 'GET /recipes');
       expect(api.queries[Endpoints.recipes]?['keyword'], 'cà');
       expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Phổ biến')).onSelected, isNull);
+    });
+
+    testWidgets('RecipesTab: chip "Không dị ứng" bỏ công thức có nguyên liệu dễ gây dị ứng, đọc thêm trang cho đủ món', (tester) async {
+      Map<String, dynamic> withAllergen(int id) => {
+            ..._recipe(id),
+            'ingredients': [
+              {'ingredientId': 1, 'ingredientName': 'Đậu phộng', 'quantity': 10, 'unit': 'GRAM', 'allergen': true}
+            ],
+          };
+      // Trang 0 chỉ có món dị ứng và 1 món ổn; trang 1 có thêm một món ổn.
+      final api = _PagedApi({
+        0: [withAllergen(1), _recipe(2)],
+        1: [_recipe(3)],
+      });
+      final auth = AuthController(api, AuthRepository(api), SessionStore());
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          Provider<RecipeRepository>.value(value: RecipeRepository(api)),
+          ChangeNotifierProvider<AuthController>.value(value: auth),
+        ],
+        child: const MaterialApp(home: Scaffold(body: RecipesTab())),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Đậu hũ sốt cà 1'), findsOneWidget);
+      expect(find.text('Đậu hũ sốt cà 2'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Không dị ứng'));
+      await tester.pumpAndSettle();
+      expect(find.text('Đậu hũ sốt cà 1'), findsNothing);
+      expect(find.text('Đậu hũ sốt cà 2'), findsOneWidget);
+      expect(find.text('Đậu hũ sốt cà 3'), findsOneWidget); // trang đầu chưa đủ món nên đọc tiếp trang sau
+      expect(api.queries[Endpoints.recipes]?['page'], 1);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Không dị ứng'));
+      await tester.pumpAndSettle();
+      expect(find.text('Đậu hũ sốt cà 1'), findsOneWidget); // bỏ lọc: hiện lại đủ
     });
   });
 }

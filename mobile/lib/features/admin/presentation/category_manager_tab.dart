@@ -139,26 +139,16 @@ class _CategoryManagerTabState extends State<CategoryManagerTab> {
         label: const Text('Thêm danh mục'),
       ),
       body: Column(children: [
-        SizedBox(
-          height: 52,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            children: [
-              for (final e in _filters.entries) ...[
-                ChoiceChip(
-                  label: Text(e.value),
-                  selected: _type == e.key,
-                  onSelected: (_) {
-                    setState(() => _type = e.key);
-                    _load();
-                  },
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
+        FilterRow(children: [
+          FilterDropdown<String?>(
+            options: _filters,
+            selected: _type,
+            onChanged: (v) {
+              setState(() => _type = v);
+              _load();
+            },
           ),
-        ),
+        ]),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())

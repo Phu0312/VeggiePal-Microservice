@@ -12,6 +12,7 @@ import 'package:VeggiePal/features/places/data/user_location.dart';
 import 'package:VeggiePal/features/places/presentation/places_map.dart';
 import 'package:VeggiePal/features/places/presentation/places_screen.dart';
 import 'support/blank_tiles.dart';
+import 'support/filter_dropdown.dart';
 
 Map<String, dynamic> _json(int id, String name,
         {String address = '1 Lê Lợi, Quận 1', double km = 1.2, double? rating = 4.5, bool vegan = true, String? phone = '028 7309 3899'}) =>
@@ -264,12 +265,12 @@ void main() {
 
     testWidgets('đổi bán kính và "chỉ thuần chay" thì tìm lại với tham số mới', (tester) async {
       final (api, _) = await boot(tester);
-      await tester.tap(find.text('10 km'));
+      await pickFilter(tester, '5 km', '10 km');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(api.queries.last['radiusKm'], 10);
 
-      await tester.tap(find.text('Chỉ thuần chay'));
+      await pickFilter(tester, 'Mọi quán', 'Thuần chay');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(api.queries.last, {'lat': defaultLat, 'lng': defaultLng, 'radiusKm': 10, 'veganOnly': true});

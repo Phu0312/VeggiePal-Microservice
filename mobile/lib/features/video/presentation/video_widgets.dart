@@ -10,6 +10,7 @@ import '../../home/data/home_models.dart';
 import '../data/video_models.dart';
 import '../data/video_repository.dart';
 import 'video_watch_screen.dart';
+import '../../community/presentation/community_widgets.dart';
 
 Color videoStatusColor(BuildContext context, String status) => switch (status) {
       'PUBLISHED' => Colors.green,
@@ -107,29 +108,20 @@ class VideoFeedState extends State<VideoFeed> {
   Widget build(BuildContext context) {
     final repo = context.read<VideoRepository>();
     return Column(children: [
-      SizedBox(
-        height: 48,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          itemCount: widget.categories.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final id = i == 0 ? null : widget.categories[i - 1].id;
-            return ChoiceChip(
-              label: Text(i == 0 ? 'Tất cả' : widget.categories[i - 1].name),
-              selected: _categoryId == id,
-              onSelected: (_) {
-                setState(() => _categoryId = id);
-                _list.currentState?.reload();
-              },
-            );
+      FilterRow(children: [
+        FilterDropdown<int?>(
+          options: {null: 'Tất cả', for (final c in widget.categories) c.id: c.name},
+          selected: _categoryId,
+          onChanged: (id) {
+            setState(() => _categoryId = id);
+            _list.currentState?.reload();
           },
         ),
-      ),
+      ]),
       Expanded(
         child: PagedListView<Video>(
           key: _list,
+          header: const VideoChannelsStrip(),
           errorTitle: 'Không tải được video',
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
           spacing: 12,

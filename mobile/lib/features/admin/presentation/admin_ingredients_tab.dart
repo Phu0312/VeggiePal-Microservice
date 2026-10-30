@@ -91,26 +91,16 @@ class _AdminIngredientsTabState extends State<AdminIngredientsTab> with Automati
             _reload();
           },
         ),
-        SizedBox(
-          height: 48,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            children: [
-              for (final f in IngredientFilter.values) ...[
-                ChoiceChip(
-                  label: Text(f.label),
-                  selected: _filter == f,
-                  onSelected: (_) {
-                    setState(() => _filter = f);
-                    _reload();
-                  },
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
+        FilterRow(children: [
+          FilterDropdown<IngredientFilter>(
+            options: {for (final f in IngredientFilter.values) f: f.label},
+            selected: _filter,
+            onChanged: (f) {
+              setState(() => _filter = f);
+              _reload();
+            },
           ),
-        ),
+        ]),
         Expanded(
           child: PagedListView<Ingredient>(
             key: _list,

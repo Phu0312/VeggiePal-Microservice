@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../blog/data/blog_models.dart' show PageData;
 import '../../auth/presentation/login_screen.dart';
 import '../data/recipe_models.dart';
 import '../data/recipe_repository.dart';
@@ -13,9 +14,11 @@ import 'recipe_form_screen.dart';
 import 'recipe_widgets.dart';
 
 /// Phần "Công thức" của tab Thực đơn: công thức đã đăng (công khai) với tìm kiếm theo từ khoá và phân trang.
-/// API: GET /recipes?keyword=&page=&size= (mới nhất) hoặc GET /recipes/popular (phổ biến, không có từ khoá). Thành viên có thêm lối vào "Của tôi" và "Tạo công thức".
+/// API: GET /recipes?keyword=&page=&size= (mới nhất) hoặc GET /recipes/popular (phổ biến, không có từ khoá). Chip "Không dị ứng" lọc ở máy: bỏ công thức có nguyên liệu bị đánh dấu dễ gây dị ứng. Thành viên có thêm lối vào "Của tôi" và "Tạo công thức".
 class RecipesTab extends StatefulWidget {
-  const RecipesTab({super.key});
+  /// `true`: hiện công thức thành lưới 2 cột (tab "Công thức" ở Trang chủ); mặc định là danh sách một cột.
+  final bool grid;
+  const RecipesTab({super.key, this.grid = false});
 
   @override
   State<RecipesTab> createState() => _RecipesTabState();
@@ -28,6 +31,7 @@ class _RecipesTabState extends State<RecipesTab> with AutomaticKeepAliveClientMi
   final _search = TextEditingController();
   final _list = GlobalKey<PagedRecipesState>();
   String _keyword = '';
+  bool _noAllergen = false; // chỉ giữ công thức không có nguyên liệu dễ gây dị ứng (lọc ở máy, BE chưa có tham số này)
   bool _popular = false; // true: GET /recipes/popular (nhiều lượt thích nhất), chỉ khi không tìm theo từ khoá
 
   @override
@@ -43,6 +47,30 @@ class _RecipesTabState extends State<RecipesTab> with AutomaticKeepAliveClientMi
     setState(() {});
     _list.currentState?.reload();
   }
+
+  void _setNoAllergen(bool value) {
+    setState(() => _noAllergen = value);
+    _list.currentState?.reload();
+  }
+
+  Future<PageData<Recipe>> _fetch(RecipeRepository repo, int page) =>
+      _popular && _keyword.isEmpty ? repo.popular(page: page) : repo.published(keyword: _keyword, page: page);
+
+  /// Tải một trang; khi đang lọc "không dị ứng" thì bỏ công thức có nguyên liệu dễ gây dị ứng và đọc tiếp các trang sau
+  /// cho tới khi đủ vài món (hoặc hết), để danh sách không bị trống rồi không cuộn để tải thêm được.
+  Future<PageData<Recipe>> _load(RecipeRepository repo, int page) async {
+    var p = await _fetch(repo, page);
+    if (!_noAllergen) return p;
+    final items = [...p.items.where((r) => r.allergenNames.isEmpty)];
+    for (var extra = 0; items.length < _minFiltered && p.hasMore && extra < _maxExtraPages; extra++) {
+      p = await _fetch(repo, p.page + 1);
+      items.addAll(p.items.where((r) => r.allergenNames.isEmpty));
+    }
+    return PageData(items, p.page, p.totalPages, p.totalElements);
+  }
+
+  static const _minFiltered = 6;
+  static const _maxExtraPages = 4;
 
   void _setPopular(bool value) {
     if (_popular == value) return;
@@ -104,22 +132,26 @@ class _RecipesTabState extends State<RecipesTab> with AutomaticKeepAliveClientMi
       ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(children: [
+        child: Wrap(spacing: 8, runSpacing: 4, children: [
           ChoiceChip(label: const Text('Mới nhất'), selected: !_popular, onSelected: (_) => _setPopular(false)),
-          const SizedBox(width: 8),
           ChoiceChip(
               label: const Text('Phổ biến'),
               selected: _popular,
               onSelected: _keyword.isNotEmpty ? null : (_) => _setPopular(true)),
+          FilterChip(
+              avatar: const Icon(LucideIcons.shieldCheck, size: 16),
+              label: const Text('Không dị ứng'),
+              selected: _noAllergen,
+              onSelected: _setNoAllergen),
         ]),
       ),
       Expanded(
         child: PagedRecipes(
           key: _list,
-          load: (page) => _popular && _keyword.isEmpty
-              ? repo.popular(page: page)
-              : repo.published(keyword: _keyword, page: page),
+          load: (page) => _load(repo, page),
           onTap: _open,
+          grid: widget.grid,
+          padding: widget.grid ? const EdgeInsets.fromLTRB(16, 8, 16, 100) : const EdgeInsets.fromLTRB(16, 8, 16, 24),
           emptyText: _keyword.isEmpty
               ? 'Chưa có công thức nào được đăng.'
               : 'Không tìm thấy công thức nào cho "$_keyword".',

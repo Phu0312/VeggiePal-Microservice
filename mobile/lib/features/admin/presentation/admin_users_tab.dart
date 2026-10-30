@@ -110,27 +110,6 @@ class _AdminUsersTabState extends State<AdminUsersTab> with AutomaticKeepAliveCl
     }
   }
 
-  Widget _chips(Map<String?, String> options, String? selected, ValueChanged<String?> onSelected) => SizedBox(
-    height: 44,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      children: [
-        for (final e in options.entries) ...[
-          ChoiceChip(
-            label: Text(e.value),
-            selected: selected == e.key,
-            onSelected: (_) {
-              onSelected(e.key);
-              _reload();
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ],
-    ),
-  );
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -145,22 +124,30 @@ class _AdminUsersTabState extends State<AdminUsersTab> with AutomaticKeepAliveCl
             _reload();
           },
         ),
-        _chips(
-          {null: 'Mọi vai trò', 'USER': 'Thành viên', 'ADMIN': 'Quản trị viên'},
-          _role,
-          (v) => setState(() => _role = v),
-        ),
-        _chips(
-          {
-            null: 'Mọi trạng thái',
-            'ACTIVE': userStatusLabels['ACTIVE']!,
-            'BLOCKED': userStatusLabels['BLOCKED']!,
-            'PENDING': userStatusLabels['PENDING']!,
-            'INACTIVE': userStatusLabels['INACTIVE']!,
-          },
-          _status,
-          (v) => setState(() => _status = v),
-        ),
+        FilterRow(children: [
+          FilterDropdown<String?>(
+            options: const {null: 'Mọi vai trò', 'USER': 'Thành viên', 'ADMIN': 'Quản trị viên'},
+            selected: _role,
+            onChanged: (v) {
+              setState(() => _role = v);
+              _reload();
+            },
+          ),
+          FilterDropdown<String?>(
+            options: {
+              null: 'Mọi trạng thái',
+              'ACTIVE': userStatusLabels['ACTIVE']!,
+              'BLOCKED': userStatusLabels['BLOCKED']!,
+              'PENDING': userStatusLabels['PENDING']!,
+              'INACTIVE': userStatusLabels['INACTIVE']!,
+            },
+            selected: _status,
+            onChanged: (v) {
+              setState(() => _status = v);
+              _reload();
+            },
+          ),
+        ]),
         Expanded(
           child: PagedListView<AdminUser>(
             key: _list,

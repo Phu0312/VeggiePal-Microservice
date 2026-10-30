@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/utils/format.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
@@ -12,30 +11,42 @@ import '../../profile/data/profile_models.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/community_models.dart';
 import '../data/community_repository.dart';
+import 'community_widgets.dart';
 
 /// Mã huy hiệu BE cấp khi hoàn thành thử thách 7 ngày (BadgeCode.VEGGIE_GREEN_HEART của identity-service).
 const _greenHeartCode = 'VEGGIE_GREEN_HEART';
 
-/// Cộng đồng VeggiePal: thống kê chung, thử thách 7 ngày sống thuần chay, chủ đề nổi bật, bảng xếp hạng tác giả và
-/// kênh video được đề xuất (blog-service). Đọc được khi chưa đăng nhập; theo dõi tác giả và điểm danh thử thách cần
+/// Cộng đồng VeggiePal: thử thách 7 ngày sống thuần chay, chủ đề nổi bật (cuộn ngang) và bảng xếp hạng tác giả
+/// (không có chính người xem) của blog-service. Kênh video đề xuất nằm ở tab Video (VideoChannelsStrip). Đọc được khi chưa đăng nhập; theo dõi tác giả và điểm danh thử thách cần
 /// đăng nhập. BE chỉ trả mã tác giả nên tên và ảnh được lấy qua `/users/batch`.
 /// Huy hiệu "Trái Tim Xanh Veggie" do BE tự cấp khi điểm danh đủ 7 ngày (blog-service gọi identity-service); app không
 /// tự mở khoá nữa vì `POST /users/me/badges/{code}` chỉ còn dành cho ADMIN.
 class CommunityScreen extends StatefulWidget {
-  const CommunityScreen({super.key});
+  /// `true` khi nằm trong tab "Cộng đồng" của Trang chủ: bỏ Scaffold và AppBar riêng.
+  final bool embedded;
+
+  /// Chỉ dùng khi [embedded]: các khối nối tiếp sau phần cộng đồng (bảng tin bài viết của Trang chủ), cuộn cùng trang.
+  final List<Widget> footer;
+
+  /// Chỉ dùng khi [embedded]: điều khiển cuộn của trang, để bảng tin ở [footer] tự tải thêm khi cuộn gần cuối.
+  final ScrollController? scrollController;
+
+  /// Chỉ dùng khi [embedded]: việc làm mới thêm (tải lại bảng tin) khi kéo để làm mới.
+  final Future<void> Function()? onRefresh;
+  const CommunityScreen(
+      {super.key, this.embedded = false, this.footer = const [], this.scrollController, this.onRefresh});
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
 }
 
 class _CommunityScreenState extends State<CommunityScreen> {
-  CommunityStats? _stats;
   List<TrendingTopic> _topics = const [];
   List<CommunityAuthor> _leaders = const [];
-  List<CommunityAuthor> _channels = const [];
   ChallengeProgress? _challenge;
   final _names = <int, PublicUser>{};
   bool _loading = true;
+  bool _loaded = false;
   bool _failed = false;
   bool _checkingIn = false;
   bool _badgePending = false; // đã hoàn thành thử thách nhưng BE chưa cấp được huy hiệu
@@ -55,27 +66,24 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final repo = context.read<CommunityRepository>();
     final loggedIn = context.read<AuthController>().isLoggedIn;
     try {
-      // Số liệu chung là phần chính: lỗi thì báo cả màn hình. Thử thách chỉ là phần phụ của thành viên.
+      // Chủ đề và bảng xếp hạng là phần chính: lỗi thì báo cả màn hình. Thử thách chỉ là phần phụ của thành viên.
       final r = await Future.wait<Object?>([
-        repo.stats(),
         repo.trendingTopics(),
-        repo.leaderboard(),
-        repo.videoChannels(),
+        repo.leaderboard(limit: 6), // lấy dư một người để vẫn đủ 5 sau khi bỏ chính mình
         if (loggedIn) repo.challenge().then<Object?>((c) => c).catchError((_) => null) else Future.value(null),
       ]);
       if (!mounted) return;
       setState(() {
-        _stats = r[0] as CommunityStats;
-        _topics = r[1] as List<TrendingTopic>;
-        _leaders = r[2] as List<CommunityAuthor>;
-        _channels = r[3] as List<CommunityAuthor>;
-        _challenge = r[4] as ChallengeProgress?;
+        _topics = r[0] as List<TrendingTopic>;
+        _leaders = r[1] as List<CommunityAuthor>;
+        _challenge = r[2] as ChallengeProgress?;
+        _loaded = true;
       });
       _loadNames();
       _checkBadge();
     } catch (e) {
       if (mounted) {
-        setState(() => _failed = _stats == null);
+        setState(() => _failed = !_loaded);
         showErrorDialog(context, errorMessage(e), title: 'Không tải được cộng đồng');
       }
     } finally {
@@ -85,7 +93,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   /// Tên và ảnh tác giả chỉ để hiển thị, lỗi được bỏ qua (dòng sẽ hiện "Thành viên #id").
   Future<void> _loadNames() async {
-    final ids = {for (final a in [..._leaders, ..._channels]) a.authorId}.where((id) => !_names.containsKey(id)).toList();
+    final ids = {for (final a in _leaders) a.authorId}.where((id) => !_names.containsKey(id)).toList();
     if (ids.isEmpty) return;
     try {
       final users = await context.read<ProfileRepository>().publicUsers(ids);
@@ -183,7 +191,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
           x.authorId == s.authorId ? x.withFollow(following: s.following, followers: s.followers) : x;
       setState(() {
         _leaders = [for (final x in _leaders) update(x)];
-        _channels = [for (final x in _channels) update(x)];
       });
     } catch (e) {
       if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không cập nhật được theo dõi');
@@ -199,90 +206,78 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = _stats;
     final selfId = context.watch<AuthController>().user?.id;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cộng đồng')),
-      body: stats == null
-          ? (_loading
-              ? const Center(child: CircularProgressIndicator())
-              : RetryView(message: _failed ? 'Không tải được cộng đồng.' : 'Không có dữ liệu.', onRetry: _load))
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-                _StatsRow(stats),
-                _heading('Thử thách 7 ngày sống thuần chay'),
-                _ChallengeCard(
-                  progress: _challenge,
-                  loggedIn: context.watch<AuthController>().isLoggedIn,
-                  busy: _checkingIn,
-                  badgePending: _badgePending,
-                  onCheckIn: _checkIn,
-                  onClaimBadge: _claimBadge,
-                ),
-                if (_topics.isNotEmpty) ...[
-                  _heading('Chủ đề nổi bật'),
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final t in _topics) Chip(label: Text('${t.name} • ${t.count}')),
-                  ]),
-                ],
-                _heading('Bảng xếp hạng tác giả'),
-                if (_leaders.isEmpty)
-                  Text('Chưa có tác giả nào.', style: TextStyle(color: context.textMuted))
-                else
-                  for (var i = 0; i < _leaders.length; i++)
-                    _AuthorTile(
-                      rank: i + 1,
-                      author: _leaders[i],
-                      user: _names[_leaders[i].authorId],
-                      isSelf: _leaders[i].authorId == selfId,
-                      busy: _following.contains(_leaders[i].authorId),
-                      subtitle: '${_leaders[i].articles} bài • ${_leaders[i].videos} video • ${_leaders[i].likes} lượt thích',
-                      onFollow: () => _toggleFollow(_leaders[i]),
-                    ),
-                _heading('Kênh video đề xuất'),
-                if (_channels.isEmpty)
-                  Text('Chưa có kênh video nào.', style: TextStyle(color: context.textMuted))
-                else
-                  for (final c in _channels)
-                    _AuthorTile(
-                      author: c,
-                      user: _names[c.authorId],
-                      isSelf: c.authorId == selfId,
-                      busy: _following.contains(c.authorId),
-                      subtitle: '${c.videos} video • ${formatCount(c.views)} lượt xem',
-                      onFollow: () => _toggleFollow(c),
-                    ),
-              ]),
+    // Bảng xếp hạng không hiện chính người xem.
+    final leaders = _leaders.where((a) => a.authorId != selfId).take(5).toList();
+    final sections = <Widget>[
+      if (_loaded) ...[
+        _heading('Thử thách 7 ngày sống thuần chay'),
+        _ChallengeCard(
+          progress: _challenge,
+          loggedIn: context.watch<AuthController>().isLoggedIn,
+          busy: _checkingIn,
+          badgePending: _badgePending,
+          onCheckIn: _checkIn,
+          onClaimBadge: _claimBadge,
+        ),
+        if (_topics.isNotEmpty) ...[
+          _heading('Chủ đề nổi bật'),
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _topics.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => Chip(label: Text('${_topics[i].name} • ${_topics[i].count}')),
             ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  final CommunityStats s;
-  const _StatsRow(this.s);
-
-  Widget _cell(BuildContext context, String value, String label) => Expanded(
-        child: Column(children: [
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: context.cs.primary)),
-          Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: context.textMuted)),
-        ]),
-      );
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(children: [
-            _cell(context, formatCount(s.totalPosts), 'bài đăng'),
-            _cell(context, formatCount(s.publishedBlogs), 'bài viết'),
-            _cell(context, formatCount(s.publishedVideos), 'video'),
-            _cell(context, formatCount(s.activeAuthors), 'tác giả'),
-            _cell(context, formatCount(s.totalComments), 'bình luận'),
-          ]),
+          ),
+        ],
+        _heading('Bảng xếp hạng tác giả'),
+        if (leaders.isEmpty)
+          Text('Chưa có tác giả nào.', style: TextStyle(color: context.textMuted))
+        else
+          for (var i = 0; i < leaders.length; i++)
+            AuthorTile(
+              rank: i + 1,
+              author: leaders[i],
+              user: _names[leaders[i].authorId],
+              isSelf: false,
+              busy: _following.contains(leaders[i].authorId),
+              subtitle: '${leaders[i].articles} bài • ${leaders[i].videos} video • ${leaders[i].likes} lượt thích',
+              onFollow: () => _toggleFollow(leaders[i]),
+            ),
+      ] else if (!widget.embedded)
+        _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RetryView(message: _failed ? 'Không tải được cộng đồng.' : 'Không có dữ liệu.', onRetry: _load)
+      else if (_loading)
+        const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+      else
+        // Trong Trang chủ, lỗi cộng đồng không được che bảng tin bên dưới: chỉ hiện một dòng thử lại.
+        Card(
+          child: ListTile(
+            title: Text(_failed ? 'Không tải được cộng đồng.' : 'Không có dữ liệu cộng đồng.'),
+            trailing: TextButton(onPressed: _load, child: const Text('Thử lại')),
+          ),
+        ),
+    ];
+    final Widget body;
+    if (!widget.embedded && !_loaded) {
+      body = sections.single;
+    } else {
+      body = RefreshIndicator(
+        onRefresh: () => Future.wait([_load(), widget.onRefresh?.call() ?? Future<void>.value()]),
+        child: ListView(
+          controller: widget.embedded ? widget.scrollController : null,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, widget.embedded ? 100 : 32),
+          children: [...sections, if (widget.embedded) ...widget.footer],
         ),
       );
+    }
+    if (widget.embedded) return body;
+    return Scaffold(appBar: AppBar(title: const Text('Cộng đồng')), body: body);
+  }
 }
 
 class _ChallengeCard extends StatelessWidget {
@@ -336,8 +331,6 @@ class _ChallengeCard extends StatelessWidget {
               ),
           ]),
           const SizedBox(height: 10),
-          Text('${p.days}/${p.total} ngày', style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
           Text(message, style: TextStyle(color: context.textMuted, fontSize: 13)),
           if (!loggedIn || p.canCheckIn) ...[
             const SizedBox(height: 10),
@@ -359,57 +352,6 @@ class _ChallengeCard extends StatelessWidget {
             ),
           ],
         ]),
-      ),
-    );
-  }
-}
-
-class _AuthorTile extends StatelessWidget {
-  final int? rank;
-  final CommunityAuthor author;
-  final PublicUser? user;
-  final bool isSelf;
-  final bool busy;
-  final String subtitle;
-  final VoidCallback onFollow;
-  const _AuthorTile({
-    this.rank,
-    required this.author,
-    required this.user,
-    required this.isSelf,
-    required this.busy,
-    required this.subtitle,
-    required this.onFollow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final name = (user?.fullName ?? '').isEmpty ? 'Thành viên #${author.authorId}' : user!.fullName;
-    final avatar = user?.avatarUrl;
-    return Card(
-      child: ListTile(
-        leading: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (rank != null)
-            SizedBox(
-                width: 22,
-                child: Text('$rank',
-                    style: TextStyle(fontWeight: FontWeight.w800, color: rank! <= 3 ? context.cs.primary : context.textMuted))),
-          CircleAvatar(
-            foregroundImage: (avatar == null || avatar.isEmpty) ? null : NetworkImage(avatar),
-            onForegroundImageError: (avatar == null || avatar.isEmpty) ? null : (_, _) {},
-            child: Text(name.characters.first.toUpperCase()),
-          ),
-        ]),
-        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('$subtitle\n${author.followers} người theo dõi'),
-        isThreeLine: true,
-        trailing: isSelf
-            ? null
-            : busy
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : author.following
-                    ? OutlinedButton(onPressed: onFollow, child: const Text('Đang theo dõi'))
-                    : FilledButton(onPressed: onFollow, child: const Text('Theo dõi')),
       ),
     );
   }

@@ -117,27 +117,16 @@ class _IngredientCatalogViewState extends State<IngredientCatalogView> {
   Widget build(BuildContext context) {
     return Column(children: [
       VegSearchBar(controller: _search, hint: 'Tìm nguyên liệu...', onSubmitted: _submit),
-      SizedBox(
-        height: 48,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          children: [
-            for (final f in IngredientFilter.values) ...[
-              ChoiceChip(
-                label: Text(f.label),
-                selected: _filter == f,
-                onSelected: (_) {
-                  if (_filter == f) return;
-                  setState(() => _filter = f);
-                  _reload();
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
-          ],
+      FilterRow(children: [
+        FilterDropdown<IngredientFilter>(
+          options: {for (final f in IngredientFilter.values) f: f.label},
+          selected: _filter,
+          onChanged: (f) {
+            setState(() => _filter = f);
+            _reload();
+          },
         ),
-      ),
+      ]),
       Expanded(
         child: _loading
             ? const Center(child: CircularProgressIndicator())

@@ -26,10 +26,13 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen>
     with SingleTickerProviderStateMixin {
   int _index = 0;
+  final _home = GlobalKey<HomeScreenState>();
   late final AnimationController _fade =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 250), value: 1);
 
   void _select(int i) {
+    // Bấm Trang chủ (kể cả khi đang ở đó) luôn đưa về mục Cộng đồng.
+    if (i == 0) _home.currentState?.showCommunity();
     if (i == _index) return;
     setState(() => _index = i);
     _fade.forward(from: 0); // phát hiệu ứng fade mỗi lần đổi tab
@@ -59,12 +62,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
       ),
       body: FadeTransition(
         opacity: CurvedAnimation(parent: _fade, curve: Curves.easeOut),
-        child: IndexedStack(index: _index, children: const [
-          HomeScreen(),
-          PlacesScreen(),
-          ChatbotScreen(),
-          MenuPlannerScreen(),
-          ProfileScreen(),
+        child: IndexedStack(index: _index, children: [
+          HomeScreen(key: _home),
+          const PlacesScreen(),
+          const ChatbotScreen(),
+          const MenuPlannerScreen(),
+          const ProfileScreen(),
         ]),
       ),
       floatingActionButtonLocation: const AiFabLocation(),

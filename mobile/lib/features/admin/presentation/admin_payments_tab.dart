@@ -102,28 +102,23 @@ class _AdminPaymentsTabState extends State<AdminPaymentsTab> with AutomaticKeepA
     }
   }
 
-  Widget _chips<T>(Map<T?, String> options, T? selected, void Function(T?) onTap) => SizedBox(
-        height: 44,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          children: [
-            for (final e in options.entries) ...[
-              ChoiceChip(
-                  label: Text(e.value), selected: selected == e.key, onSelected: (_) => onTap(e.key)),
-              const SizedBox(width: 8),
-            ],
-          ],
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Column(children: [
       const SizedBox(height: 8),
-      _chips<int>(_periods, _days, (v) => _applyFilters(days: v, setDays: true)),
-      _chips<String>(_plans, _plan, (v) => _applyFilters(plan: v, setPlan: true)),
+      FilterRow(children: [
+        FilterDropdown<int?>(
+          options: _periods,
+          selected: _days,
+          onChanged: (v) => _applyFilters(days: v, setDays: true),
+        ),
+        FilterDropdown<String?>(
+          options: _plans,
+          selected: _plan,
+          onChanged: (v) => _applyFilters(plan: v, setPlan: true),
+        ),
+      ]),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
         child: FullWidthSegmented<bool>(
@@ -242,10 +237,16 @@ class _AdminPaymentsTabState extends State<AdminPaymentsTab> with AutomaticKeepA
   Widget _ordersView() {
     final repo = context.read<AdminRepository>();
     return Column(children: [
-      _chips<String>(_statuses, _status, (v) {
-        setState(() => _status = v);
-        _orders.currentState?.reload();
-      }),
+      FilterRow(children: [
+        FilterDropdown<String?>(
+          options: _statuses,
+          selected: _status,
+          onChanged: (v) {
+            setState(() => _status = v);
+            _orders.currentState?.reload();
+          },
+        ),
+      ]),
       Expanded(
         child: PagedListView<PaymentOrder>(
           key: _orders,

@@ -19,36 +19,36 @@ import '../../community/presentation/community_screen.dart';
 import '../data/home_repository.dart';
 import 'blog_detail_screen.dart';
 import 'create_content_sheet.dart';
-import 'home_highlights.dart';
+import '../../recipe/presentation/recipes_tab.dart';
 import 'post_card.dart';
 
-/// TAB 1 - Trang chủ: bảng tin bài viết xếp theo chiều dọc, cuộn xuống tự tải thêm. Lọc theo từ khoá (tự
-/// tìm sau khi ngừng gõ), danh mục và thứ tự (mới nhất / nổi bật / xem nhiều) - cùng tham số với GET /blogs.
-/// Widget tree: Scaffold(FAB cho thành viên)
-///   └─ RefreshIndicator └─ ListView
-///        ├─ HomeHighlights (Món chay mới + Gợi ý của AI)
-///        ├─ VegSearchBar
-///        ├─ Danh mục (ListView ngang của ChoiceChip, mọi loại danh mục)
-///        ├─ Thứ tự + nút "Xoá bộ lọc"
-///        └─ Danh sách PostCard (tác giả, tiêu đề + ảnh bìa, thích / không thích / bình luận)
+/// TAB 1 - Trang chủ: ba mục chuyển ở trên cùng, Công thức | Cộng đồng | Video; mở lên (và mỗi lần bấm lại tab
+/// Trang chủ) luôn là Cộng đồng.
+///  - Công thức: lưới 2 món mỗi hàng (RecipesTab): tìm kiếm, mới nhất / phổ biến, lọc không dị ứng.
+///  - Cộng đồng: CommunityScreen (thử thách 7 ngày, chủ đề nổi bật, bảng xếp hạng tác giả) rồi tới
+///    bảng tin bài viết: tìm kiếm theo từ khoá (tự tìm sau khi ngừng gõ), danh mục và thứ tự (mới nhất / nổi bật /
+///    xem nhiều) - cùng tham số với GET /blogs; cuộn xuống tự tải thêm. FAB "Đăng bài" cho thành viên.
+///  - Video: VideoFeed, kênh video đề xuất ở đầu. FAB "Đăng video" cho thành viên.
 /// Tác giả lấy bằng GET /users/batch, phiếu bầu của tôi bằng GET /blogs/me/votes, số bình luận bằng
 /// GET /comments (chỉ gọi cho các bài mới tải của mỗi trang).
+enum _HomeTab { recipes, community, videos }
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   final _search = TextEditingController();
   final _scroll = ScrollController();
   Timer? _searchDebounce;
   int _requestSeq = 0; // chỉ kết quả của lần tải mới nhất được áp dụng (gõ nhanh nhiều lần)
 
   final _videoFeed = GlobalKey<VideoFeedState>();
-  final _highlights = GlobalKey<HomeHighlightsState>();
-  bool _showVideos = false; // false = bảng tin bài viết, true = bảng tin video
+  _HomeTab _tab = _HomeTab.community; // công thức, cộng đồng (mặc định) hoặc bảng tin video
+  final _visited = {_HomeTab.community}; // tab đã mở: chỉ dựng (và tải dữ liệu) tab khi người dùng mở lần đầu
   List<CategoryItem> _categories = [];
   List<BlogItem> _blogs = [];
   int? _categoryId;
@@ -80,6 +80,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _search.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Vào Trang chủ lúc nào cũng mở tab Cộng đồng trước (gọi từ thanh điều hướng dưới).
+  void showCommunity() {
+    if (_tab != _HomeTab.community) setState(() => _tab = _HomeTab.community);
   }
 
   bool get _hasFilter => _search.text.trim().isNotEmpty || _categoryId != null || _sort.isNotEmpty;
@@ -274,10 +279,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: canPost
+      floatingActionButton: canPost && _tab != _HomeTab.recipes
           ? FloatingActionButton.extended(
               onPressed: () async {
-                if (_showVideos) {
+                if (_tab == _HomeTab.videos) {
                   final saved = await Navigator.of(context)
                       .push<Object>(MaterialPageRoute(builder: (_) => const VideoFormScreen()));
                   if (saved != null) _videoFeed.currentState?.reload();
@@ -286,148 +291,121 @@ class _HomeScreenState extends State<HomeScreen> {
                 final posted = await showCreateContentSheet(context, _categories);
                 if (posted == true) _load();
               },
-              icon: Icon(_showVideos ? Icons.video_call : Icons.add),
-              label: Text(_showVideos ? 'Đăng video' : 'Đăng bài'),
+              icon: Icon(_tab == _HomeTab.videos ? Icons.video_call : Icons.add),
+              label: Text(_tab == _HomeTab.videos ? 'Đăng video' : 'Đăng bài'),
             )
           : null,
       body: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: FullWidthSegmented<bool>(
-            options: const [SegmentOption(false, 'Bài viết'), SegmentOption(true, 'Video')],
-            selected: _showVideos,
-            onChanged: (v) => setState(() => _showVideos = v),
+          child: FullWidthSegmented<_HomeTab>(
+            options: const [
+              SegmentOption(_HomeTab.recipes, 'Công thức'),
+              SegmentOption(_HomeTab.community, 'Cộng đồng'),
+              SegmentOption(_HomeTab.videos, 'Video'),
+            ],
+            selected: _tab,
+            onChanged: (v) => setState(() {
+              _tab = v;
+              _visited.add(v);
+            }),
           ),
         ),
         Expanded(
-          child: _showVideos
-              ? VideoFeed(key: _videoFeed, categories: _categories)
-              : RefreshIndicator(
-            // Kéo để làm mới: bảng tin, công thức mới và gợi ý của AI.
-            onRefresh: () => Future.wait([_load(reloadCategories: true), _highlights.currentState?.reload() ?? Future<void>.value()]),
-            child: ListView(
-              controller: _scroll,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 100),
-              children: [
-                HomeHighlights(key: _highlights),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                  child: Card(
-                    child: ListTile(
-                      leading: Icon(Icons.groups_rounded, color: context.cs.primary),
-                      title: const Text('Cộng đồng VeggiePal', style: TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: const Text('Bảng xếp hạng, chủ đề nổi bật, thử thách 7 ngày'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context)
-                          .push(MaterialPageRoute(builder: (_) => const CommunityScreen())),
-                    ),
-                  ),
-                ),
-                VegSearchBar(
-                  controller: _search,
-                  hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
-                  onChanged: _onSearchChanged,
-                  onSubmitted: (_) {
-                    _searchDebounce?.cancel();
-                    _load();
-                  },
-                ),
-                _buildCategories(),
-                _buildSortRow(),
-                const SizedBox(height: 4),
-                if (_loading)
-                  const Padding(
-                      padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
-                else if (_loadFailed)
-                  RetryView(onRetry: _load)
-                else if (_blogs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(48),
-                    child: Column(children: [
-                      Text(_hasFilter ? 'Không có bài viết khớp bộ lọc' : 'Chưa có bài viết nào',
-                          style: TextStyle(color: context.textMuted)),
-                      if (_hasFilter)
-                        TextButton(onPressed: _clearFilters, child: const Text('Xoá bộ lọc')),
-                    ]),
-                  )
-                else ...[
-                  for (final b in _blogs)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: PostCard(
-                        blog: b,
-                        author: _authors[b.authorId],
-                        myVote: _myVotes[b.id],
-                        score: _scores[b.id] ?? b.voteScore,
-                        commentCount: _commentCounts[b.id],
-                        onOpen: () => _open(b),
-                        onVote: (v) => _vote(b, v),
-                        canVote: b.authorId == null || b.authorId != auth.user?.id,
-                      ),
-                    ),
-                  if (_loadingMore)
-                    const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
-                  else if (!_hasMore)
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                          child: Text('Bạn đã xem hết bài viết', style: TextStyle(color: context.textMuted))),
-                    ),
-                ],
-              ],
+          // IndexedStack giữ trạng thái từng tab (vị trí cuộn, bộ lọc) khi chuyển qua lại.
+          child: IndexedStack(index: _tab.index, children: [
+            if (_visited.contains(_HomeTab.recipes))
+              const RecipesTab(grid: true)
+            else
+              const SizedBox.shrink(),
+            CommunityScreen(
+              embedded: true,
+              scrollController: _scroll,
+              onRefresh: () => _load(reloadCategories: true),
+              footer: _buildFeed(auth),
             ),
-          ),
+            if (_visited.contains(_HomeTab.videos))
+              VideoFeed(key: _videoFeed, categories: _categories)
+            else
+              const SizedBox.shrink(),
+          ]),
         ),
       ]),
     );
   }
 
-  Widget _buildCategories() => SizedBox(
-        height: 48,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          itemCount: _categories.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final id = i == 0 ? null : _categories[i - 1].id;
-            return ChoiceChip(
-              label: Text(i == 0 ? 'Tất cả' : _categories[i - 1].name),
-              selected: _categoryId == id,
-              onSelected: (_) {
-                _categoryId = id;
-                _load();
-              },
-            );
+  /// Bảng tin cộng đồng (bài viết): tìm kiếm, bộ lọc và danh sách bài, nối tiếp phần cộng đồng ở tab Cộng đồng.
+  List<Widget> _buildFeed(AuthController auth) => [
+        const SectionHeader('Bảng tin cộng đồng'),
+        VegSearchBar(
+          controller: _search,
+          hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
+          onChanged: _onSearchChanged,
+          onSubmitted: (_) {
+            _searchDebounce?.cancel();
+            _load();
           },
         ),
-      );
+        _buildFilters(),
+        const SizedBox(height: 4),
+        if (_loading)
+          const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+        else if (_loadFailed)
+          RetryView(onRetry: _load)
+        else if (_blogs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(48),
+            child: Column(children: [
+              Text(_hasFilter ? 'Không có bài viết khớp bộ lọc' : 'Chưa có bài viết nào',
+                  style: TextStyle(color: context.textMuted)),
+              if (_hasFilter) TextButton(onPressed: _clearFilters, child: const Text('Xoá bộ lọc')),
+            ]),
+          )
+        else ...[
+          for (final b in _blogs)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: PostCard(
+                blog: b,
+                author: _authors[b.authorId],
+                myVote: _myVotes[b.id],
+                score: _scores[b.id] ?? b.voteScore,
+                commentCount: _commentCounts[b.id],
+                onOpen: () => _open(b),
+                onVote: (v) => _vote(b, v),
+                canVote: b.authorId == null || b.authorId != auth.user?.id,
+              ),
+            ),
+          if (_loadingMore)
+            const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
+          else if (!_hasMore)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(child: Text('Bạn đã xem hết bài viết', style: TextStyle(color: context.textMuted))),
+            ),
+        ],
+      ];
 
   static const _sortOptions = [('', 'Mới nhất'), ('popular', 'Nổi bật'), ('mostViewed', 'Xem nhiều')];
 
-  /// Thứ tự bảng tin (tham số sort của GET /blogs) và lối tắt xoá toàn bộ bộ lọc.
-  Widget _buildSortRow() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [
-                for (final (value, label) in _sortOptions)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(label),
-                      selected: _sort == value,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) => _setSort(value),
-                    ),
-                  ),
-              ]),
-            ),
+  /// Danh mục và thứ tự bảng tin (tham số sort của GET /blogs) nằm cạnh nhau, kèm nút xoá toàn bộ bộ lọc.
+  Widget _buildFilters() => FilterRow(
+        flex: const [1, 1],
+        trailing: _hasFilter ? IconButton(tooltip: 'Xoá bộ lọc', onPressed: _clearFilters, icon: const Icon(Icons.filter_alt_off_outlined)) : null,
+        children: [
+          FilterDropdown<int?>(
+            options: {null: 'Tất cả', for (final c in _categories) c.id: c.name},
+            selected: _categoryId,
+            onChanged: (id) {
+              _categoryId = id;
+              _load();
+            },
           ),
-          if (_hasFilter) TextButton(onPressed: _clearFilters, child: const Text('Xoá bộ lọc')),
-        ]),
+          FilterDropdown<String>(
+            options: {for (final (value, label) in _sortOptions) value: label},
+            selected: _sort,
+            onChanged: _setSort,
+          ),
+        ],
       );
 }
