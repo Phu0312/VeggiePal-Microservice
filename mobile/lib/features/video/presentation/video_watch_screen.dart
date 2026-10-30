@@ -12,6 +12,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../profile/data/profile_models.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../payment/presentation/upgrade_dialog.dart';
 import '../data/video_models.dart';
 import '../data/video_repository.dart';
 import 'extraction_view.dart';
@@ -199,9 +200,15 @@ class _AiRecipeCardState extends State<_AiRecipeCard> {
       _schedulePoll(r);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e is ApiException && e.code == 6003
-            ? 'Bạn đã hết lượt bóc tách video của gói hiện tại (gói FREE chưa có lượt). Hãy nâng cấp gói để dùng tính năng này.'
-            : errorMessage(e));
+        if (e is ApiException && e.code == 6003) {
+          showUpgradeDialog(
+              context,
+              'Bạn đã hết lượt bóc tách video của gói hiện tại (gói FREE chưa có lượt). '
+              'Hãy nâng cấp gói để dùng tính năng này.',
+              title: 'Hết lượt bóc tách video');
+        } else {
+          setState(() => _error = errorMessage(e));
+        }
       }
     } finally {
       if (mounted) setState(() => _starting = false);

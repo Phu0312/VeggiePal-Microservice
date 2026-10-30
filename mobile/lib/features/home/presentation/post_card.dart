@@ -22,6 +22,9 @@ class PostCard extends StatelessWidget {
   final VoidCallback onOpen;
   final void Function(int value) onVote;
 
+  /// false với bài của chính người đang đăng nhập (backend không cho tự bầu chọn, lỗi 3041).
+  final bool canVote;
+
   const PostCard({
     super.key,
     required this.blog,
@@ -31,6 +34,7 @@ class PostCard extends StatelessWidget {
     required this.commentCount,
     required this.onOpen,
     required this.onVote,
+    this.canVote = true,
   });
 
   @override
@@ -104,7 +108,7 @@ class PostCard extends StatelessWidget {
               label: null,
               active: myVote == 1,
               tooltip: 'Thích',
-              onTap: () => onVote(1),
+              onTap: canVote ? () => onVote(1) : null,
             ),
             Text('$score',
                 style: TextStyle(
@@ -116,7 +120,7 @@ class PostCard extends StatelessWidget {
               label: null,
               active: myVote == -1,
               tooltip: 'Không thích',
-              onTap: () => onVote(-1),
+              onTap: canVote ? () => onVote(-1) : null,
             ),
             const Spacer(),
             _Action(
@@ -138,7 +142,7 @@ class _Action extends StatelessWidget {
   final String? label; // null = chỉ hiện icon
   final bool active;
   final String tooltip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap; // null = vô hiệu (bài của chính mình)
   const _Action(
       {required this.icon,
       required this.label,

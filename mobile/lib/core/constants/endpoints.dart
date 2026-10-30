@@ -21,6 +21,7 @@ class Endpoints {
   // ---- Identity ----
   static const login = '/auth/login';
   static const register = '/auth/register';
+  static const googleLogin = '/auth/google';
   static const me = '/users/me';
   static const myPassword = '/users/me/password';
   static const myAvatar = '/users/me/avatar';
@@ -76,12 +77,23 @@ class Endpoints {
   static String videoRecipe(int videoId) => '/ai/videos/by-video/$videoId';
   static String videoJob(int id) => '/ai/videos/$id';
 
+  // ---- AI service: gợi ý nội dung ----
+  static const aiRecommendations = '/ai/recommendations';
+
   // ---- AI service: chatbot ----
   static const chatGuestSessions = '/ai/chat/guest-sessions';
   static const chatGuest = '/ai/chat/guest';
   static const chat = '/ai/chat';
   static const chatConversations = '/ai/chat/conversations';
   static String chatConversation(int id) => '/ai/chat/conversations/$id';
+
+  // ---- Payment service: gói thành viên và thanh toán PayOS ----
+  static const paymentPlans = '/payments/plans';
+  static const paymentCheckout = '/payments/checkout';
+  static String paymentOrder(int id) => '/payments/orders/$id';
+  static String paymentOrderCancel(int id) => '/payments/orders/$id/cancel';
+  static const paymentHistory = '/payments/history';
+  static const mySubscription = '/subscriptions/me';
 
   // ---- Quản trị ----
   static const aiModeration = '/ai/admin/moderation';

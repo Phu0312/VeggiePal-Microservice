@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,13 +18,17 @@ import '../data/home_models.dart';
 import '../data/home_repository.dart';
 import 'blog_detail_screen.dart';
 import 'create_content_sheet.dart';
+import 'home_highlights.dart';
 import 'post_card.dart';
 
-/// TAB 1 - Trang chủ: bảng tin bài viết xếp theo chiều dọc (mới nhất trước), cuộn xuống tự tải thêm.
+/// TAB 1 - Trang chủ: bảng tin bài viết xếp theo chiều dọc, cuộn xuống tự tải thêm. Lọc theo từ khoá (tự
+/// tìm sau khi ngừng gõ), danh mục và thứ tự (mới nhất / nổi bật / xem nhiều) - cùng tham số với GET /blogs.
 /// Widget tree: Scaffold(FAB cho thành viên)
 ///   └─ RefreshIndicator └─ ListView
+///        ├─ HomeHighlights (Món chay mới + Gợi ý của AI)
 ///        ├─ VegSearchBar
-///        ├─ Danh mục (ListView ngang của ChoiceChip)
+///        ├─ Danh mục (ListView ngang của ChoiceChip, mọi loại danh mục)
+///        ├─ Thứ tự + nút "Xoá bộ lọc"
 ///        └─ Danh sách PostCard (tác giả, tiêu đề + ảnh bìa, thích / không thích / bình luận)
 /// Tác giả lấy bằng GET /users/batch, phiếu bầu của tôi bằng GET /blogs/me/votes, số bình luận bằng
 /// GET /comments (chỉ gọi cho các bài mới tải của mỗi trang).
@@ -36,12 +42,16 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _search = TextEditingController();
   final _scroll = ScrollController();
+  Timer? _searchDebounce;
+  int _requestSeq = 0; // chỉ kết quả của lần tải mới nhất được áp dụng (gõ nhanh nhiều lần)
 
   final _videoFeed = GlobalKey<VideoFeedState>();
+  final _highlights = GlobalKey<HomeHighlightsState>();
   bool _showVideos = false; // false = bảng tin bài viết, true = bảng tin video
   List<CategoryItem> _categories = [];
   List<BlogItem> _blogs = [];
   int? _categoryId;
+  String _sort = ''; // '' | popular | mostViewed
   int _page = 0;
   bool _hasMore = false;
   bool _loading = true;
@@ -65,13 +75,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  /// Tải lại từ trang đầu: danh mục + trang bài viết đầu tiên.
-  Future<void> _load() async {
+  bool get _hasFilter => _search.text.trim().isNotEmpty || _categoryId != null || _sort.isNotEmpty;
+
+  /// Tải lại từ trang đầu. Danh mục chỉ tải khi chưa có (hoặc khi kéo để làm mới), không tải lại mỗi lần lọc.
+  Future<void> _load({bool reloadCategories = false}) async {
+    final seq = ++_requestSeq;
     setState(() {
       _loading = true;
       _loadFailed = false;
@@ -80,10 +94,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final kw = _search.text.trim();
     try {
       final r = await Future.wait<Object>([
-        repo.categories(),
-        repo.blogsPage(keyword: kw, categoryId: _categoryId, page: 0),
+        if (reloadCategories || _categories.isEmpty) repo.categories() else Future.value(_categories),
+        repo.blogsPage(keyword: kw, categoryId: _categoryId, sort: _sort, page: 0),
       ]);
-      if (!mounted) return;
+      if (!mounted || seq != _requestSeq) return;
       final page = r[1] as PageData<BlogItem>;
       setState(() {
         _categories = r[0] as List<CategoryItem>;
@@ -96,22 +110,43 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       await _enrich(page.items);
     } catch (e) {
-      if (mounted) {
+      if (mounted && seq == _requestSeq) {
         setState(() => _loadFailed = true);
         showErrorDialog(context, errorMessage(e));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _requestSeq) setState(() => _loading = false);
     }
+  }
+
+  /// Gõ xong ~400ms mới tìm (giống web), tránh gọi API sau từng phím.
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), _load);
+  }
+
+  void _setSort(String sort) {
+    if (_sort == sort) return;
+    _sort = sort;
+    _load();
+  }
+
+  void _clearFilters() {
+    _searchDebounce?.cancel();
+    _search.clear();
+    _categoryId = null;
+    _sort = '';
+    _load();
   }
 
   Future<void> _loadMore() async {
     if (_loading || _loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     try {
+      final seq = _requestSeq;
       final p = await context.read<HomeRepository>().blogsPage(
-          keyword: _search.text.trim(), categoryId: _categoryId, page: _page + 1);
-      if (!mounted) return;
+          keyword: _search.text.trim(), categoryId: _categoryId, sort: _sort, page: _page + 1);
+      if (!mounted || seq != _requestSeq) return; // bộ lọc đã đổi trong lúc tải trang này
       setState(() {
         _blogs = [..._blogs, ...p.items];
         _page = p.page;
@@ -212,6 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => BlogDetailScreen(
         summary: b,
+        onChanged: _load,
         onVoteChanged: (myVote, score) {
           if (!mounted) return;
           setState(() {
@@ -266,19 +302,26 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _showVideos
               ? VideoFeed(key: _videoFeed, categories: _categories)
               : RefreshIndicator(
-            onRefresh: _load,
+            // Kéo để làm mới: bảng tin, công thức mới và gợi ý của AI.
+            onRefresh: () => Future.wait([_load(reloadCategories: true), _highlights.currentState?.reload() ?? Future<void>.value()]),
             child: ListView(
               controller: _scroll,
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 100),
               children: [
+                HomeHighlights(key: _highlights),
                 VegSearchBar(
                   controller: _search,
                   hint: 'Tìm bài viết, công thức, mẹo nấu chay...',
-                  onSubmitted: (_) => _load(),
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (_) {
+                    _searchDebounce?.cancel();
+                    _load();
+                  },
                 ),
                 _buildCategories(),
-                const SizedBox(height: 8),
+                _buildSortRow(),
+                const SizedBox(height: 4),
                 if (_loading)
                   const Padding(
                       padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
@@ -287,8 +330,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 else if (_blogs.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(48),
-                    child: Center(
-                        child: Text('Chưa có bài viết phù hợp', style: TextStyle(color: context.textMuted))),
+                    child: Column(children: [
+                      Text(_hasFilter ? 'Không có bài viết khớp bộ lọc' : 'Chưa có bài viết nào',
+                          style: TextStyle(color: context.textMuted)),
+                      if (_hasFilter)
+                        TextButton(onPressed: _clearFilters, child: const Text('Xoá bộ lọc')),
+                    ]),
                   )
                 else ...[
                   for (final b in _blogs)
@@ -302,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         commentCount: _commentCounts[b.id],
                         onOpen: () => _open(b),
                         onVote: (v) => _vote(b, v),
+                        canVote: b.authorId == null || b.authorId != auth.user?.id,
                       ),
                     ),
                   if (_loadingMore)
@@ -340,5 +388,32 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
+      );
+
+  static const _sortOptions = [('', 'Mới nhất'), ('popular', 'Nổi bật'), ('mostViewed', 'Xem nhiều')];
+
+  /// Thứ tự bảng tin (tham số sort của GET /blogs) và lối tắt xoá toàn bộ bộ lọc.
+  Widget _buildSortRow() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                for (final (value, label) in _sortOptions)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: _sort == value,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => _setSort(value),
+                    ),
+                  ),
+              ]),
+            ),
+          ),
+          if (_hasFilter) TextButton(onPressed: _clearFilters, child: const Text('Xoá bộ lọc')),
+        ]),
       );
 }
