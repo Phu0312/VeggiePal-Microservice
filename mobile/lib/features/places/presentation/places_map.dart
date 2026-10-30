@@ -14,7 +14,10 @@ class MapTiles {
   const MapTiles([this.provider]);
 }
 
-/// Bản đồ quán chay (OpenStreetMap): vòng bán kính tìm kiếm, vị trí của bạn (chấm xanh dương) và ghim từng quán.
+/// Mức zoom ban đầu của bản đồ: [zoomForRadius] trừ 0.2 để vòng bán kính lọt trọn, còn chừa lề, trong khung bản đồ.
+double mapZoomForRadius(num radiusKm) => zoomForRadius(radiusKm) - 0.2;
+
+/// Bản đồ quán chay (dữ liệu OpenStreetMap, ô bản đồ OSM France): vòng bán kính tìm kiếm, vị trí của bạn (chấm xanh dương) và ghim từng quán.
 /// Bấm một ghim thì chọn quán đó và hiện thẻ tóm tắt ở dưới; bấm vào chỗ trống để bỏ chọn.
 /// Cha điều khiển bản đồ qua [controller] (di chuyển tới một quán, về lại vị trí tìm kiếm).
 class PlacesMap extends StatelessWidget {
@@ -57,15 +60,17 @@ class PlacesMap extends StatelessWidget {
         mapController: controller,
         options: MapOptions(
           initialCenter: point,
-          initialZoom: zoomForRadius(radiusKm),
+          initialZoom: mapZoomForRadius(radiusKm),
           minZoom: 4,
           maxZoom: 18,
           onTap: (_, _) => onSelect(null),
         ),
         children: [
           TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            // OpenStreetMap yêu cầu ứng dụng khai báo định danh khi tải ô bản đồ.
+            // Ô bản đồ của OpenStreetMap France (dữ liệu OpenStreetMap, không cần khoá). Không dùng tile.openstreetmap.org vì
+            // nhiều mạng / DNS chặn tên miền openstreetmap.org (không phân giải được) nên bản đồ chỉ hiện nền xám.
+            urlTemplate: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+            subdomains: const ['a', 'b', 'c'],
             userAgentPackageName: 'com.veggiepal.mobile',
             tileProvider: tileProvider,
           ),
@@ -97,15 +102,15 @@ class PlacesMap extends StatelessWidget {
             for (final p in places)
               Marker(
                 point: LatLng(p.latitude, p.longitude),
-                width: p.id == selectedId ? 50 : 40,
-                height: p.id == selectedId ? 50 : 40,
+                width: p.id == selectedId ? 44 : 32,
+                height: p.id == selectedId ? 44 : 32,
                 child: GestureDetector(
                   onTap: () => onSelect(p),
                   child: _Pin(p, selected: p.id == selectedId),
                 ),
               ),
           ]),
-          const SimpleAttributionWidget(source: Text('© OpenStreetMap')),
+          const SimpleAttributionWidget(source: Text('© OpenStreetMap, OSM France')),
         ],
       ),
       Positioned(
@@ -145,7 +150,7 @@ class _Pin extends StatelessWidget {
         border: Border.all(color: Colors.white, width: 2.5),
         boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)],
       ),
-      child: Icon(LucideIcons.leaf, color: place.veganOnly || selected ? Colors.white : Colors.black87, size: selected ? 24 : 19),
+      child: Icon(LucideIcons.leaf, color: place.veganOnly || selected ? Colors.white : Colors.black87, size: selected ? 22 : 16),
     );
   }
 }

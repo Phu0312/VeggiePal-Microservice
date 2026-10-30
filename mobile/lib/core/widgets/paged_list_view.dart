@@ -15,6 +15,9 @@ class PagedListView<T> extends StatefulWidget {
   final EdgeInsets padding;
   final double spacing;
 
+  /// Khối đặt trên đầu danh sách và cuộn cùng nó (vẫn hiện khi đang tải, lỗi hoặc danh sách rỗng).
+  final Widget? header;
+
   const PagedListView({
     super.key,
     required this.load,
@@ -23,6 +26,7 @@ class PagedListView<T> extends StatefulWidget {
     this.errorTitle = 'Không tải được dữ liệu',
     this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
     this.spacing = 8,
+    this.header,
   });
 
   @override
@@ -114,6 +118,7 @@ class PagedListViewState<T> extends State<PagedListView<T>> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.header != null) return RefreshIndicator(onRefresh: reload, child: _buildWithHeader());
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_failed) return RetryView(onRetry: reload);
     return RefreshIndicator(
@@ -143,4 +148,32 @@ class PagedListViewState<T> extends State<PagedListView<T>> {
             ),
     );
   }
+
+  /// Bản có [PagedListView.header]: header là mục đầu tiên của cùng một ListView nên cuộn chung với danh sách.
+  Widget _buildWithHeader() => ListView(
+        controller: _scroll,
+        padding: widget.padding,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          widget.header!,
+          if (_loading)
+            const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+          else if (_failed)
+            RetryView(onRetry: reload)
+          else if (_items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(48),
+              child: Center(
+                  child: Text(widget.emptyText,
+                      textAlign: TextAlign.center, style: TextStyle(color: context.textMuted))),
+            )
+          else
+            for (var i = 0; i < _items.length; i++) ...[
+              if (i > 0) SizedBox(height: widget.spacing),
+              widget.itemBuilder(context, _items[i]),
+            ],
+          if (_loadingMore)
+            const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator())),
+        ],
+      );
 }

@@ -11,6 +11,8 @@ import 'package:VeggiePal/features/auth/data/auth_models.dart';
 import 'package:VeggiePal/features/auth/data/auth_repository.dart';
 import 'package:VeggiePal/features/auth/presentation/auth_controller.dart';
 import 'package:VeggiePal/features/blog/data/blog_repository.dart';
+import 'package:VeggiePal/features/recipe/presentation/recipe_widgets.dart';
+import 'package:VeggiePal/features/community/data/community_repository.dart';
 import 'package:VeggiePal/features/blog/presentation/blog_editor_screen.dart';
 import 'package:VeggiePal/features/home/data/home_models.dart';
 import 'package:VeggiePal/features/home/data/home_repository.dart';
@@ -22,6 +24,7 @@ import 'package:VeggiePal/features/home/presentation/post_card.dart';
 import 'package:VeggiePal/features/profile/data/favorites_controller.dart';
 import 'package:VeggiePal/features/profile/data/profile_repository.dart';
 import 'package:VeggiePal/features/recipe/data/recipe_repository.dart';
+import 'support/filter_dropdown.dart';
 
 /// ApiClient giả: trả kết quả theo đường dẫn, ghi lại mọi lời gọi (đường dẫn + query) để kiểm tra.
 class FakeApi extends ApiClient {
@@ -53,6 +56,17 @@ Map<String, dynamic> _page(List<Map<String, dynamic>> items, {int total = 0}) =>
       'size': 10,
       'totalElements': total == 0 ? items.length : total,
       'totalPages': 1,
+    };
+
+Map<String, dynamic> _recipe(int id, String title) => {
+      'id': id,
+      'userId': 9,
+      'title': title,
+      'servings': 2,
+      'prepTime': 10,
+      'cookTime': 20,
+      'status': 'PUBLISHED',
+      'ingredients': <dynamic>[],
     };
 
 Map<String, dynamic> _blog(int id, String title,
@@ -92,6 +106,10 @@ FakeApi _api() => FakeApi()
   ..on(Endpoints.blogs, () => _page([_blog(1, 'Đậu hũ sốt cà'), _blog(2, 'Canh nấm')]))
   ..on(Endpoints.comments, () => _page(const []))
   ..on(Endpoints.recipes, () => _page(const []))
+  ..on(Endpoints.communityStats, () => {'publishedBlogs': 0, 'publishedVideos': 0, 'totalPosts': 0, 'activeAuthors': 0, 'totalComments': 0})
+  ..on(Endpoints.communityTrending, () => <dynamic>[])
+  ..on(Endpoints.communityLeaderboard, () => <dynamic>[])
+  ..on(Endpoints.videoChannels, () => <dynamic>[])
   ..on(Endpoints.usersBatch, () => [
         {'id': 9, 'fullName': 'An'}
       ]);
@@ -109,6 +127,7 @@ Future<void> _mount(WidgetTester tester, FakeApi api, Widget child, {AuthSession
       Provider<BlogRepository>.value(value: BlogRepository(api)),
       Provider<ProfileRepository>.value(value: ProfileRepository(api)),
       Provider<RecipeRepository>.value(value: RecipeRepository(api)),
+      Provider<CommunityRepository>.value(value: CommunityRepository(api)),
       ChangeNotifierProvider<AuthController>.value(value: auth),
       ChangeNotifierProvider<FavoritesController>(create: (_) => FavoritesController(ProfileRepository(api))),
       ChangeNotifierProvider<RecommendationController>.value(
@@ -156,20 +175,55 @@ void main() {
     testWidgets('mặc định mới nhất; chọn Nổi bật / Xem nhiều gửi đúng sort, danh mục không bị tải lại', (tester) async {
       final api = await boot(tester);
       expect(lastFeedQuery(api), {'page': 0, 'size': 10});
-      expect(find.widgetWithText(ChoiceChip, 'Mẹo vặt'), findsOneWidget); // danh mục thuộc loại RECIPE_TYPE cũng có chip
-      expect(find.widgetWithText(ChoiceChip, 'Món chính'), findsOneWidget); // danh mục con cũng có chip
+      await tester.tap(find.descendant(of: find.byType(InkWell), matching: find.text('Tất cả')).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.widgetWithText(MenuItemButton, 'Mẹo vặt'), findsOneWidget); // danh mục RECIPE_TYPE cũng có
+      expect(find.widgetWithText(MenuItemButton, 'Món chính'), findsOneWidget); // danh mục con cũng có
+      await tester.tapAt(const Offset(5, 5)); // đóng dropdown
+      await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Xoá bộ lọc'), findsNothing);
 
-      await tester.tap(find.text('Nổi bật'));
+      await pickFilter(tester, 'Mới nhất', 'Nổi bật');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(lastFeedQuery(api), {'sort': 'popular', 'page': 0, 'size': 10});
 
-      await tester.tap(find.text('Xem nhiều'));
+      await pickFilter(tester, 'Nổi bật', 'Xem nhiều');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(lastFeedQuery(api), {'sort': 'mostViewed', 'page': 0, 'size': 10});
       expect(api.count(Endpoints.categories), 1);
+    });
+
+    testWidgets('mặc định mở tab Cộng đồng: phần cộng đồng rồi tới bảng tin bài viết; chưa tải công thức / video', (tester) async {
+      final api = await boot(tester);
+      expect(find.text('Công thức'), findsOneWidget); // ô chuyển trên cùng
+      expect(find.text('Cộng đồng'), findsOneWidget);
+      expect(find.text('Video'), findsOneWidget);
+      expect(find.text('Thử thách 7 ngày sống thuần chay'), findsOneWidget);
+      expect(find.text('Bảng tin cộng đồng'), findsOneWidget);
+      expect(find.text('Đậu hũ sốt cà'), findsOneWidget);
+      expect(api.count(Endpoints.recipes), 0);
+    });
+
+    testWidgets('tab Công thức hiện lưới 2 món mỗi hàng; showCommunity() đưa về tab Cộng đồng', (tester) async {
+      final api = await boot(tester);
+      api.on(Endpoints.recipes, () => _page([for (var i = 1; i <= 4; i++) _recipe(i, 'Món số $i')]));
+      await tester.tap(find.text('Công thức'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      final cards = find.byType(RecipeGridCard);
+      expect(cards, findsNWidgets(4));
+      expect(tester.getTopLeft(cards.at(0)).dy, tester.getTopLeft(cards.at(1)).dy); // cùng hàng
+      expect(tester.getTopLeft(cards.at(2)).dy, greaterThan(tester.getTopLeft(cards.at(0)).dy)); // món thứ 3 xuống hàng
+      expect(find.text('Bảng tin cộng đồng'), findsNothing); // tab Cộng đồng đang ẩn
+
+      tester.state<HomeScreenState>(find.byType(HomeScreen)).showCommunity();
+      await tester.pump();
+      expect(find.text('Bảng tin cộng đồng'), findsOneWidget);
+      expect(find.byType(RecipeGridCard), findsNothing);
     });
 
     testWidgets('gõ tìm kiếm: đợi 400ms rồi mới gọi một lần', (tester) async {
@@ -192,7 +246,7 @@ void main() {
       final api = await boot(tester);
       api.on(Endpoints.blogs, () => _page(const []));
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Mẹo vặt'));
+      await pickFilter(tester, 'Tất cả', 'Mẹo vặt');
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(lastFeedQuery(api), {'categoryId': 3, 'page': 0, 'size': 10});

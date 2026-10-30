@@ -1,18 +1,10 @@
 import 'package:dio/dio.dart' show ProgressCallback;
-import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:VeggiePal/core/constants/endpoints.dart';
 import 'package:VeggiePal/core/network/api_client.dart';
-import 'package:VeggiePal/core/storage/session_store.dart';
-import 'package:VeggiePal/features/auth/data/auth_models.dart';
-import 'package:VeggiePal/features/auth/data/auth_repository.dart';
-import 'package:VeggiePal/features/auth/presentation/auth_controller.dart';
 import 'package:VeggiePal/features/home/data/recommendation_controller.dart';
 import 'package:VeggiePal/features/home/data/recommendation_repository.dart';
-import 'package:VeggiePal/features/home/presentation/home_highlights.dart';
-import 'package:VeggiePal/features/recipe/data/recipe_repository.dart';
 
 /// ApiClient giả: trả kết quả theo đường dẫn (hàm, để đổi theo kịch bản), không đụng tới mạng.
 class FakeApi extends ApiClient {
@@ -161,66 +153,6 @@ void main() {
       ctrl.bindUser(null);
       expect(ctrl.items, isEmpty);
       expect(ctrl.hasLoaded, isFalse);
-    });
-  });
-
-  group('HomeHighlights', () {
-    Future<FakeApi> boot(WidgetTester tester, {required bool loggedIn, List<Object?>? recs}) async {
-      final api = FakeApi()
-        ..results[Endpoints.recipes] = (() => {
-              'content': [_recipe(1, 'Đậu hũ sốt cà'), _recipe(2, 'Canh nấm')],
-              'page': 0,
-              'totalPages': 1,
-              'totalElements': 2,
-            })
-        ..results[Endpoints.aiRecommendations] =
-            (() => recs ?? [_rec('RECIPE', 1, 'Đậu hũ sốt cà', 'Giàu đạm, hợp người tập gym'), _rec('BLOG', 9, 'Mẹo nấu chay', 'Dễ làm')]);
-      if (loggedIn) api.token = 't';
-      final auth = AuthController(api, AuthRepository(api), SessionStore(),
-          initial: loggedIn
-              ? const AuthSession('t', AuthUser(id: 3, email: 'a@b.c', fullName: 'An', role: UserRole.user))
-              : null);
-      final recCtrl = RecommendationController(RecommendationRepository(api))..bindUser(loggedIn ? 3 : null);
-      tester.view.physicalSize = const Size(800, 3000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(MultiProvider(
-        providers: [
-          Provider<RecipeRepository>.value(value: RecipeRepository(api)),
-          ChangeNotifierProvider<AuthController>.value(value: auth),
-          ChangeNotifierProvider<RecommendationController>.value(value: recCtrl),
-        ],
-        child: const MaterialApp(home: Scaffold(body: SingleChildScrollView(child: HomeHighlights()))),
-      ));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 100));
-      return api;
-    }
-
-    testWidgets('khách thấy công thức mới và lời mời đăng nhập, không gọi AI', (tester) async {
-      final api = await boot(tester, loggedIn: false);
-      expect(find.text('Món chay mới'), findsOneWidget);
-      expect(find.text('Đậu hũ sốt cà'), findsOneWidget);
-      expect(find.text('Canh nấm'), findsOneWidget);
-      expect(find.textContaining('Đăng nhập để AI chọn'), findsOneWidget);
-      expect(api.calls.contains(Endpoints.aiRecommendations), isFalse);
-      expect(api.queries[Endpoints.recipes], {'page': 0, 'size': 6});
-    });
-
-    testWidgets('thành viên thấy gợi ý của AI kèm lý do và loại nội dung', (tester) async {
-      final api = await boot(tester, loggedIn: true);
-      expect(find.text('Gợi ý dành riêng cho bạn'), findsOneWidget);
-      expect(find.text('Công thức'), findsOneWidget); // nhãn loại trên thẻ gợi ý
-      expect(find.text('Bài viết'), findsOneWidget);
-      expect(find.text('Giàu đạm, hợp người tập gym'), findsOneWidget);
-      expect(find.text('Mẹo nấu chay'), findsOneWidget);
-      expect(api.calls.where((c) => c == Endpoints.aiRecommendations).length, 1);
-    });
-
-    testWidgets('AI không có gợi ý nào thì báo trạng thái rỗng', (tester) async {
-      await boot(tester, loggedIn: true, recs: const []);
-      expect(find.textContaining('Chưa có gợi ý phù hợp'), findsOneWidget);
     });
   });
 }

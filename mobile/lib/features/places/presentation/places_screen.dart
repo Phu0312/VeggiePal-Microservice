@@ -87,7 +87,7 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
   void _recenter() {
     final c = _user.location;
     try {
-      _map.move(LatLng(c.lat, c.lng), zoomForRadius(_radius));
+      _map.move(LatLng(c.lat, c.lng), mapZoomForRadius(_radius));
     } catch (_) {
       // Bản đồ chưa dựng xong: lần dựng đầu đã dùng đúng tâm và zoom.
     }
@@ -170,36 +170,27 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
         hint: 'Tìm theo tên quán hoặc địa chỉ...',
         onSubmitted: _submitSearch,
       ),
-      SizedBox(
-        height: 48,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          children: [
-            for (final km in radiusOptionsKm) ...[
-              ChoiceChip(
-                  label: Text('$km km'),
-                  selected: _radius == km,
-                  onSelected: _remoteKeyword != null ? null : (_) => _setRadius(km)),
-              const SizedBox(width: 8),
-            ],
-            FilterChip(
-              avatar: const Icon(LucideIcons.leaf, size: 16),
-              label: const Text('Chỉ thuần chay'),
-              selected: _veganOnly,
-              onSelected: (v) {
-                setState(() => _veganOnly = v);
-                _load();
-              },
-            ),
-            const SizedBox(width: 8),
-            for (final s in PlaceSort.values) ...[
-              ChoiceChip(label: Text(s.label), selected: _sort == s, onSelected: (_) => setState(() => _sort = s)),
-              const SizedBox(width: 8),
-            ],
-          ],
+      FilterRow(flex: const [2, 3, 3], children: [
+        FilterDropdown<int>(
+          options: {for (final km in radiusOptionsKm) km: '$km km'},
+          selected: _radius,
+          enabled: _remoteKeyword == null,
+          onChanged: _setRadius,
         ),
-      ),
+        FilterDropdown<PlaceSort>(
+          options: {for (final s in PlaceSort.values) s: s.label},
+          selected: _sort,
+          onChanged: (s) => setState(() => _sort = s),
+        ),
+        FilterDropdown<bool>(
+          options: const {false: 'Mọi quán', true: 'Thuần chay'},
+          selected: _veganOnly,
+          onChanged: (v) {
+            setState(() => _veganOnly = v);
+            _load();
+          },
+        ),
+      ]),
       _LocationBanner(_user),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -218,25 +209,54 @@ class _PlacesScreenState extends State<PlacesScreen> with AutomaticKeepAliveClie
             // IndexedStack giữ bản đồ (vị trí, mức zoom) khi chuyển qua lại với danh sách.
             : IndexedStack(index: _showMap ? 1 : 0, children: [
                 _list(visible),
-                Stack(children: [
-                  PlacesMap(
-                    controller: _map,
-                    center: loc,
-                    centerIsUser: _user.hasRealPosition,
-                    radiusKm: _radius,
-                    places: visible,
-                    selectedId: _selectedId,
-                    onSelect: (p) => setState(() => _selectedId = p?.id),
-                    onOpenDetail: _openDetail,
-                    onRecenter: _recenter,
-                    tileProvider: context.read<MapTiles>().provider,
-                  ),
-                  if (_loading) const Positioned(top: 12, left: 12, child: _LoadingPill()),
-                ]),
+                _mapPanel(visible, loc),
               ]),
       ),
     ]);
   }
+
+  /// Bản đồ nằm trong một khung bo góc cao tối đa 520px (co lại nếu màn hình thấp), phía dưới là dòng tóm tắt.
+  Widget _mapPanel(List<Place> visible, ({double lat, double lng}) loc) => LayoutBuilder(
+        builder: (context, box) {
+          final height = (box.maxHeight - 48).clamp(200.0, 520.0);
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  height: height,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: context.cs.outline),
+                  ),
+                  child: Stack(children: [
+                    PlacesMap(
+                      controller: _map,
+                      center: loc,
+                      centerIsUser: _user.hasRealPosition,
+                      radiusKm: _radius,
+                      places: visible,
+                      selectedId: _selectedId,
+                      onSelect: (p) => setState(() => _selectedId = p?.id),
+                      onOpenDetail: _openDetail,
+                      onRecenter: _recenter,
+                      tileProvider: context.read<MapTiles>().provider,
+                    ),
+                    if (_loading) const Positioned(top: 12, left: 12, child: _LoadingPill()),
+                  ]),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+                  child: Text('${visible.length} quán trong bán kính $_radius km • chạm vào ghim để xem chi tiết',
+                      style: TextStyle(fontSize: 12.5, color: context.textMuted)),
+                ),
+              ]),
+            ),
+          );
+        },
+      );
 
   Widget _list(List<Place> visible) {
     if (_loading && _places.isEmpty) return const Center(child: CircularProgressIndicator());

@@ -196,6 +196,112 @@ class FullWidthSegmented<T> extends StatelessWidget {
   }
 }
 
+/// Ô chọn dạng dropdown thay cho hàng ChoiceChip cuộn ngang: viền bo tròn như [FullWidthSegmented], chỉ hiện lựa chọn
+/// hiện tại; bấm thì danh sách xổ xuống ngay bên dưới ô, cùng bề ngang với ô. [options] giữ nguyên thứ tự khai báo;
+/// khoá có thể là null (vd "Tất cả"). Đặt vài ô cạnh nhau bằng [FilterRow]. `enabled: false` làm mờ và khoá ô.
+class FilterDropdown<T> extends StatelessWidget {
+  final Map<T, String> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+  final bool enabled;
+  const FilterDropdown(
+      {super.key, required this.options, required this.selected, required this.onChanged, this.enabled = true});
+
+  static const _maxMenuHeight = 280.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final keys = options.keys.toList();
+    final labels = options.values.toList();
+    final index = keys.indexOf(selected);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return MenuAnchor(
+          style: MenuStyle(
+            minimumSize: WidgetStatePropertyAll(Size(width, 0)),
+            maximumSize: WidgetStatePropertyAll(Size(width, _maxMenuHeight)),
+            backgroundColor: WidgetStatePropertyAll(cs.surface),
+            surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+            elevation: const WidgetStatePropertyAll(4),
+            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 4)),
+            shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16), side: BorderSide(color: cs.outlineVariant))),
+          ),
+          menuChildren: [
+            for (var i = 0; i < labels.length; i++)
+              MenuItemButton(
+                style: ButtonStyle(
+                  minimumSize: WidgetStatePropertyAll(Size(width, 44)),
+                  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+                  backgroundColor: WidgetStatePropertyAll(i == index ? cs.secondaryContainer : null),
+                ),
+                trailingIcon: i == index ? Icon(Icons.check, size: 18, color: cs.primary) : null,
+                onPressed: () {
+                  if (i != index) onChanged(keys[i]);
+                },
+                child: Text(labels[i], style: TextStyle(fontSize: 14, color: cs.onSurface)),
+              ),
+          ],
+          builder: (context, controller, _) => Opacity(
+            opacity: enabled ? 1 : 0.5,
+            child: Material(
+              color: Colors.transparent,
+              shape: StadiumBorder(side: BorderSide(color: cs.outline)),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: !enabled ? null : () => controller.isOpen ? controller.close() : controller.open(),
+                child: SizedBox(
+                  height: 40,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12, right: 6),
+                    child: Row(children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(index < 0 ? '' : labels[index],
+                                maxLines: 1,
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                          ),
+                        ),
+                      ),
+                      Icon(controller.isOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                          size: 20),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Hàng các [FilterDropdown] cạnh nhau, chia đều bề ngang (hoặc theo [flex]); [trailing] là nút phụ ở cuối hàng.
+class FilterRow extends StatelessWidget {
+  final List<Widget> children;
+  final List<int>? flex;
+  final Widget? trailing;
+  const FilterRow({super.key, required this.children, this.flex, this.trailing});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(flex: flex?[i] ?? 1, child: children[i]),
+          ],
+          if (trailing != null) ...[const SizedBox(width: 4), trailing!],
+        ]),
+      );
+}
+
 /// Popup thông tin (không phải lỗi), ví dụ kết quả kiểm duyệt bài viết.
 Future<void> showInfoDialog(BuildContext context, String title, String message) {
   if (!context.mounted) return Future.value();

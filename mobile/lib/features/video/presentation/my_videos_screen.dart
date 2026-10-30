@@ -129,26 +129,16 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
         label: const Text('Đăng video'),
       ),
       body: Column(children: [
-        SizedBox(
-          height: 52,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            children: [
-              for (final e in _filters.entries) ...[
-                ChoiceChip(
-                  label: Text(e.value),
-                  selected: _status == e.key,
-                  onSelected: (_) {
-                    setState(() => _status = e.key);
-                    _reload();
-                  },
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
+        FilterRow(children: [
+          FilterDropdown<String?>(
+            options: _filters,
+            selected: _status,
+            onChanged: (v) {
+              setState(() => _status = v);
+              _reload();
+            },
           ),
-        ),
+        ]),
         Expanded(
           child: PagedListView<Video>(
             key: _list,
