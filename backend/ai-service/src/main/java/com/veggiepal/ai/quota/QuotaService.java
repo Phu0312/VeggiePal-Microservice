@@ -26,9 +26,8 @@ public class QuotaService {
     public int getUsedCount(String principalKey, String feature, QuotaPeriod period) {
         LocalDate today = LocalDate.now();
         LocalDate periodDate = period == QuotaPeriod.MONTHLY ? today.withDayOfMonth(1) : today;
-        return repository.findByPrincipalKeyAndFeatureAndUsageDate(principalKey, feature, periodDate)
-                .map(DailyQuota::getRequestCount)
-                .orElse(0);
+        // Read-only transaction: must not use the PESSIMISTIC_WRITE finder (SELECT ... FOR UPDATE).
+        return repository.findRequestCount(principalKey, feature, periodDate).orElse(0);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

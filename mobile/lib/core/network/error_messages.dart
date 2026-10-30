@@ -48,6 +48,7 @@ const Map<int, String> errorMessagesVi = {
   2011: 'Lượng nước mỗi lần thêm phải từ 1 đến 5000 ml.',
   2012: 'Chưa tính được mục tiêu dinh dưỡng lúc này. Vui lòng thử lại sau.',
   2013: 'Hãy cập nhật chỉ số sức khỏe và hồ sơ (ngày sinh, giới tính, mức vận động) để tính mục tiêu dinh dưỡng.',
+  2014: 'Mục tiêu calo chỉ được tính cho người từ 18 tuổi trở lên.',
   // ai-service
   6000: 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại nội dung đã nhập.',
   6002: 'Không tìm thấy dữ liệu yêu cầu (có thể đã bị xoá).',
@@ -122,8 +123,8 @@ const Map<int, String> errorMessagesVi = {
   3041: 'Bạn không thể bầu chọn cho bài viết của chính mình.',
   3042: 'Thiếu danh sách bài viết.',
   3050: 'Dịch vụ kiểm duyệt AI tạm thời không khả dụng. Vui lòng thử lại sau.',
-  // blog-service dùng chung mã 3051 cho hai lỗi (kiểm duyệt AI trả kết quả sai, cấp huy hiệu tạm lỗi) nên dùng một câu chung.
-  3051: 'Dịch vụ kiểm duyệt hoặc cấp huy hiệu tạm thời gặp sự cố. Vui lòng thử lại sau.',
+  3051: 'Dịch vụ kiểm duyệt AI trả về kết quả không hợp lệ. Vui lòng thử lại.',
+  3053: 'Hệ thống chưa cấp được huy hiệu lúc này. Vui lòng thử lại sau.',
   3060: 'Video không tồn tại.',
   3061: 'Vui lòng nhập tiêu đề video.',
   3062: 'Tiêu đề video tối đa 150 ký tự.',

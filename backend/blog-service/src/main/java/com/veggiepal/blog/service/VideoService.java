@@ -85,7 +85,8 @@ public class VideoService {
         // Persist first so the moderation case can point to a real resource id
         videoRepository.saveAndFlush(video);
 
-        // Moderation before the upload: if ai-service is down, nothing reaches the bucket
+        // Moderation runs before the upload. If ai-service is down the video is held as PENDING for
+        // manual review (it is still uploaded), the request does not fail.
         String reason = Boolean.TRUE.equals(request.getPublish())
                 ? applyModeration(video)
                 : null;
