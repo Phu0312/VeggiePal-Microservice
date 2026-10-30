@@ -107,11 +107,12 @@ public enum ErrorCode {
     INVALID_VIDEO_STATUS_TRANSITION(3068, "Video is not in a state that allows this action", HttpStatus.BAD_REQUEST),
 
     MODERATION_UNAVAILABLE(3050, "AI moderation is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
-    BADGE_AWARD_UNAVAILABLE(3051, "Badge award is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
-
     INVALID_MODERATION_RESPONSE(3051, "AI moderation returned an invalid response", HttpStatus.BAD_GATEWAY),
 
     MODERATION_TARGET_MISMATCH(3052, "Moderation target does not match its author", HttpStatus.CONFLICT),
+
+    // Was 3051, the same number as INVALID_MODERATION_RESPONSE, so clients could not tell the two apart.
+    BADGE_AWARD_UNAVAILABLE(3053, "Badge award is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
 
     CANNOT_FOLLOW_SELF(3070, "You cannot follow yourself", HttpStatus.BAD_REQUEST),
 

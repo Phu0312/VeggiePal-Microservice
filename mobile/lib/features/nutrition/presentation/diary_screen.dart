@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/format.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../menu_planner/data/meal_plan_models.dart';
+import '../../profile/presentation/edit_profile_screen.dart';
+import '../../profile/presentation/health_history_screen.dart';
 import '../data/diary_models.dart';
 import '../data/diary_repository.dart';
 import 'add_food_sheet.dart';
@@ -13,6 +17,8 @@ import 'add_food_sheet.dart';
 /// Nhật ký dinh dưỡng theo ngày (GET /nutrition/me/daily-summary): calo và macro so với mục tiêu, nước uống,
 /// vận động và các món đã ăn theo từng bữa. Chọn ngày bằng mũi tên hoặc lịch (không quá hôm nay).
 /// Mọi thay đổi gọi BE rồi tải lại tổng kết của ngày đó để số liệu luôn khớp với server.
+/// Mục tiêu calo do BE tính theo hồ sơ và mục tiêu người dùng chọn (giảm cân / duy trì / tăng cân, được nhớ lại ở lần
+/// mở sau). Hồ sơ chưa đủ (BE trả 2013) thì màn hình hướng dẫn bổ sung thay vì chỉ báo lỗi.
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
 
@@ -30,12 +36,40 @@ class _DiaryScreenState extends State<DiaryScreen> {
   DailySummary? _summary;
   bool _loading = true;
   bool _failed = false;
-  int _generation = 0; // bỏ kết quả của lần tải cũ khi đã đổi ngày
+  bool _needsProfile = false; // BE trả 2013 / 2014: không tính được mục tiêu calo
+  bool _underage = false; // 2014: dưới 18 tuổi, bổ sung chiều cao/cân nặng cũng không giúp được
+  String _needsProfileMessage = '';
+  PlanGoal _goal = PlanGoal.maintain;
+  int _generation = 0; // bỏ kết quả của lần tải cũ khi đã đổi ngày hoặc mục tiêu
+
+  static const _goalKey = 'diary_goal_type';
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _restoreGoalThenLoad();
+  }
+
+  /// Nhớ mục tiêu đã chọn ở lần trước. Không đọc được bộ nhớ cục bộ thì dùng "Duy trì".
+  Future<void> _restoreGoalThenLoad() async {
+    try {
+      final saved = (await SharedPreferences.getInstance()).getString(_goalKey);
+      final goal = PlanGoal.all.where((g) => g.value == saved);
+      if (goal.isNotEmpty && mounted) _goal = goal.first;
+    } catch (_) {}
+    if (mounted) await _load();
+  }
+
+  Future<void> _setGoal(PlanGoal goal) async {
+    if (goal.value == _goal.value) return;
+    setState(() {
+      _goal = goal;
+      _summary = null;
+    });
+    try {
+      (await SharedPreferences.getInstance()).setString(_goalKey, goal.value);
+    } catch (_) {}
+    if (mounted) _load();
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -44,15 +78,33 @@ class _DiaryScreenState extends State<DiaryScreen> {
       setState(() {
         _loading = true;
         _failed = false;
+        _needsProfile = false;
+        _underage = false;
       });
     }
     try {
-      final s = await context.read<DiaryRepository>().summary(_date);
-      if (mounted && gen == _generation) setState(() => _summary = s);
+      final s = await context.read<DiaryRepository>().summary(_date, goalType: _goal.value);
+      if (mounted && gen == _generation) {
+        setState(() {
+          _summary = s;
+          _needsProfile = false;
+        });
+      }
     } catch (e) {
       if (mounted && gen == _generation) {
-        setState(() => _failed = _summary == null);
-        showErrorDialog(context, errorMessage(e), title: 'Không tải được nhật ký');
+        if (e is ApiException && (e.code == 2013 || e.code == 2014)) {
+          // Không phải sự cố: người dùng cần bổ sung hồ sơ (2013) hoặc chưa đủ tuổi (2014). Màn hình hiện hướng dẫn
+          // thay vì popup lỗi.
+          setState(() {
+            _needsProfile = true;
+            _underage = e.code == 2014;
+            _needsProfileMessage = e.message;
+            _summary = null;
+          });
+        } else {
+          setState(() => _failed = _summary == null);
+          showErrorDialog(context, errorMessage(e), title: 'Không tải được nhật ký');
+        }
       }
     } finally {
       if (mounted && gen == _generation) setState(() => _loading = false);
@@ -82,6 +134,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     } catch (e) {
       if (mounted) showErrorDialog(context, errorMessage(e), title: errorTitle);
     }
+  }
+
+  Future<void> _openAndReload(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    if (mounted) _load();
   }
 
   Future<void> _addFood([MealSlot? meal]) async {
@@ -149,12 +206,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final s = _summary;
     return Scaffold(
       appBar: AppBar(title: const Text('Nhật ký dinh dưỡng')),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'diary-add',
-        onPressed: () => _addFood(),
-        icon: const Icon(LucideIcons.plus),
-        label: const Text('Ghi món'),
-      ),
+      floatingActionButton: _needsProfile
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'diary-add',
+              onPressed: () => _addFood(),
+              icon: const Icon(LucideIcons.plus),
+              label: const Text('Ghi món'),
+            ),
       body: Column(children: [
         _DateBar(
           date: _date,
@@ -163,8 +222,17 @@ class _DiaryScreenState extends State<DiaryScreen> {
           onNext: _isToday ? null : () => _setDate(_date.add(const Duration(days: 1))),
           onPick: _pickDate,
         ),
+        if (!_needsProfile) _GoalBar(goal: _goal, onChanged: _setGoal),
         Expanded(
-          child: s == null
+          child: _needsProfile
+              ? _ProfileIncompleteView(
+                  message: _needsProfileMessage,
+                  underage: _underage,
+                  onEditProfile: () => _openAndReload(const EditProfileScreen(
+                      highlightFields: {'dateOfBirth', 'gender', 'activityLevel'})),
+                  onEditHealth: () => _openAndReload(const HealthHistoryScreen()),
+                )
+              : s == null
               ? (_loading
                   ? const Center(child: CircularProgressIndicator())
                   : RetryView(message: _failed ? 'Không tải được nhật ký.' : 'Không có dữ liệu.', onRetry: _load))
@@ -189,6 +257,78 @@ class _DiaryScreenState extends State<DiaryScreen> {
       ]),
     );
   }
+}
+
+/// Chọn mục tiêu để BE tính calo mỗi ngày (cùng ba mục tiêu với tab Thực đơn).
+class _GoalBar extends StatelessWidget {
+  final PlanGoal goal;
+  final ValueChanged<PlanGoal> onChanged;
+  const _GoalBar({required this.goal, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        child: Column(children: [
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: [for (final g in PlanGoal.all) ButtonSegment(value: g.value, label: Text(g.label))],
+              selected: {goal.value},
+              onSelectionChanged: (v) => onChanged(PlanGoal.all.firstWhere((g) => g.value == v.first)),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text('Mục tiêu: ${goal.hint}', style: TextStyle(fontSize: 12, color: context.textMuted)),
+        ]),
+      );
+}
+
+/// Hiện khi BE chưa tính được mục tiêu calo: hồ sơ chưa đủ (mã 2013) hoặc người dùng dưới 18 tuổi (mã 2014).
+/// Người dưới 18 tuổi chỉ được sửa hồ sơ (phòng khi nhập sai ngày sinh), không có nút nhập chiều cao, cân nặng.
+class _ProfileIncompleteView extends StatelessWidget {
+  final String message;
+  final bool underage;
+  final VoidCallback onEditProfile;
+  final VoidCallback onEditHealth;
+  const _ProfileIncompleteView(
+      {required this.message, required this.underage, required this.onEditProfile, required this.onEditHealth});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(LucideIcons.userPen, size: 48, color: context.cs.primary),
+            const SizedBox(height: 12),
+            Text(underage ? 'Chưa đủ tuổi để tính mục tiêu' : 'Cần bổ sung hồ sơ',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: context.textMuted)),
+            if (underage) ...[
+              const SizedBox(height: 8),
+              Text('Nếu bạn đã nhập sai ngày sinh, hãy sửa lại trong hồ sơ.',
+                  textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: context.textMuted)),
+            ],
+            const SizedBox(height: 20),
+            if (!underage) ...[
+              SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                      onPressed: onEditHealth,
+                      icon: const Icon(LucideIcons.ruler),
+                      label: const Text('Nhập chiều cao, cân nặng'))),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                    onPressed: onEditProfile,
+                    icon: const Icon(LucideIcons.userPen),
+                    label: const Text('Cập nhật hồ sơ'))),
+          ]),
+        ),
+      );
 }
 
 class _DateBar extends StatelessWidget {
