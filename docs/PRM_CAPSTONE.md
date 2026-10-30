@@ -1277,6 +1277,15 @@ flowchart TD
 
 *Figure VI.4 shows the paying workflow from plan selection to activation. The subscription changes only after the signed webhook has been verified.*
 
+#### 3.5. Workflow 5: Administering Accounts (mobile admin app)
+
+1. Sign in with an account whose role is `ADMIN`. The mobile app then opens the admin dashboard instead of the user app, with six tabs: Moderation, Categories, Ingredients, Members, Payments and AI.
+2. Open the Members tab. It lists accounts newest first (`GET /admin/users`, 20 per page). Type an email or name and submit to search, and use the role chips (all, member, administrator) and the status chips (all, active, blocked, pending, inactive) to filter. Each row shows the role, the status and whether the email is still unverified.
+3. Tap a row to see the account details: ID, email, phone, role, status, email verification and creation date.
+4. To lock an account, choose "Lock account" and confirm (`PATCH /admin/users/{id}/status` with `BLOCKED`). The user can no longer sign in and identity-service revokes their refresh tokens; an access token that was already issued stays valid until it expires (24 hours). A locked account offers "Unlock account" (status `ACTIVE`); a pending or inactive account offers "Activate account".
+5. To change a role, choose "Grant administrator role" or "Remove administrator role" and confirm (`PATCH /admin/users/{id}/role`).
+6. An administrator cannot lock or demote their own account (error 1022), so the details of the signed-in account show no actions. If another administrator has already put the account in the requested state (errors 1020 and 1023), the app shows the message and reloads the list.
+
 ### 4. CI/CD Deployment Process
 
 The workflow `.github/workflows/ci-cd.yml` is named "VeggiePal CI/CD" and runs on every push and pull request to `dev` and `main`.

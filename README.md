@@ -79,6 +79,7 @@ Swagger UI tổng hợp của gateway gom tài liệu API của các service (xe
 | Bản đồ | Tìm quán chay gần vị trí của bạn | ✓ (Mapbox) | ✓ (flutter_map) |
 | Gói thành viên | FREE / PLUS (29.000 VND) / PRO (59.000 VND), thanh toán PayOS VietQR, hạn mức chat, thực đơn và video theo gói | ✓ | ✓ |
 | Quản trị (ADMIN) | Hàng đợi kiểm duyệt, giám sát AI, thống kê thanh toán | ✓ | ✓ |
+| Quản lý tài khoản (ADMIN) | Tìm và lọc tài khoản, khóa / mở khóa, cấp hoặc gỡ quyền quản trị | — | ✓ |
 
 ## Công nghệ
 
