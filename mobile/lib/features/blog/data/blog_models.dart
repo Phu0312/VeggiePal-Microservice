@@ -1,3 +1,4 @@
+import '../../../core/utils/moderation.dart';
 import '../../home/data/home_models.dart';
 
 /// Bình luận (blog-service: CommentResponse).
@@ -123,7 +124,7 @@ class CategoryNode {
 /// Kết quả hiển thị cho người dùng sau khi lưu/đăng/gửi duyệt một bài viết, theo trạng thái BE trả về.
 /// [needsDialog] = true khi cần popup (bài chờ duyệt/bị từ chối kèm lý do), ngược lại chỉ cần snack.
 ({String title, String message, bool needsDialog}) blogOutcome(BlogItem b) {
-  final reason = (b.moderationReason ?? '').trim();
+  final reason = moderationReasonVi(b.moderationReason ?? '');
   switch (b.status) {
     case 'PUBLISHED':
       return (title: 'Đã đăng', message: 'Bài viết "${b.title}" đã được đăng.', needsDialog: false);

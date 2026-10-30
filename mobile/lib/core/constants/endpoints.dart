@@ -36,7 +36,6 @@ class Endpoints {
   static const myFavorites = '/users/me/favorites';
   static String myFavorite(String type, int id) => '/users/me/favorites/$type/$id';
   static const myBadges = '/users/me/badges';
-  static String myBadge(String code) => '/users/me/badges/$code';
 
   // ---- Blog service ----
   static const blogs = '/blogs';

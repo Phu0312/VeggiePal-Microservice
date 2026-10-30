@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/moderation.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../../../core/widgets/paged_list_view.dart';
 import '../data/video_models.dart';
@@ -95,7 +96,7 @@ class _MyVideosScreenState extends State<MyVideosScreen> {
           },
         );
 
-    final reason = (v.moderationReason ?? '').trim();
+    final reason = moderationReasonVi(v.moderationReason ?? '');
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
