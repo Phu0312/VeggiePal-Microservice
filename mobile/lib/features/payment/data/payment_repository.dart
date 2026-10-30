@@ -2,19 +2,19 @@ import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
 import 'payment_models.dart';
 
-/// Mã lỗi của payment-service nằm trong dải 6000-6009, trùng dải với ai-service nên không dùng chung bảng thông báo
-/// toàn app mà dịch riêng tại đây.
+/// Mã lỗi của payment-service nằm trong dải 7000-7009 (trước đây là 6000-6009, trùng dải với ai-service). Bảng này
+/// chỉ dịch riêng mã payment; mã 6xxx của ai-service (ví dụ 6003 hết lượt AI) không được dịch ở đây.
 const paymentErrorMessages = {
-  6000: 'Vui lòng chọn gói thành viên.',
-  6001: 'Gói không tồn tại.',
-  6002: 'Gói này không thể mua.',
-  6003: 'Không tìm thấy đơn hàng.',
-  6004: 'Cổng thanh toán đang bận, vui lòng thử lại sau.',
-  6005: 'Chữ ký thanh toán không hợp lệ.',
-  6006: 'Số tiền thanh toán không khớp với đơn hàng.',
-  6007: 'Thanh toán không thành công.',
-  6008: 'Đơn hàng này không thể huỷ.',
-  6009: 'Chưa huỷ được đơn, vui lòng thử lại.',
+  7000: 'Vui lòng chọn gói thành viên.',
+  7001: 'Gói không tồn tại.',
+  7002: 'Gói này không thể mua.',
+  7003: 'Không tìm thấy đơn hàng.',
+  7004: 'Cổng thanh toán đang bận, vui lòng thử lại sau.',
+  7005: 'Chữ ký thanh toán không hợp lệ.',
+  7006: 'Số tiền thanh toán không khớp với đơn hàng.',
+  7007: 'Thanh toán không thành công.',
+  7008: 'Đơn hàng này không thể huỷ.',
+  7009: 'Chưa huỷ được đơn, vui lòng thử lại.',
 };
 
 /// payment-service: gói thành viên (công khai) và thanh toán / gói của tôi (cần JWT).
@@ -73,7 +73,7 @@ class PaymentRepository {
         return _order(await _api.get(Endpoints.paymentOrder(id)));
       });
 
-  // POST /payments/orders/{id}/cancel : chỉ huỷ được đơn PENDING (6008 nếu đã thanh toán).
+  // POST /payments/orders/{id}/cancel : chỉ huỷ được đơn PENDING (7008 nếu đã thanh toán).
   Future<UserOrder> cancel(int id) => _guard(() async {
         _requireLogin();
         return _order(await _api.post(Endpoints.paymentOrderCancel(id)));

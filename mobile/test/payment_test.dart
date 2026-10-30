@@ -130,13 +130,20 @@ void main() {
   });
 
   group('PaymentRepository', () {
-    test('mã lỗi 6003 là "không thấy đơn hàng" chứ không phải hết lượt AI', () async {
+    test('mã lỗi 7003 được dịch thành "không thấy đơn hàng"', () async {
       final api = FakeApi()
-        ..errors[Endpoints.paymentOrder(5)] =
-            ApiException('Bạn đã hết lượt sử dụng tính năng AI theo gói hiện tại.', code: 6003, statusCode: 404);
+        ..errors[Endpoints.paymentOrder(5)] = ApiException('Payment order does not exist', code: 7003, statusCode: 404);
       api.token = 't';
       await expectLater(PaymentRepository(api).order(5),
           throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Không tìm thấy đơn hàng.')));
+    });
+
+    test('mã 6xxx của ai-service (6003 hết lượt AI) không bị dịch thành lỗi đơn hàng', () async {
+      const aiMessage = 'Bạn đã hết lượt sử dụng tính năng AI theo gói hiện tại.';
+      final api = FakeApi()..errors[Endpoints.paymentOrder(5)] = ApiException(aiMessage, code: 6003, statusCode: 429);
+      api.token = 't';
+      await expectLater(PaymentRepository(api).order(5),
+          throwsA(isA<ApiException>().having((e) => e.message, 'message', aiMessage)));
     });
 
     test('lỗi ngoài dải payment được giữ nguyên', () async {
