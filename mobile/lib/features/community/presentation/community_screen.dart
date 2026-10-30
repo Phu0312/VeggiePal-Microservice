@@ -13,9 +13,14 @@ import '../../profile/data/profile_repository.dart';
 import '../data/community_models.dart';
 import '../data/community_repository.dart';
 
+/// Mã huy hiệu BE cấp khi hoàn thành thử thách 7 ngày (BadgeCode.VEGGIE_GREEN_HEART của identity-service).
+const _greenHeartCode = 'VEGGIE_GREEN_HEART';
+
 /// Cộng đồng VeggiePal: thống kê chung, thử thách 7 ngày sống thuần chay, chủ đề nổi bật, bảng xếp hạng tác giả và
 /// kênh video được đề xuất (blog-service). Đọc được khi chưa đăng nhập; theo dõi tác giả và điểm danh thử thách cần
 /// đăng nhập. BE chỉ trả mã tác giả nên tên và ảnh được lấy qua `/users/batch`.
+/// Huy hiệu "Trái Tim Xanh Veggie" do BE tự cấp khi điểm danh đủ 7 ngày (blog-service gọi identity-service); app không
+/// tự mở khoá nữa vì `POST /users/me/badges/{code}` chỉ còn dành cho ADMIN.
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
 
@@ -33,6 +38,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   bool _loading = true;
   bool _failed = false;
   bool _checkingIn = false;
+  bool _badgePending = false; // đã hoàn thành thử thách nhưng BE chưa cấp được huy hiệu
   final _following = <int>{}; // mã tác giả đang gọi API theo dõi
 
   @override
@@ -66,7 +72,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         _challenge = r[4] as ChallengeProgress?;
       });
       _loadNames();
-      if (_challenge?.completed == true) _unlockBadge();
+      _checkBadge();
     } catch (e) {
       if (mounted) {
         setState(() => _failed = _stats == null);
@@ -87,11 +93,36 @@ class _CommunityScreenState extends State<CommunityScreen> {
     } catch (_) {}
   }
 
-  /// Hoàn thành thử thách thì mở khoá huy hiệu "Trái tim xanh Veggie" (idempotent). Lỗi bị bỏ qua.
-  Future<void> _unlockBadge() async {
+  /// Đã hoàn thành thử thách mà huy hiệu chưa có trong hồ sơ (BE cấp lỗi lần trước) thì hiện nút "Nhận huy hiệu".
+  /// Chỉ là phần phụ nên lỗi mạng được bỏ qua, không nhắc nhầm.
+  Future<void> _checkBadge() async {
+    if (_challenge?.completed != true) {
+      if (_badgePending && mounted) setState(() => _badgePending = false);
+      return;
+    }
     try {
-      await context.read<ProfileRepository>().unlockBadge('VEGGIE_GREEN_HEART');
+      final badges = await context.read<ProfileRepository>().badges();
+      final earned = badges.badges.any((b) => b.code == _greenHeartCode && b.earned);
+      if (mounted) setState(() => _badgePending = !earned);
     } catch (_) {}
+  }
+
+  /// Điểm danh lại một thử thách đã hoàn thành: BE chỉ cấp lại huy hiệu (idempotent), không tính thêm ngày.
+  Future<void> _claimBadge() async {
+    setState(() => _checkingIn = true);
+    try {
+      final c = await context.read<CommunityRepository>().checkIn();
+      if (!mounted) return;
+      setState(() {
+        _challenge = c;
+        _badgePending = false;
+      });
+      showSnack(context, 'Đã nhận huy hiệu "${c.badgeName ?? 'Trái Tim Xanh Veggie'}"');
+    } catch (e) {
+      if (mounted) showErrorDialog(context, errorMessage(e), title: 'Chưa nhận được huy hiệu');
+    } finally {
+      if (mounted) setState(() => _checkingIn = false);
+    }
   }
 
   bool _requireLogin() {
@@ -108,16 +139,37 @@ class _CommunityScreenState extends State<CommunityScreen> {
       if (!mounted) return;
       setState(() => _challenge = c);
       if (c.justCompleted) {
-        _unlockBadge();
         await showInfoDialog(context, 'Hoàn thành thử thách!',
             'Bạn đã sống thuần chay ${c.total} ngày liên tiếp và nhận huy hiệu "${c.badgeName ?? 'Trái Tim Xanh Veggie'}".');
       } else {
         showSnack(context, 'Đã điểm danh ngày ${c.days}/${c.total}');
       }
     } catch (e) {
+      if (!mounted) return;
+      // 3051: ngày điểm danh cuối đã được lưu nhưng BE chưa cấp được huy hiệu. Tải lại tiến độ rồi cho thử nhận lại.
+      if (e is ApiException && e.code == 3051 && await _afterBadgeFailure()) return;
       if (mounted) showErrorDialog(context, errorMessage(e), title: 'Không điểm danh được');
     } finally {
       if (mounted) setState(() => _checkingIn = false);
+    }
+  }
+
+  /// Trả `true` nếu thử thách thật sự đã hoàn thành và người dùng đã được báo; `false` thì để lỗi gốc hiện như thường.
+  Future<bool> _afterBadgeFailure() async {
+    try {
+      final c = await context.read<CommunityRepository>().challenge();
+      if (!mounted || !c.completed) return false;
+      setState(() {
+        _challenge = c;
+        _badgePending = true;
+        _checkingIn = false; // tắt vòng quay trước khi mở popup, nếu không nó quay suốt lúc popup còn mở
+      });
+      await showInfoDialog(context, 'Đã hoàn thành thử thách',
+          'Bạn đã điểm danh đủ ${c.total} ngày, nhưng huy hiệu chưa được cấp vì hệ thống đang tạm thời gặp sự cố. '
+          'Hãy bấm "Nhận huy hiệu" để thử lại sau.');
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -164,7 +216,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   progress: _challenge,
                   loggedIn: context.watch<AuthController>().isLoggedIn,
                   busy: _checkingIn,
+                  badgePending: _badgePending,
                   onCheckIn: _checkIn,
+                  onClaimBadge: _claimBadge,
                 ),
                 if (_topics.isNotEmpty) ...[
                   _heading('Chủ đề nổi bật'),
@@ -235,8 +289,17 @@ class _ChallengeCard extends StatelessWidget {
   final ChallengeProgress? progress;
   final bool loggedIn;
   final bool busy;
+  final bool badgePending;
   final VoidCallback onCheckIn;
-  const _ChallengeCard({required this.progress, required this.loggedIn, required this.busy, required this.onCheckIn});
+  final VoidCallback onClaimBadge;
+  const _ChallengeCard({
+    required this.progress,
+    required this.loggedIn,
+    required this.busy,
+    required this.badgePending,
+    required this.onCheckIn,
+    required this.onClaimBadge,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -244,6 +307,9 @@ class _ChallengeCard extends StatelessWidget {
     final String message;
     if (!loggedIn) {
       message = 'Đăng nhập để tham gia và nhận huy hiệu "Trái Tim Xanh Veggie".';
+    } else if (p.completed && badgePending) {
+      message = 'Bạn đã hoàn thành thử thách nhưng huy hiệu chưa được cấp do hệ thống tạm thời gặp sự cố. '
+          'Bấm "Nhận huy hiệu" để thử lại.';
     } else if (p.completed) {
       message = 'Bạn đã hoàn thành thử thách và nhận huy hiệu ${p.badgeName ?? 'Trái Tim Xanh Veggie'}.';
     } else if (p.broken) {
@@ -281,6 +347,15 @@ class _ChallengeCard extends StatelessWidget {
                   ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(LucideIcons.calendarCheck),
               label: Text(loggedIn ? 'Điểm danh hôm nay' : 'Đăng nhập để tham gia'),
+            ),
+          ] else if (p.completed && badgePending) ...[
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: busy ? null : onClaimBadge,
+              icon: busy
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(LucideIcons.award),
+              label: const Text('Nhận huy hiệu'),
             ),
           ],
         ]),

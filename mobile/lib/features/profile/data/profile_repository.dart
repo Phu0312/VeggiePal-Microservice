@@ -89,11 +89,6 @@ class ProfileRepository {
     return BadgeCollection.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
-  // POST /users/me/badges/{code} : mở khoá một huy hiệu (idempotent, gọi lại không báo lỗi).
-  Future<void> unlockBadge(String code) async {
-    await _api.post(Endpoints.myBadge(code));
-  }
-
   // GET /users/batch?ids=1&ids=2 (công khai, tối đa 50) -> tên + avatar của tác giả.
   Future<List<PublicUser>> publicUsers(List<int> ids) async {
     if (ids.isEmpty) return const [];

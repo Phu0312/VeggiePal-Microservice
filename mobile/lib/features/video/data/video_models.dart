@@ -1,5 +1,7 @@
 // Video của cộng đồng (blog-service: `/videos`) và bóc tách công thức từ video bằng AI (ai-service: `/ai/videos`).
 
+import '../../../core/utils/moderation.dart';
+
 /// Giới hạn khớp backend.
 class VideoLimits {
   VideoLimits._();
@@ -222,7 +224,7 @@ String formatFileSize(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1
 /// Kết quả hiển thị cho người dùng sau khi lưu / đăng / gửi duyệt một video, theo trạng thái BE trả về.
 /// [needsDialog] = true khi cần popup (chờ duyệt hoặc bị từ chối kèm lý do), ngược lại chỉ cần snack.
 ({String title, String message, bool needsDialog}) videoOutcome(Video v) {
-  final reason = (v.moderationReason ?? '').trim();
+  final reason = moderationReasonVi(v.moderationReason ?? '');
   switch (v.status) {
     case 'PUBLISHED':
       return (title: 'Đã đăng', message: 'Video "${v.title}" đã được đăng.', needsDialog: false);
