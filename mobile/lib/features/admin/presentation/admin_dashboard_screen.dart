@@ -5,20 +5,20 @@ import '../../../core/widgets/header_actions.dart';
 import 'admin_ai_tab.dart';
 import 'admin_ingredients_tab.dart';
 import 'admin_payments_tab.dart';
+import 'admin_users_tab.dart';
 import 'category_manager_tab.dart';
 import 'moderation_tab.dart';
 
 /// App quản trị riêng cho tài khoản Admin (thay hoàn toàn app người dùng, xem main.dart).
-/// Widget tree: Scaffold -> DefaultTabController(TabBar cuộn ngang 5 tab)
-///   Kiểm duyệt | Danh mục | Nguyên liệu | Thanh toán | AI
-/// Quản lý thành viên không có ở đây vì identity-service chưa có API quản trị tài khoản.
+/// Widget tree: Scaffold -> DefaultTabController(TabBar cuộn ngang 6 tab)
+///   Kiểm duyệt | Danh mục | Nguyên liệu | Thành viên | Thanh toán | AI
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 64,
@@ -29,6 +29,7 @@ class AdminDashboardScreen extends StatelessWidget {
             Tab(text: 'Kiểm duyệt'),
             Tab(text: 'Danh mục'),
             Tab(text: 'Nguyên liệu'),
+            Tab(text: 'Thành viên'),
             Tab(text: 'Thanh toán'),
             Tab(text: 'AI'),
           ]),
@@ -37,6 +38,7 @@ class AdminDashboardScreen extends StatelessWidget {
           ModerationTab(),
           CategoryManagerTab(),
           AdminIngredientsTab(),
+          AdminUsersTab(),
           AdminPaymentsTab(),
           AdminAiTab(),
         ]),
