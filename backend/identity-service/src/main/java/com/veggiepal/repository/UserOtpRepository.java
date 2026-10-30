@@ -1,6 +1,7 @@
 package com.veggiepal.repository;
 
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -23,6 +24,9 @@ public interface UserOtpRepository extends JpaRepository<UserOtp, Long> {
             String resetToken,
             OtpPurpose purpose
     );
+
+    @Query("select coalesce(sum(o.attempts), 0) from UserOtp o where o.email = :email and o.createdAt >= :since")
+    long countFailedAttemptsSince(@Param("email") String email, @Param("since") LocalDateTime since);
 
     @Modifying
     @Query("update UserOtp o set o.used = true where o.userId = :userId and o.purpose = :purpose and o.used = false")

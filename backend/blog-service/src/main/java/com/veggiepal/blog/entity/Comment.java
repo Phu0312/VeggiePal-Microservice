@@ -34,6 +34,7 @@ public class Comment {
     Long authorId;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "target_type", nullable = false)
     TargetType targetType;
 
@@ -53,6 +54,7 @@ public class Comment {
     String content;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(nullable = false)
     CommentStatus status;
 

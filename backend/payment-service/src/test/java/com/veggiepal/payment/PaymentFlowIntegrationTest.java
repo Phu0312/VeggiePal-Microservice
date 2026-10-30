@@ -282,7 +282,7 @@ class PaymentFlowIntegrationTest {
 
         mvc.perform(post("/payments/webhook/payos").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(6005));
+                .andExpect(jsonPath("$.code").value(7005));
 
         assertThat(orders.count()).isZero();
         assertThat(subscriptions.count()).isZero();

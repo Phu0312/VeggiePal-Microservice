@@ -38,6 +38,8 @@ public enum ErrorCode {
     FOOD_LOG_NOT_EXISTED(2010, "Food log entry not existed", HttpStatus.NOT_FOUND),
 
     INVALID_WATER_AMOUNT(2011, "Water amount must be between 1 and 5000 ml", HttpStatus.BAD_REQUEST),
+    NUTRITION_TARGET_UNAVAILABLE(2012, "Nutrition target is unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    NUTRITION_PROFILE_INCOMPLETE(2013, "Complete your health record and profile to calculate a nutrition target", HttpStatus.BAD_REQUEST),
 
     INVALID_REQUEST(1018, "Invalid request data", HttpStatus.BAD_REQUEST);
 

@@ -94,6 +94,7 @@ public class RefreshTokenService {
                 .refreshExpiresIn(rotated.expiresInSeconds())
                 .userId(user.getId())
                 .email(user.getEmail())
+                .emailVerified(user.getEmailVerified())
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .build();

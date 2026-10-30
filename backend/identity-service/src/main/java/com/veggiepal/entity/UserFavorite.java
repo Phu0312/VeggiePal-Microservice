@@ -51,6 +51,7 @@ public class UserFavorite {
     Long userId;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "target_type", nullable = false, updatable = false, length = 20)
     FavoriteTargetType targetType;
 
