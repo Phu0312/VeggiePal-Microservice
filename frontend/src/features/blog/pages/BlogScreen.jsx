@@ -14,12 +14,20 @@ import {
   parseFeedFilters,
   toFeedSearchParams,
 } from "@/features/blog/utils/feedFilters";
+import ChallengeCard from "@/features/community/components/ChallengeCard";
+import LeaderboardCard from "@/features/community/components/LeaderboardCard";
+import TrendingTopicsCard from "@/features/community/components/TrendingTopicsCard";
 import AppHeader from "@/shared/components/AppHeader";
 import Reveal from "@/shared/components/Reveal";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
 
+// Từ xl hai cột bên dính theo khi cuộn (dưới header sticky); cột cao hơn màn hình thì tự cuộn bên trong, ẩn thanh cuộn.
+const stickyAsideClass =
+  "flex flex-col gap-6 xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto xl:[scrollbar-width:none] xl:[&::-webkit-scrollbar]:hidden";
+
 // Trang Cộng đồng (route /blog). Bài viết lấy từ API thật (GET /blogs).
-// Trên mobile bài viết lên trước, cột phụ xuống dưới (order-*); từ lg trở lên là 2 cột.
+// Từ xl là 3 cột: thử thách / chủ đề ở trái, bài viết ở giữa, trợ lý AI / bảng vàng ở phải.
+// Dưới xl bài viết lên trước, hai cột phụ xếp xuống dưới (order-*). Trang /community cũ đã gộp vào đây.
 export default function BlogScreen() {
   // Bộ lọc nằm trên URL (?q=&sort=&category=) để quay lại từ trang chi tiết vẫn giữ nguyên.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,8 +70,13 @@ export default function BlogScreen() {
           <CommunityHero />
         </Reveal>
 
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="order-1 flex flex-col gap-6">
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+          <aside className={`order-2 xl:order-1 ${stickyAsideClass}`}>
+            <ChallengeCard />
+            <TrendingTopicsCard />
+          </aside>
+
+          <div className="order-1 flex min-w-0 flex-col gap-6 xl:order-2">
             <BlogFilterBar key={filterBarKey} filters={filters} onChange={updateFilters} />
 
             {isError ? (
@@ -128,8 +141,9 @@ export default function BlogScreen() {
             )}
           </div>
 
-          <aside className="order-2 flex flex-col gap-6 lg:sticky lg:top-24">
+          <aside className={`order-3 ${stickyAsideClass}`}>
             <AskBroccoliCard />
+            <LeaderboardCard />
           </aside>
         </div>
       </main>

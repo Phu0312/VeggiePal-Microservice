@@ -122,12 +122,12 @@ export default function TrendingVideoGrid({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {videos.map((video, index) => {
+            {videos.map((video) => {
               const author = authors?.get(video.authorId);
               const authorName = author?.fullName ?? "Thành viên VeggiePal";
 
               return (
-                <Reveal key={video.id} delay={index * 60}>
+                <Reveal key={video.id}>
                   <Link
                     to={`/videos/${video.id}`}
                     className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition hover:shadow-md"

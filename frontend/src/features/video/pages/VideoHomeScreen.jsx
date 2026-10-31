@@ -4,6 +4,7 @@ import { Clapperboard, PlayCircle, Plus, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCategories } from "@/features/blog/hooks/useCategories";
 import { flattenCategories } from "@/features/blog/utils/feedFilters";
+import VideoChannelsCard from "@/features/community/components/VideoChannelsCard";
 import TrendingVideoGrid from "@/features/video/components/TrendingVideoGrid";
 import { useVideoFeed } from "@/features/video/hooks/useVideos";
 import AppHeader from "@/shared/components/AppHeader";
@@ -89,21 +90,28 @@ export default function VideoHomeScreen() {
           </div>
         </GlassBanner>
 
-        <TrendingVideoGrid
-          videos={videos}
-          authors={authors}
-          isPending={isPending}
-          isError={isError}
-          error={error}
-          hasNextPage={hasNextPage}
-          fetchNextPage={fetchNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          hasFilter={activeCategoryId !== null}
-          onClearFilter={() => setCategory(null)}
-          categories={categories}
-          activeCategoryId={activeCategoryId}
-          onCategoryChange={setCategory}
-        />
+        {/* Từ xl: danh sách video bên trái, kênh video gợi ý bên phải (dính theo khi cuộn); dưới xl kênh xếp xuống dưới. */}
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <TrendingVideoGrid
+            videos={videos}
+            authors={authors}
+            isPending={isPending}
+            isError={isError}
+            error={error}
+            hasNextPage={hasNextPage}
+            fetchNextPage={fetchNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            hasFilter={activeCategoryId !== null}
+            onClearFilter={() => setCategory(null)}
+            categories={categories}
+            activeCategoryId={activeCategoryId}
+            onCategoryChange={setCategory}
+          />
+
+          <aside className="xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto xl:[scrollbar-width:none] xl:[&::-webkit-scrollbar]:hidden">
+            <VideoChannelsCard />
+          </aside>
+        </div>
       </main>
 
     </div>

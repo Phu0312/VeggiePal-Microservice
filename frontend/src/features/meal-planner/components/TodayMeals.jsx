@@ -194,8 +194,8 @@ export default function TodayMeals({
 
     return (
       <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card, index) => (
-          <Reveal key={card.key} delay={index * 80}>
+        {cards.map((card) => (
+          <Reveal key={card.key}>
             {card}
           </Reveal>
         ))}

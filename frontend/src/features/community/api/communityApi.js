@@ -3,7 +3,6 @@ import apiClient from "@/shared/api/apiClient";
 
 /**
  * Cộng đồng (blog-service qua api-gateway). Công khai (khách xem được):
- *   GET /blogs/community/stats            { publishedBlogs, publishedVideos, totalPosts, activeAuthors, totalComments }
  *   GET /blogs/community/trending-topics  [{ categoryId, name, tag, count }]
  *   GET /blogs/community/leaderboard      [{ authorId, articlesCount, videosCount, postsCount, totalLikes, followersCount, following }]
  *   GET /videos/channels                  [{ authorId, videoCount, totalViews, totalLikes, followersCount, following }]
@@ -22,11 +21,6 @@ async function send(request) {
   } catch (error) {
     throw new Error("Không kết nối được máy chủ, vui lòng thử lại", { cause: error });
   }
-}
-
-export async function getCommunityStats() {
-  const res = await send(() => apiClient.get("/blogs/community/stats"));
-  return unwrapBlogResponse(res, "Không tải được số liệu cộng đồng");
 }
 
 export async function getTrendingTopics(limit = 8) {

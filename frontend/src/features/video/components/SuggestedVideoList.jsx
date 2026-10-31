@@ -1,13 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PlaySquare } from "lucide-react";
+import { Loader2, PlaySquare } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { formatCompactNumber, formatTimeAgo } from "@/features/blog/utils/blogFormat";
 import { useVideoFeed } from "@/features/video/hooks/useVideos";
 import FallbackImage from "@/shared/components/FallbackImage";
 import { usePublicUsers } from "@/shared/hooks/usePublicUsers";
 
-const TARGET_COUNT = 5;
+// Hiện tối đa 5 video, mỗi lần bấm "Xem thêm" hiện thêm 5 video nữa.
+const PAGE_COUNT = 5;
 
 function SuggestedVideoSkeleton() {
   return (
@@ -43,30 +45,38 @@ export default function SuggestedVideoList({ currentVideoId, categoryId }) {
   );
 
   const catDone = !hasCategory || Boolean(catQuery.data) || catQuery.isError;
-  const needMore = !hasCategory || (catDone && filteredCat.length < TARGET_COUNT);
 
-  // Chỉ gọi nguồn chung khi không có chuyên mục HOẶC khi nguồn cùng chuyên mục chưa đủ 5 video
+  // Nguồn chung chỉ gọi sau khi nguồn cùng chuyên mục xong, dùng bù cho đủ danh sách và để "Xem thêm" tải tiếp.
   const allQuery = useVideoFeed({
     categoryId: undefined,
     size: 8,
-    enabled: needMore,
+    enabled: catDone,
   });
 
   const allVideos = allQuery.videos;
-  const allDone = !needMore || Boolean(allQuery.data) || allQuery.isError;
+  const allDone = !catDone || Boolean(allQuery.data) || allQuery.isError;
 
-  // Ghép danh sách: ưu tiên cùng chuyên mục, bù thêm từ nguồn chung cho đủ 5 video
+  // Ghép danh sách: video cùng chuyên mục trước, rồi tới nguồn chung (bỏ trùng). Chỉ nối thêm ở cuối nên thứ tự đang hiện không bị đổi.
   const suggestedList = useMemo(() => {
-    const list = filteredCat.slice(0, TARGET_COUNT);
-    if (list.length < TARGET_COUNT) {
-      const existingIds = new Set([Number(currentVideoId), ...list.map((v) => v.id)]);
-      const additional = (allVideos ?? []).filter((v) => !existingIds.has(v.id));
-      return [...list, ...additional.slice(0, TARGET_COUNT - list.length)];
-    }
-    return list;
+    const seen = new Set([Number(currentVideoId), ...filteredCat.map((v) => v.id)]);
+    const additional = (allVideos ?? []).filter((v) => !seen.has(v.id));
+    return [...filteredCat, ...additional];
   }, [filteredCat, allVideos, currentVideoId]);
 
-  const { data: authors } = usePublicUsers(suggestedList.map((v) => v.authorId));
+  const [visibleCount, setVisibleCount] = useState(PAGE_COUNT);
+  const visibleList = suggestedList.slice(0, visibleCount);
+  const hasMore = suggestedList.length > visibleCount || Boolean(allQuery.hasNextPage);
+
+  const showMore = () => {
+    const next = visibleCount + PAGE_COUNT;
+    setVisibleCount(next);
+    // Danh sách đã tải chưa đủ cho lần hiện tiếp theo thì tải thêm một trang từ nguồn chung.
+    if (suggestedList.length < next && allQuery.hasNextPage && !allQuery.isFetchingNextPage) {
+      allQuery.fetchNextPage();
+    }
+  };
+
+  const { data: authors } = usePublicUsers(visibleList.map((v) => v.authorId));
 
   const isLoading = !catDone || !allDone;
 
@@ -80,9 +90,9 @@ export default function SuggestedVideoList({ currentVideoId, categoryId }) {
 
       {isLoading ? (
         <SuggestedVideoSkeleton />
-      ) : suggestedList.length > 0 ? (
+      ) : visibleList.length > 0 ? (
         <div className="flex flex-col gap-3.5">
-          {suggestedList.map((v) => {
+          {visibleList.map((v) => {
             const author = authors?.get(v.authorId);
             return (
               <Link
@@ -126,6 +136,26 @@ export default function SuggestedVideoList({ currentVideoId, categoryId }) {
               </Link>
             );
           })}
+
+          {hasMore && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="self-center"
+              disabled={allQuery.isFetchingNextPage}
+              onClick={showMore}
+            >
+              {allQuery.isFetchingNextPage ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Đang tải...
+                </>
+              ) : (
+                "Xem thêm"
+              )}
+            </Button>
+          )}
         </div>
       ) : (
         <p className="text-sm text-subtle">Chưa có video khác.</p>
