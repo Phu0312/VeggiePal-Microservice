@@ -73,9 +73,8 @@ const NAV_ITEMS = [
   { id: "broccoli", label: "Trợ Lý VeggiePal", icon: Broccoli, to: "/chatbot" },
 ];
 
-// Trang con (vd /blog/5) cũng tính là đang ở mục cha (/blog); /community thuộc mục Cộng Đồng.
+// Trang con (vd /blog/5) cũng tính là đang ở mục cha (/blog).
 function isActivePath(pathname, to) {
-  if (to === "/blog" && pathname === "/community") return true;
   return pathname === to || (to !== "/" && pathname.startsWith(`${to}/`));
 }
 

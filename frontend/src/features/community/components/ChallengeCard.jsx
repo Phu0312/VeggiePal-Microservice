@@ -53,7 +53,7 @@ export default function ChallengeCard() {
       </p>
 
       {!isAuthenticated ? (
-        <Link to="/login" state={{ from: { pathname: "/community" } }} className={buttonVariants({ size: "md", className: "mt-4" })}>
+        <Link to="/login" state={{ from: { pathname: "/blog" } }} className={buttonVariants({ size: "md", className: "mt-4" })}>
           Đăng nhập để tham gia
         </Link>
       ) : isPending ? (
@@ -87,13 +87,13 @@ export default function ChallengeCard() {
               );
             })}
           </ol>
-          <p className="mt-3 text-sm text-body">
-            {progress.completed
-              ? "Bạn đã hoàn thành thử thách."
-              : progress.broken
-                ? "Chuỗi ngày đã bị gián đoạn, điểm danh hôm nay để bắt đầu lại."
-                : `Đã điểm danh ${days}/${total} ngày.`}
-          </p>
+          {(progress.completed || progress.broken) && (
+            <p className="mt-3 text-sm text-body">
+              {progress.completed
+                ? "Bạn đã hoàn thành thử thách."
+                : "Chuỗi ngày đã bị gián đoạn, điểm danh hôm nay để bắt đầu lại."}
+            </p>
+          )}
 
           {badgePending && (
             <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-sm text-ink">
@@ -103,7 +103,7 @@ export default function ChallengeCard() {
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {badgePending ? (
-              <Button type="button" size="md" onClick={handleCheckIn} disabled={checkIn.isPending}>
+              <Button type="button" size="md" className="w-full" onClick={handleCheckIn} disabled={checkIn.isPending}>
                 {checkIn.isPending ? <Loader2 className="size-4 animate-spin" /> : <Award className="size-4" />}
                 Nhận huy hiệu
               </Button>
@@ -113,7 +113,7 @@ export default function ChallengeCard() {
                 {progress.badgeName ?? "Trái Tim Xanh"}
               </span>
             ) : (
-              <Button type="button" size="md" onClick={handleCheckIn} disabled={checkIn.isPending || progress.checkedToday}>
+              <Button type="button" size="md" className="w-full" onClick={handleCheckIn} disabled={checkIn.isPending || progress.checkedToday}>
                 {checkIn.isPending ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
                 {progress.checkedToday ? "Hôm nay đã điểm danh" : "Điểm danh hôm nay"}
               </Button>

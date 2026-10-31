@@ -62,12 +62,14 @@ export default function VideoWatchScreen() {
             <Reveal>
               <AiSummaryCard video={video} />
             </Reveal>
-            <VideoNutritionCard video={video} />
           </div>
 
           <div className="flex flex-col gap-6">
+            <VideoNutritionCard video={video} />
             <Reveal>
+              {/* key theo video để chuyển sang video khác thì danh sách gợi ý về lại 5 mục đầu */}
               <SuggestedVideoList
+                key={id}
                 currentVideoId={id}
                 categoryId={video?.categoryId}
               />

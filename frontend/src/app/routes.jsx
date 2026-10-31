@@ -15,7 +15,6 @@ import EditProfileScreen from "@/features/profile/pages/EditProfileScreen";
 import ChatbotScreen from "@/features/chatbot/pages/ChatbotScreen";
 import BlogScreen from "@/features/blog/pages/BlogScreen";
 import BlogDetailScreen from "@/features/blog/pages/BlogDetailScreen";
-import CommunityScreen from "@/features/community/pages/CommunityScreen";
 import AdminLayout from "@/features/admin/components/AdminLayout";
 import AdminCategoriesScreen from "@/features/admin/pages/AdminCategoriesScreen";
 import AdminDashboardScreen from "@/features/admin/pages/AdminDashboardScreen";
@@ -66,8 +65,8 @@ export default function AppRoutes() {
       {/* Blog công khai với khách (BE cho GET /blogs không cần token) */}
       <Route path="/blog" element={<BlogScreen />} />
       <Route path="/blog/:blogId" element={<BlogDetailScreen />} />
-      {/* Cộng đồng: số liệu, bảng vàng, kênh video công khai; thử thách / theo dõi cần đăng nhập */}
-      <Route path="/community" element={<CommunityScreen />} />
+      {/* Trang /community cũ đã gộp vào /blog (số liệu, thử thách, chủ đề, bảng vàng, kênh video ở hai cột bên) */}
+      <Route path="/community" element={<Navigate to="/blog" replace />} />
 
       <Route path="/recipes" element={<RecipeListScreen />} />
       <Route path="/recipes/:recipeId" element={<RecipeDetailScreen />} />

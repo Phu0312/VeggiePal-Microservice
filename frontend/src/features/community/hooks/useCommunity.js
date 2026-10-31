@@ -4,7 +4,6 @@ import { selectIsAuthenticated, useAuthStore } from "@/features/auth/store/authS
 import {
   checkInChallenge,
   followAuthor,
-  getCommunityStats,
   getLeaderboard,
   getMyChallenge,
   getMyFollowing,
@@ -16,10 +15,6 @@ import { communityKeys } from "@/features/community/queryKeys";
 import { profileKeys } from "@/features/profile/queryKeys";
 
 const STALE_MS = 60 * 1000;
-
-export function useCommunityStats() {
-  return useQuery({ queryKey: communityKeys.stats, queryFn: getCommunityStats, staleTime: STALE_MS });
-}
 
 export function useTrendingTopics(limit = 8) {
   return useQuery({
