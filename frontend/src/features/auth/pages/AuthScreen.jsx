@@ -33,7 +33,7 @@ export default function AuthScreen() {
         <AuthShowcase />
 
         <div className="relative z-10 flex min-h-0 w-full flex-1 items-center justify-center overflow-y-auto bg-black/15 px-5 pb-10 pt-20 backdrop-blur-xl no-scrollbar sm:px-6 lg:px-10 lg:py-10">
-          <div key={mode} className="auth-form-enter w-full flex justify-center">
+          <div key={mode} className="w-full flex justify-center">
             {mode === "register" && <RegisterForm onSwitchMode={toLogin} />}
             {mode === "login" && <LoginForm onSwitchMode={toRegister} onForgotPassword={toForgot} />}
             {mode === "forgot" && <ForgotPasswordForm onBackToLogin={toLogin} />}

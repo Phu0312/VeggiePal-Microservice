@@ -67,8 +67,8 @@ export default function StatsGrid({ dayTotals, target, dayLong = "hôm nay" }) {
 
   return (
     <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {stats.map((stat, index) => (
-        <Reveal key={stat.id} delay={index * 80} className="h-full">
+      {stats.map((stat) => (
+        <Reveal key={stat.id} className="h-full">
           <article className="flex h-full flex-col gap-3 rounded-3xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
             <StatHeader stat={stat} />
 
@@ -81,7 +81,7 @@ export default function StatsGrid({ dayTotals, target, dayLong = "hôm nay" }) {
           </article>
         </Reveal>
       ))}
-      <Reveal delay={stats.length * 80} className="h-full">
+      <Reveal className="h-full">
         <MacroBalanceCard totals={dayTotals ?? null} />
       </Reveal>
     </section>

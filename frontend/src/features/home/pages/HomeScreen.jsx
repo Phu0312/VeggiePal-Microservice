@@ -22,10 +22,6 @@ export default function HomeScreen() {
           playsInline
         />
         <div aria-hidden className="absolute inset-0 bg-black/40" />
-        <div
-          aria-hidden
-          className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background sm:h-40"
-        />
 
         <div className="relative z-10 h-full font-home-sans">
           <HomeHero />

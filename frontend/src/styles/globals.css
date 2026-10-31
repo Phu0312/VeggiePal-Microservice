@@ -265,36 +265,6 @@
     z-index: 2;
 }
 
-/* Chuyển form Login/Register gộp: chỉ 1 form được render tại 1 thời điểm,
-   mỗi lần đổi mode form mới xuất hiện dần từ trên xuống (fade + slide-down). */
-@keyframes auth-form-enter {
-    from {
-        opacity: 0;
-        transform: translateY(-16px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.auth-form-enter {
-    animation: auth-form-enter 0.9s ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .auth-form-enter {
-        animation: none;
-    }
-
-    [data-reveal] {
-        transition: none !important;
-        transform: none !important;
-        opacity: 1 !important;
-    }
-}
-
 /* Input trên card login/register (nền trong suốt, chữ trắng): input:autofill
    của Chrome tự tô nền xanh/vàng đặc — ép lại nền trong suốt + chữ trắng để
    khớp giao diện, transition-delay cực dài để Chrome không trả nền lại sau

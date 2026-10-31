@@ -120,8 +120,8 @@ export default function AiRecommendationsSection() {
         ) : (
           /* Danh sách card gợi ý trực tiếp từ API */
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {recommendations.map((item, index) => (
-              <Reveal key={`${item.type}-${item.id}`} delay={index * 100}>
+            {recommendations.map((item) => (
+              <Reveal key={`${item.type}-${item.id}`}>
                 <RecommendationCard item={item} />
               </Reveal>
             ))}

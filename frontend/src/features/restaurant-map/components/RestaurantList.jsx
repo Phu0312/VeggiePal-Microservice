@@ -169,8 +169,8 @@ export default function RestaurantList({
             isRefreshing && "opacity-60",
           )}
         >
-          {shown.map((restaurant, index) => (
-            <Reveal key={restaurant.id} delay={(index % PAGE_SIZE) * 80}>
+          {shown.map((restaurant) => (
+            <Reveal key={restaurant.id}>
               <RestaurantCard
                 restaurant={restaurant}
                 selected={restaurant.id === selectedId}

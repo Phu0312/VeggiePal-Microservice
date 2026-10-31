@@ -23,7 +23,7 @@ const SHORTCUTS = [
     description: "Ghi món đã ăn, nước và vận động mỗi ngày",
   },
   {
-    to: "/community",
+    to: "/blog",
     icon: Trophy,
     title: "Thử thách 7 ngày",
     description: "Điểm danh sống thuần chay, xem bảng vàng cộng đồng",
