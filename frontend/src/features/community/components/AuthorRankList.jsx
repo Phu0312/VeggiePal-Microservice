@@ -38,7 +38,7 @@ export default function AuthorRankList({ query, describe, emptyText }) {
             <AuthorAvatar author={author} className="size-10 text-xs" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink">{author?.fullName ?? FALLBACK_AUTHOR_NAME}</p>
-              <p className="truncate text-xs text-subtle">{describe(entry)}</p>
+              <p className="line-clamp-2 text-xs text-subtle">{describe(entry)}</p>
             </div>
             <FollowButton authorId={entry.authorId} following={entry.following} />
           </li>

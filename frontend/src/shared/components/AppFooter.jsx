@@ -1,8 +1,6 @@
 import { Link } from "react-router-dom";
 import { Heart, Leaf, ShieldCheck, Star } from "lucide-react";
 
-import { useRevealOnScroll } from "@/shared/hooks/useRevealOnScroll";
-
 const EXPLORE_LINKS = [
   { id: "home", label: "Trang chủ", to: "/" },
   { id: "videos", label: "Video", to: "/videos" },
@@ -27,16 +25,8 @@ function FooterLink({ to, children }) {
 }
 
 export default function AppFooter() {
-  const [ref, visible] = useRevealOnScroll({ threshold: 0.1 });
-
   return (
-    <footer
-      ref={ref}
-      data-reveal
-      className={`mt-12 bg-background px-6 transition-all duration-1200 ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-8 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
-      }`}
-    >
+    <footer className="mt-12 bg-background px-6 sm:px-8">
       <div className="mx-auto grid w-full max-w-[1230px] grid-cols-1 gap-x-8 gap-y-8 py-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-16">
         <div className="flex max-w-md flex-col gap-3 sm:col-span-2 lg:col-span-1">
           <p className="text-xs font-semibold tracking-[0.15em] text-brand">

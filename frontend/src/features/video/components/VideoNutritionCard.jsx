@@ -66,13 +66,18 @@ export default function VideoNutritionCard({ video }) {
       {nutrition ? (
         <>
           {nutrition.servingLabel && <p className="mt-1 text-xs text-subtle">Mỗi khẩu phần: {nutrition.servingLabel}</p>}
-          <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {MACROS.map((macro) => (
+          {/* Đạm / tinh bột / béo / xơ xếp lưới phía trên, calo là ô to nhất chiếm cả chiều ngang ở cuối. */}
+          <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+            {MACROS.filter((macro) => macro.name !== "kcal").map((macro) => (
               <div key={macro.name} className="rounded-2xl bg-surface px-3 py-2">
                 <dt className="text-[11px] text-subtle">{macro.label}</dt>
                 <dd className="text-sm font-semibold text-ink">{fmt(nutrition[macro.name])}</dd>
               </div>
             ))}
+            <div className="col-span-full rounded-2xl bg-brand-soft px-4 py-3">
+              <dt className="text-xs font-semibold text-brand-deep">{MACROS[0].label}</dt>
+              <dd className="font-heading text-2xl font-extrabold text-ink">{fmt(nutrition.kcal)}</dd>
+            </div>
           </dl>
           {nutrition.ingredients?.length > 0 && (
             <ul className="mt-4 flex flex-col gap-1.5 text-sm text-body">

@@ -43,8 +43,8 @@ export default function TrendingRecipesSection() {
           <p className="mt-8 text-sm text-subtle">Chưa có công thức nào được đăng.</p>
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {recipes.map((recipe, index) => (
-              <Reveal key={recipe.id} delay={index * 100}>
+            {recipes.map((recipe) => (
+              <Reveal key={recipe.id}>
                 <RecipeCard
                   recipe={recipe}
                   nutrition={nutritionById.get(recipe.id)}
