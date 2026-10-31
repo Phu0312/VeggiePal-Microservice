@@ -1318,7 +1318,7 @@ flowchart TD
 
 ### 4. CI/CD Deployment Process
 
-The workflow `.github/workflows/ci-cd.yml` is named "VeggiePal CI/CD" and runs on every push and pull request to `dev` and `main`.
+The workflow `.github/workflows/ci-cd.yml` is named "VeggiePal CI/CD" and runs on a push or pull request to `dev` or `main` that changes a file under `backend/` or the workflow file itself. A change that touches only `mobile/`, `frontend/` or `docs/` does not start it.
 
 | Job | Runs on | What it does |
 |---|---|---|
@@ -1331,7 +1331,7 @@ The workflow `.github/workflows/ci-cd.yml` is named "VeggiePal CI/CD" and runs o
 
 ```mermaid
 flowchart LR
-    T["Push or pull request<br/>to dev / main"] --> M
+    T["Push or pull request to dev / main<br/>that changes backend/ or the workflow"] --> M
 
     subgraph M["maven job (matrix, 8 modules)"]
         M1["Restore dependencies"] --> M2["mvn test"] --> M3["mvn package"]
@@ -1347,7 +1347,7 @@ flowchart LR
     end
 ```
 
-*Figure VI.5 shows the pipeline stages. Test and package run in parallel for every backend module; Docker image builds and Compose validation run next; deployment to the local runner runs only for pushes to `dev` or `main`. The pipeline currently covers the backend only; the web and mobile clients are built and run manually.*
+*Figure VI.5 shows the pipeline stages. The pipeline starts only when a change touches `backend/` or the workflow file. Test and package run in parallel for every backend module; Docker image builds and Compose validation run next; deployment to the local runner runs only for pushes to `dev` or `main`. The pipeline currently covers the backend only; the web and mobile clients are built and run manually.*
 
 ---
 
