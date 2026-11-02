@@ -22,6 +22,7 @@ import com.veggiepal.ai.common.ErrorCode;
 import com.veggiepal.ai.groq.GroqClient;
 import com.veggiepal.ai.groq.ModelProperties;
 import com.veggiepal.ai.monitoring.UsageService;
+import com.veggiepal.ai.mealplan.MealPlanValidator;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,23 @@ class RecommendationServiceTest {
     }
 
     @Test
+    void recipeCandidatesAreFilteredAgainstUserAllergiesBeforeInference() throws Exception {
+        JsonNode blogs = mapper.readTree("{\"result\":{\"items\":[]}}");
+        JsonNode recipes = mapper.readTree("{\"result\":{\"content\":[{\"id\":20,\"title\":\"Peanut dish\"}]}}");
+        JsonNode allergies = mapper.readTree("{\"result\":[{\"code\":\"PEANUT\",\"name\":\"Peanut\"}]}");
+        when(responseSpec.body(JsonNode.class)).thenReturn(blogs, recipes, allergies);
+        when(uriSpec.header(anyString(), any(String[].class))).thenReturn(uriSpec);
+        MealPlanValidator validator = mock(MealPlanValidator.class);
+        when(validator.isVegan(any())).thenReturn(true);
+        when(validator.isAllergySafe(any(), any())).thenReturn(false);
+        var secured = new RecommendationService(http, "http://blog-service", "http://recipe-service",
+                groq, models, mapper, usage, validator, "http://nutrition-service");
+
+        assertTrue(secured.recommend(1L, "token", "peanut", 5).isEmpty());
+        verifyNoInteractions(groq);
+    }
+
+    @Test
     void recommendSuccessfullyRanksAndReturnsCandidates() throws Exception {
         JsonNode blogData = mapper.readTree("{\"result\":{\"items\":[{\"id\":10,\"title\":\"Vegan Salad Guide\"}]}}");
         JsonNode recipeData = mapper.readTree("{\"result\":{\"content\":[{\"id\":20,\"title\":\"Avocado Salad\"}]}}");
@@ -99,7 +117,8 @@ class RecommendationServiceTest {
         assertEquals("RECIPE", result.get(1).type());
         assertEquals(20L, result.get(1).id());
         assertEquals("Fresh salad recipe", result.get(1).reason());
-        verify(usage).checkBudget("user:1");
+        verify(usage).reserveLocalTestRequest("user:1", "RECOMMENDATION");
+        verify(usage).checkTextBudget("user:1");
     }
 
     @Test

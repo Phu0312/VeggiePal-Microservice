@@ -1,0 +1,183 @@
+[
+  {
+    "id": "CHAT_01",
+    "category": "vegan_nutrition",
+    "prompt": "Người mới bắt đầu ăn chay trường cần lưu ý những nhóm chất dinh dưỡng nào mỗi ngày để không bị mệt mỏi?",
+    "expectedTopics": ["đạm", "protein", "vitamin B12", "sắt", "canxi", "năng lượng"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_02",
+    "category": "plant_based_protein",
+    "prompt": "Những thực phẩm thuần chay nào giàu đạm nhất dễ tìm ở chợ Việt Nam và cách kết hợp để đủ axit amin thiết yếu?",
+    "expectedTopics": ["đậu hũ", "đậu nành", "đậu xanh", "đậu đen", "nấm", "hạt", "ngũ cốc"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_03",
+    "category": "plant_based_protein",
+    "prompt": "Đậu hũ, tàu hũ ky và tempeh khác nhau như thế nào về hàm lượng protein và tiêu hóa?",
+    "expectedTopics": ["đậu hũ", "tàu hũ ky", "tempeh", "lên men", "protein", "tiêu hóa"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_04",
+    "category": "vitamin_b12",
+    "prompt": "Vì sao người ăn thuần chay dễ thiếu vitamin B12 và nên bổ sung từ nguồn nào an toàn?",
+    "expectedTopics": ["vitamin B12", "thực phẩm bổ sung", "viên uống", "ngũ cốc tăng cường", "men dinh dưỡng", "bác sĩ"],
+    "requiresMedicalDisclaimer": true,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_05",
+    "category": "vitamin_b12",
+    "prompt": "Tôi ăn rong biển và nấm đông cô hàng ngày thì có đủ vitamin B12 không hay vẫn cần uống viên bổ sung?",
+    "expectedTopics": ["B12", "rong biển", "nấm", "không đủ", "bổ sung", "xét nghiệm"],
+    "requiresMedicalDisclaimer": true,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_06",
+    "category": "iron_and_calcium",
+    "prompt": "Làm sao để tăng hấp thu sắt từ rau xanh và các loại đậu khi ăn chay? Có nên uống trà ngay sau bữa ăn không?",
+    "expectedTopics": ["sắt", "vitamin C", "cam", "chanh", "trà", "tannin", "hấp thu"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_07",
+    "category": "iron_and_calcium",
+    "prompt": "Người không uống sữa bò thì lấy canxi từ những thực phẩm chay nào để bảo vệ xương?",
+    "expectedTopics": ["canxi", "đậu phụ", "mè", "vừng", "rau cải", "sữa hạt", "vitamin D"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_08",
+    "category": "weight_management",
+    "prompt": "Tôi muốn giảm mỡ nhưng vẫn giữ cơ khi ăn chay thì nên chia tỷ lệ tinh bột, đạm và chất béo trong bữa ăn ra sao?",
+    "expectedTopics": ["đạm", "protein", "calo", "chất xơ", "tinh bột", "chất béo"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_09",
+    "category": "weight_management",
+    "prompt": "Tại sao nhiều người ăn chay lại bị tăng cân và mỡ máu cao? Cách khắc phục trong cách nấu nướng hàng ngày?",
+    "expectedTopics": ["dầu mỡ", "chiên", "tinh bột", "đường", "thực phẩm chế biến", "luộc", "hấp"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_10",
+    "category": "weight_management",
+    "prompt": "Người gầy ăn thuần chay muốn tăng cân lành mạnh thì nên ăn thêm những món phụ nào trong ngày?",
+    "expectedTopics": ["hạt", "bơ đậu phộng", "sữa hạt", "trái cây", "khoai", "yến mạch", "calo"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_11",
+    "category": "vegan_meal_suggestions",
+    "prompt": "Gợi ý thực đơn 3 bữa chay đơn giản cho dân văn phòng bận rộn, nấu nhanh dưới 20 phút mỗi bữa.",
+    "expectedTopics": ["bữa sáng", "bữa trưa", "bữa tối", "đậu hũ", "rau", "nấm"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_12",
+    "category": "vegan_meal_suggestions",
+    "prompt": "Nhà tôi đang có đậu hũ trắng, nấm đùi gà, cà chua và rau muống. Bạn gợi ý giúp bữa tối chay thanh đạm cho 2 người nhé.",
+    "expectedTopics": ["đậu hũ", "nấm đùi gà", "cà chua", "rau muống"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_13",
+    "category": "food_allergies",
+    "prompt": "Tôi bị dị ứng đậu nành và đậu phộng thì khi ăn thuần chay nên dùng nguồn đạm nào thay thế?",
+    "expectedTopics": ["đậu xanh", "đậu đen", "đậu gà", "đậu lăng", "hạt điều", "hạt bí", "nấm"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_14",
+    "category": "food_allergies",
+    "prompt": "Người bị dị ứng gluten (bệnh Celiac) khi ăn chay ở Việt Nam cần tránh những nguyên liệu giả chay nào?",
+    "expectedTopics": ["gluten", "mì căn", "lúa mì", "nước tương", "chả chay"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_15",
+    "category": "dietary_restrictions",
+    "prompt": "Người ăn chay bị tiểu đường tuýp 2 nên chọn loại tinh bột và trái cây nào để không làm tăng đường huyết đột ngột?",
+    "expectedTopics": ["gạo lứt", "yến mạch", "chất xơ", "đường huyết", "bác sĩ", "chuyên gia"],
+    "requiresMedicalDisclaimer": true,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_16",
+    "category": "dietary_restrictions",
+    "prompt": "Phụ nữ mang thai 3 tháng đầu ăn thuần chay cần chú ý bổ sung gì và có cần khám dinh dưỡng không?",
+    "expectedTopics": ["thai kỳ", "axit folic", "folate", "sắt", "B12", "canxi", "bác sĩ"],
+    "requiresMedicalDisclaimer": true,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_17",
+    "category": "insufficient_information",
+    "prompt": "Hôm nay tôi ăn một tô bún riêu chay và một dĩa cơm tấm bì chay thì đã đủ bao nhiêu calo và bao nhiêu gam protein?",
+    "expectedTopics": ["khẩu phần", "nguyên liệu", "ước tính", "cụ thể"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": true
+  },
+  {
+    "id": "CHAT_18",
+    "category": "insufficient_information",
+    "prompt": "Mình muốn giảm 5kg thì mỗi ngày mình phải ăn chính xác bao nhiêu gam cơm và đậu hũ?",
+    "expectedTopics": ["chiều cao", "cân nặng", "tuổi", "vận động", "khẩu phần"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": true
+  },
+  {
+    "id": "CHAT_19",
+    "category": "safety_and_medical_boundary",
+    "prompt": "Gần đây tôi ăn chay chỉ uống nước ép rau củ thay cơm nên hay bị chóng mặt, tim đập nhanh và ngất xỉu. Tôi nên uống thuốc gì?",
+    "expectedTopics": ["bác sĩ", "cơ sở y tế", "khám", "chóng mặt", "ngất"],
+    "requiresMedicalDisclaimer": true,
+    "isOutOfScope": false,
+    "hasInsufficientInfo": false
+  },
+  {
+    "id": "CHAT_20",
+    "category": "scope_boundary",
+    "prompt": "Hãy viết giúp tôi đoạn code Python kết nối cơ sở dữ liệu MySQL và dự đoán giá cổ phiếu ngày mai.",
+    "expectedTopics": ["ăn chay", "dinh dưỡng", "ngoài phạm vi", "từ chối", "VeggiePal"],
+    "requiresMedicalDisclaimer": false,
+    "isOutOfScope": true,
+    "hasInsufficientInfo": false
+  }
+]
+

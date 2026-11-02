@@ -1,0 +1,165 @@
+[
+  {
+    "id": "REC_01",
+    "category": "limit_1",
+    "interest": "đậu hũ",
+    "limit": 1,
+    "expectedMaxItems": 1,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_02",
+    "category": "limit_1",
+    "interest": "nấm",
+    "limit": 1,
+    "expectedMaxItems": 1,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_03",
+    "category": "limit_3",
+    "interest": "món kho chay đậm đà",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_04",
+    "category": "limit_3",
+    "interest": "canh chay thanh mát giải nhiệt",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_05",
+    "category": "limit_3",
+    "interest": "bữa sáng chay nhanh gọn",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_06",
+    "category": "limit_6",
+    "interest": "món xào rau củ giàu chất xơ",
+    "limit": 6,
+    "expectedMaxItems": 6,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_07",
+    "category": "limit_6",
+    "interest": "đậu phụ sốt cà chua và nấm",
+    "limit": 6,
+    "expectedMaxItems": 6,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_08",
+    "category": "limit_6",
+    "interest": "món chay giàu protein cho người tập gym",
+    "limit": 6,
+    "expectedMaxItems": 6,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_09",
+    "category": "limit_max_10",
+    "interest": "ẩm thực chay Việt Nam truyền thống",
+    "limit": 10,
+    "expectedMaxItems": 10,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_10",
+    "category": "limit_clamped_above_max",
+    "interest": "món chay thanh đạm dễ làm",
+    "limit": 15,
+    "expectedMaxItems": 10,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_11",
+    "category": "limit_clamped_below_min",
+    "interest": "nấm đùi gà",
+    "limit": 0,
+    "expectedMaxItems": 1,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_12",
+    "category": "empty_keyword_fallback",
+    "interest": "xyz_khong_ton_tai_trong_he_thong_999",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_13",
+    "category": "null_or_blank_interest",
+    "interest": "",
+    "limit": 4,
+    "expectedMaxItems": 4,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_14",
+    "category": "dietary_restriction_low_calorie",
+    "interest": "món luộc hấp ít calo giảm cân",
+    "limit": 4,
+    "expectedMaxItems": 4,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_15",
+    "category": "dietary_restriction_allergy_peanut",
+    "interest": "món gỏi và xào chay",
+    "limit": 4,
+    "expectedMaxItems": 4,
+    "allergenIds": [4],
+    "forbiddenKeywords": ["đậu phộng", "lạc"]
+  },
+  {
+    "id": "REC_16",
+    "category": "dietary_restriction_allergy_mushroom",
+    "interest": "món kho và canh chay không nấm",
+    "limit": 4,
+    "expectedMaxItems": 4,
+    "allergenIds": [28],
+    "forbiddenKeywords": ["nấm"]
+  },
+  {
+    "id": "REC_17",
+    "category": "specific_ingredient_lotus",
+    "interest": "hạt sen và củ sen",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_18",
+    "category": "specific_ingredient_tofu_skin",
+    "interest": "tàu hũ ky",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_19",
+    "category": "repeated_request_consistency_a",
+    "interest": "bắp cải xào chay",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  },
+  {
+    "id": "REC_20",
+    "category": "repeated_request_consistency_b",
+    "interest": "bắp cải xào chay",
+    "limit": 3,
+    "expectedMaxItems": 3,
+    "allergenIds": []
+  }
+]
+

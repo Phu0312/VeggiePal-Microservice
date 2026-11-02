@@ -20,11 +20,13 @@ public class PremiumQuotaService {
     }
 
     public int reserveChat(Long userId) {
+        if (quotas.isLocalTestEnabled()) return quotas.reserveLocalTestFeature("user:" + userId, "CHAT");
         SubscriptionEntitlement entitlement = effective(userId);
         return quotas.reserveFeature("user:" + userId, "CHAT", QuotaPeriod.DAILY, entitlement.chatPerDay());
     }
 
     public int reserveMealPlan(Long userId) {
+        if (quotas.isLocalTestEnabled()) return quotas.reserveLocalTestFeature("user:" + userId, "MEAL_PLAN");
         SubscriptionEntitlement entitlement = effective(userId);
         return quotas.reserveFeature("user:" + userId, "MEAL_PLAN", QuotaPeriod.MONTHLY,
                 entitlement.mealPlansPerMonth());
@@ -48,6 +50,13 @@ public class PremiumQuotaService {
     public MealPlanQuotaStatus getMealPlanQuota(Long userId) {
         SubscriptionEntitlement entitlement = effective(userId);
         LocalDate today = LocalDate.now();
+        if (quotas.isLocalTestEnabled()) {
+            int limit = quotas.localTestLimit();
+            int used = Math.max(0, quotas.getUsedCount("user:" + userId,
+                    quotas.localTestFeature("MEAL_PLAN"), QuotaPeriod.DAILY));
+            return new MealPlanQuotaStatus(entitlement.planCode(), entitlement.expiresAt(),
+                    QuotaPeriod.DAILY.name(), limit, used, Math.max(0, limit - used), today, today.plusDays(1));
+        }
         LocalDate monthStart = today.withDayOfMonth(1);
         LocalDate nextMonthStart = monthStart.plusMonths(1);
         int limit = Math.max(0, entitlement.mealPlansPerMonth());
@@ -71,11 +80,15 @@ public class PremiumQuotaService {
         LocalDate monthStart = today.withDayOfMonth(1);
         LocalDate nextMonthStart = monthStart.plusMonths(1);
 
-        int mealLimit = Math.max(0, entitlement.mealPlansPerMonth());
-        int mealUsed = Math.max(0, quotas.getUsedCount(principalKey, "MEAL_PLAN", QuotaPeriod.MONTHLY));
+        boolean localTest = quotas.isLocalTestEnabled();
+        int mealLimit = localTest ? quotas.localTestLimit() : Math.max(0, entitlement.mealPlansPerMonth());
+        int mealUsed = Math.max(0, quotas.getUsedCount(principalKey,
+                localTest ? quotas.localTestFeature("MEAL_PLAN") : "MEAL_PLAN",
+                localTest ? QuotaPeriod.DAILY : QuotaPeriod.MONTHLY));
 
-        int chatLimit = Math.max(0, entitlement.chatPerDay());
-        int chatUsed = Math.max(0, quotas.getUsedCount(principalKey, "CHAT", QuotaPeriod.DAILY));
+        int chatLimit = localTest ? quotas.localTestLimit() : Math.max(0, entitlement.chatPerDay());
+        int chatUsed = Math.max(0, quotas.getUsedCount(principalKey,
+                localTest ? quotas.localTestFeature("CHAT") : "CHAT", QuotaPeriod.DAILY));
 
         int videoLimit = Math.max(0, entitlement.videosPerMonth());
         int videoUsed = Math.max(0, quotas.getUsedCount(principalKey, "VIDEO", QuotaPeriod.MONTHLY));
@@ -83,8 +96,9 @@ public class PremiumQuotaService {
         return new QuotaOverviewResponse(
                 entitlement.planCode(),
                 entitlement.expiresAt(),
-                new FeatureQuotaStatus("MEAL_PLAN", QuotaPeriod.MONTHLY.name(), mealLimit, mealUsed,
-                        Math.max(0, mealLimit - mealUsed), monthStart, nextMonthStart),
+                new FeatureQuotaStatus("MEAL_PLAN", localTest ? QuotaPeriod.DAILY.name() : QuotaPeriod.MONTHLY.name(), mealLimit, mealUsed,
+                        Math.max(0, mealLimit - mealUsed), localTest ? today : monthStart,
+                        localTest ? today.plusDays(1) : nextMonthStart),
                 new FeatureQuotaStatus("CHAT", QuotaPeriod.DAILY.name(), chatLimit, chatUsed,
                         Math.max(0, chatLimit - chatUsed), today, today.plusDays(1)),
                 new FeatureQuotaStatus("VIDEO", QuotaPeriod.MONTHLY.name(), videoLimit, videoUsed,
