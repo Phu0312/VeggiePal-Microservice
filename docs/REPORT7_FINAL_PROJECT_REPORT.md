@@ -255,12 +255,14 @@ The following table defines the abbreviations used in this report and in the Veg
 | FK / PK / UK | Foreign Key / Primary Key / Unique Key |
 | FR / NFR | Functional Requirement / Non-Functional Requirement |
 | GPS | Global Positioning System |
-| Groq | Cloud inference provider hosting the LLM and speech-to-text models used by ai-service |
+| Groq | Cloud provider used by ai-service for video transcription and recipe extraction (and for text features only when explicitly selected) |
 | JPA | Jakarta Persistence API (object-relational mapping used by the services) |
 | JWT | JSON Web Token (RFC 7519) |
+| llama.cpp | Open-source inference server that runs the local Qwen2.5 model in GGUF format |
 | LLM | Large Language Model |
 | NF | Normal Form (1NF, 2NF, 3NF) |
 | OTP | One-Time Password (6-digit code sent by e-mail) |
+| Qwen2.5 | Open-weight language model (1.5B Instruct, Q4_K_M quantization) served locally for chat, meal planning, recommendations and text moderation |
 | PayOS | Payment gateway that creates Vietnamese VietQR bank-transfer payment links |
 | REST | Representational State Transfer |
 | SDD | Software Design Description |
@@ -318,7 +320,7 @@ The platform is delivered through two clients, a React web application and a Flu
 | 3 | Phạm Gia Huy | SE192043 | phamgiahuy2707@gmail.com | Member |
 | 4 | Diệp Khai | SE193097 | aicungduoc49@gmail.com | Member |
 
-Stakeholders outside the team are the lecturer (evaluator), the end users (vegan practitioners), the platform administrator, and the external providers the system depends on: Groq (LLM and speech-to-text), PayOS (payments), Cloudinary (media storage), Google (sign-in) and an SMTP mail server (OTP e-mails).
+Stakeholders outside the team are the lecturer (evaluator), the end users (vegan practitioners), the platform administrator, and the external providers the system depends on: Groq (video transcription and recipe extraction), PayOS (payments), Cloudinary (media storage), Google (sign-in) and an SMTP mail server (OTP e-mails).
 
 ### 2. Product Background
 
@@ -342,7 +344,7 @@ Table 5 compares VeggiePal with the tools a vegan practitioner uses today.
 | Vegan specialization | High (places only) | Low (all food types) | Unmoderated | Vegan-dedicated ecosystem |
 | Allergy-aware meal planner | No | Generic calorie counter | No | 7-day plan generated from the user's allergen profile; candidate recipes containing a declared allergen are excluded |
 | Available-ingredient input | No | No | No | Optional list of ingredients on hand; recipes that match more of them are ranked first |
-| AI nutrition assistant | No | Limited | No | Groq-hosted LLM assistant with server-side quota control |
+| AI nutrition assistant | No | Limited | No | Assistant running on a local Qwen2.5 model with server-side quota control |
 | Community moderation | Manual reviews | User forums | Keyword filters only | LLM-based moderation check with an admin review queue |
 | Integrated local payments | No (foreign subscription) | Credit card only | None | VietQR payments through PayOS |
 
@@ -372,7 +374,7 @@ Revenue comes from the PLUS (29,000 VND per 30 days) and PRO (59,000 VND per 30 
 | blog-service | Blogs, videos, categories, nested comments, votes, follows, 7-day challenge, community statistics. |
 | recipe-service | Recipes with per-serving nutrition, ingredients, steps, likes, image upload. |
 | location-service | Restaurant keyword search and nearby search by GPS. |
-| ai-service | Chatbot, 7-day meal plans, recommendations, video recipe extraction, content moderation, quotas, monitoring. |
+| ai-service | Local-model chatbot, 7-day meal plans, recommendations, video recipe extraction, content moderation, quotas, monitoring. |
 | payment-service | Subscription plans, PayOS orders and signed webhook, subscriptions, admin payment statistics. |
 
 #### 6.2 Limitations and Exclusions
@@ -380,7 +382,8 @@ Revenue comes from the PLUS (29,000 VND per 30 days) and PRO (59,000 VND per 30 
 * The system does not sell or deliver groceries; it provides recipe and ingredient information.
 * Barcode scanning is not provided.
 * Message streaming and event brokers (Kafka and similar) are not used; services call each other through synchronous REST.
-* AI features depend on the external Groq cloud API; no AI model is hosted locally.
+* Chat, meal planning, recommendations and text moderation run on a local Qwen2.5-1.5B model served by llama.cpp; video transcription and recipe extraction still depend on the external Groq cloud API.
+* The local model has a 2,048-token context and a small size, so it can misclassify nuanced Vietnamese content; uncertain moderation results go to manual review.
 * Push notifications are not provided. The mobile application derives its notifications from changes in the status of the user's own blogs and videos, and the web application has no notification centre.
 * The deployment targets a local Docker Compose host with a self-hosted GitHub Actions runner; payment webhooks reach it through an Ngrok tunnel.
 * The user interface is in Vietnamese; prices are in VND.
@@ -423,8 +426,8 @@ The objective is a working platform in which a vegan practitioner can build a he
 | :--- | :--- | :--- |
 | Functional scope | Deliver the functional requirements FR-01 to FR-13 | Each requirement has a responsible service in Table 17 |
 | Architecture | Independent services with one database each behind one gateway | 8 Maven modules (7 services and the gateway) and 7 MySQL schemas |
-| Deployment | Start the whole backend with one command | `docker compose up -d --build --wait` (Section VI.2) |
-| Automated testing | Unit and slice tests for every module, executed on each push | 732 test methods in 111 test classes cover all 8 modules; the `maven` job runs `mvn test` for each module (Section V) |
+| Deployment | Start the whole backend with Docker Compose | `docker compose up -d --build --wait` for the services plus `docker compose -f ai-inference/compose.local-ai.yml up -d` for the local model (Section VI.2) |
+| Automated testing | Unit and slice tests for every module, executed on each push | 758 test methods in 115 test classes cover all 8 modules; the `maven` job runs `mvn test` for each module (Section V) |
 | Code coverage | Measure the share of code exercised by tests | Not measured: no coverage tool is configured (Section V.5.2) |
 | Client builds in CI | Build the web and mobile clients automatically | Not covered: the pipeline runs for backend changes only (Section V.5.3) |
 
@@ -434,7 +437,7 @@ The objective is a working platform in which a vegan practitioner can build a he
 
 | # | Risk | Impact | Response in the implementation |
 | :-: | :--- | :-: | :--- |
-| 1 | The Groq API is unavailable or returns malformed output | High | ai-service uses a 5-second connect and 45-second read timeout with limited retries, validates every generated plan, falls back to a deterministic planner, and queues moderated content as `REVIEW_REQUIRED` (`PENDING`) |
+| 1 | The local inference server or the Groq API is unavailable or returns malformed output | High | ai-service uses 10-second connect and 120-second read timeouts for the local model and 5-second connect and 45-second read timeouts with limited retries for Groq, validates every generated plan, falls back to a deterministic planner, never falls back from the local model to Groq, and queues moderated content as `REVIEW_REQUIRED` (`PENDING`) |
 | 2 | A recipe containing a declared allergen reaches a meal plan | High | Allergen recipes are removed before the LLM call and the generated plan is validated again on the server (BR-02) |
 | 3 | A payment webhook is delivered twice or with a wrong amount | High | Signature verification, amount check, row lock on the order, and no change to `PAID` or `CANCELLED` orders (BR-05) |
 | 4 | The public webhook address changes in the local deployment | Medium | PayOS reaches the gateway through the Ngrok container; the Ngrok address is registered in PayOS as the webhook URL (Section VI.2) |
@@ -442,6 +445,7 @@ The objective is a working platform in which a vegan practitioner can build a he
 | 6 | The web app, the mobile app and the services drift apart | Medium | One response envelope and enum-based error codes, and OpenAPI documentation per service aggregated at the gateway |
 | 7 | Secrets are committed to the repository | High | `.env` files stay local; only `backend/.env.example` is tracked; the deploy job reads the `BACKEND_ENV_FILE` secret |
 | 8 | Regressions in the web or mobile client are not caught automatically | Medium | Accepted: the pipeline covers the backend only and the clients are built and run manually |
+| 9 | The small local model (1.5B parameters, 2,048-token context) gives low-quality answers or misclassifies content | Medium | Recipes and allergens are filtered and the plan is validated in Java; moderation sends uncertain or failed classifications to manual review; a feature can be switched to Groq explicitly with its provider setting |
 
 ### 2. Management Approach
 
@@ -521,7 +525,8 @@ The team learned the technologies below from their official documentation (liste
 | Spring Cloud Gateway Server WebMVC | api-gateway routing and Swagger aggregation | Spring Cloud Gateway reference |
 | JWT (RFC 7519), BCrypt | identity-service and token validation in every service | RFC 7519, Spring Security documentation |
 | MySQL spatial functions | Nearby restaurant search | MySQL 8.4 reference manual |
-| Groq chat completions and speech-to-text | ai-service | Groq API documentation |
+| llama.cpp server and Qwen2.5 GGUF model | Local text inference in ai-service | `backend/SELF_HOSTED_AI_SETUP.md`, llama.cpp and Qwen documentation |
+| Groq speech-to-text and chat completions | Video extraction in ai-service | Groq API documentation |
 | PayOS payment links and webhook signature | payment-service | PayOS developer documentation |
 | React 19, TanStack Query, Zustand, Tailwind CSS 4 | Web application | Project documents `frontend/docs/TECH_STACK.md` and library documentation |
 | Flutter, provider, dio | Mobile application | Flutter documentation |
@@ -539,7 +544,7 @@ The schedule below is derived from the commit dates in the repository. Most of t
 | 2 | 22/10 - 24/10 | Backend foundation: API gateway routing and filters, environment template, identity-service with JWT, Google sign-in and Cloudinary avatar storage; web blog flow. |
 | 3 | 26/10 | Domain services merged: nutrition, blog, recipe, location, ai-service (chatbot, meal planning, moderation, video pipeline, Flyway migrations), payment-service with PayOS; web features (auth, home, blog, video, chatbot, meal planner, profile, recipe, ingredient, map, payment, admin); Dockerfiles and Docker Compose; GitHub Actions CI/CD. |
 | 4 | 29/10 - 30/10 | Flutter application flows (auth, profile, home, map, meal plan, recipe, ingredient, chatbot, video, payment, blog, admin); completion of the remaining backend tasks and synchronisation of the documentation; web redesign. |
-| 5 | 31/10 | Pipeline restricted to backend changes; mobile README; UI fixes; final documentation. |
+| 5 | 31/10 - 02/11 | Pipeline restricted to backend changes; mobile README; UI fixes; final documentation; self-hosted AI with a local Qwen2.5 model through llama.cpp (merged 02/11). |
 
 ### 4. Responsibility Assignments
 
@@ -595,9 +600,9 @@ Documents are kept in the repository next to the code. This report and the cours
 | Database | MySQL 8.4 (one schema per service), Flyway for ai-service |
 | Web application | React 19, Vite 8, Tailwind CSS 4, React Router 7, TanStack Query 5, Zustand 5, Axios |
 | Mobile application | Flutter (Dart `^3.13.2`), dio, provider, flutter_secure_storage, geolocator, flutter_map, google_sign_in, qr_flutter, image_picker, video_player |
-| AI and media | Groq API (chat completions and speech-to-text), FFmpeg / FFprobe for audio extraction |
+| AI and media | llama.cpp server with Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) for chat, meal plans, recommendations and text moderation; Groq API (speech-to-text and chat completions) for video extraction; FFmpeg / FFprobe for audio extraction |
 | External services | PayOS (VietQR payments), Cloudinary (media), Google sign-in, SMTP mail server |
-| DevOps | Docker, Docker Compose, GitHub Actions with a self-hosted Windows runner, Ngrok |
+| DevOps | Docker, Docker Compose (main stack and a separate local-inference project), GitHub Actions with a self-hosted Windows runner, Ngrok |
 | Testing | JUnit 5, Mockito, AssertJ, Spring Security Test, H2, Maven Surefire |
 
 ---
@@ -608,9 +613,9 @@ This chapter specifies what VeggiePal must do: the product context, the actors a
 
 ### 1. Product Overview
 
-VeggiePal is a REST-based, API-first microservices platform. The React web application and the Flutter mobile application reach all backend capabilities through a single Spring Cloud Gateway. Services communicate with each other through synchronous REST calls; no event broker is used.
+VeggiePal is a REST-based, API-first microservices platform. The React web application and the Flutter mobile application reach all backend capabilities through a single Spring Cloud Gateway. Services communicate with each other through synchronous REST calls; no event broker is used. Text AI features call a local llama.cpp server that runs a Qwen2.5 model and is deployed next to the services.
 
-Three kinds of people use the system: guests, signed-in users and administrators. Five external services take part: Groq (language model and speech-to-text), PayOS (payments), Cloudinary (image and video storage), Google (sign-in) and an SMTP mail server (OTP e-mails). Figure 3 shows the whole platform as one process and the data exchanged with each of these.
+Three kinds of people use the system: guests, signed-in users and administrators. Five external services take part: Groq (video transcription and recipe extraction), PayOS (payments), Cloudinary (image and video storage), Google (sign-in) and an SMTP mail server (OTP e-mails). Figure 3 shows the whole platform as one process and the data exchanged with each of these.
 
 ```mermaid
 flowchart LR
@@ -633,8 +638,8 @@ flowchart LR
     A -->|"account, category and moderation decisions"| SYS
     SYS -->|"queues, statistics, monitoring"| A
 
-    SYS -->|"prompts, audio"| GQ
-    GQ -->|"completions, transcripts"| SYS
+    SYS -->|"video audio and prompts"| GQ
+    GQ -->|"transcripts, extracted recipes"| SYS
     SYS -->|"create / cancel payment link"| PO
     PO -->|"signed webhook"| SYS
     SYS -->|"image and video uploads"| CL
@@ -645,9 +650,9 @@ flowchart LR
 ```
 *Figure 3: Context diagram of the VeggiePal platform*
 
-Reading the diagram: guests, users and administrators exchange requests and results with the platform. Toward the outside, the platform sends prompts and audio to Groq, creates payment links at PayOS and receives its signed webhook, uploads media to Cloudinary, verifies Google ID tokens against Google's public keys, and sends OTP e-mails through the SMTP server.
+Reading the diagram: guests, users and administrators exchange requests and results with the platform. Toward the outside, the platform sends video audio and extraction prompts to Groq, creates payment links at PayOS and receives its signed webhook, uploads media to Cloudinary, verifies Google ID tokens against Google's public keys, and sends OTP e-mails through the SMTP server.
 
-Main constraints and assumptions: all clients use the gateway only; prices are in VND; AI features need internet access and a Groq API key; the mobile application runs on Android and iOS phones and requires a network connection.
+Main constraints and assumptions: all clients use the gateway only; prices are in VND; video AI features need internet access and a Groq API key, while chat, meal planning, recommendations and text moderation need the local llama.cpp server; the mobile application runs on Android and iOS phones and requires a network connection.
 
 ### 2. User Requirements
 
@@ -663,7 +668,7 @@ Authorization has two roles (`USER`, `ADMIN`) plus unauthenticated guests. Subsc
 | 2 | USER | Primary | Registered user. Maintains health records and allergens; generates, edits and restores meal-plan versions; inspects remaining AI quotas; uses the AI chatbot; publishes recipes, blogs, comments, votes and likes; processes videos; buys a subscription. |
 | 3 | ADMIN | Primary | Platform operator. Manages user accounts (search, lock and unlock, role assignment), moderates flagged content, takes down blogs and videos, manages categories and ingredients, and views AI monitoring and payment statistics. |
 | 4 | PayOS | Secondary | Payment gateway. Creates the VietQR payment link and calls the signed webhook when the money arrives. |
-| 5 | Groq | Secondary | External AI provider used by ai-service for chat, meal plans, moderation, recommendations and video extraction. |
+| 5 | Groq | Secondary | External AI provider used by ai-service for video transcription and recipe extraction, and for a text feature only when its provider setting is switched to Groq. |
 | 6 | Subscription plan (FREE / PLUS / PRO) | Not an actor | Defines per-user quotas for AI chat, meal plans and video processing. |
 
 #### 2.2 Use Cases
@@ -737,15 +742,15 @@ The thirteen functional requirements are listed in Table 17 with the service tha
 | Req ID | Feature | Responsible service | Description and acceptance criteria |
 | :--- | :--- | :--- | :--- |
 | FR-01 | Account and authentication | identity-service | Registration with BCrypt-hashed passwords (cost 10); newly registered accounts start `ACTIVE` (`emailVerified = false`) and receive a 6-digit e-mail verification OTP (`/auth/send-verification`, `/auth/verify-email`); 6-digit e-mail OTP password recovery (`/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password`); login and Google sign-in verify that the account is `ACTIVE` (rejecting `BLOCKED` or non-active accounts with HTTP 403 / error 1021) and issue an HS256 JWT (claims `userId`, `role`, valid 30 minutes) together with an opaque refresh token (SHA-256 hashed in `refresh_tokens`, rotated via `/auth/refresh` and revoked on `/auth/logout` or password change); profile update, password change and avatar upload to Cloudinary; saved favorites (`/users/me/favorites`) and green badges (`/users/me/badges`); each account carries a status (`PENDING`, `ACTIVE`, `INACTIVE`, `BLOCKED`) and a role (`USER`, `ADMIN`). Both clients renew the access token with the refresh token. |
-| FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest chat is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
+| FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest replies use the same local text model as member chat by default. Guest chat is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
 | FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. Community videos follow the same status workflow: a signed-in user posts a video from exactly one source, a YouTube link or an `.mp4` file of at most 30 MB stored on Cloudinary (a category is required); `publish=true` runs moderation immediately, drafts are submitted later, and an edit changes only title, description and category. |
 | FR-04 | Comments, votes and community | blog-service | Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` or `-1`, removable) enforced by a unique constraint on both blogs and videos; `blogs.vote_score` and `videos.vote_score` are updated with atomic SQL increments. Community extras: leaderboard ranked by published posts and likes, author follow and unfollow (`user_follows`), trending topics from category counts, community stats, video channels (`/videos/channels`), a 7-day check-in challenge persisted in `user_challenges`, and per-video nutrition facts (`/videos/{id}/nutrition`). |
 | FR-05 | Recipe and restaurant search | recipe-service, location-service | Public browsing of published recipes with keyword search and paging; Cloudinary recipe image upload; per-serving nutrition calculation (`kcal`, `protein`, `carbs`, `fat`, `fiber` converted across weight, volume, spoon and piece units); recipe likes and popular ranking (`/recipes/popular`, `sort=popular`); ingredient catalog (keyword search, `vegan` and `allergen` filters, paging, nutrition per 100 g); restaurant keyword search (`/restaurants`, `/restaurants/search`) and nearby GPS search within a requested radius (with optional `keyword` and `veganOnly` filters), ordered by distance computed by MySQL `ST_Distance_Sphere`. |
-| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
+| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the language model (local Qwen2.5 by default) proposes the plan from real recipe IDs and the server validates and enriches it. If the model call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
 | FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. Each reply returns `remainingRequests`. Signed-in users list, reopen, continue and delete their conversations (`/ai/chat/conversations`); guest messages are kept only in memory in the clients. |
-| FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs: FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts a recipe title, ingredients (name and quantity) and numbered steps as structured JSON. A user can submit a video file (`POST /ai/videos/process`) or ask for a published uploaded video (`POST /ai/videos/process-existing`; the result is shared and readable without quota through `GET /ai/videos/by-video/{id}`; YouTube videos are not supported). Job history is listed at `GET /ai/videos`; results are kept for 30 days. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
+| FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs (always through Groq, not the local model): FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts a recipe title, ingredients (name and quantity) and numbered steps as structured JSON. A user can submit a video file (`POST /ai/videos/process`) or ask for a published uploaded video (`POST /ai/videos/process-existing`; the result is shared and readable without quota through `GET /ai/videos/by-video/{id}`; YouTube videos are not supported). Job history is listed at `GET /ai/videos`; results are kept for 30 days. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
-| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
+| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (language-model based, local Qwen2.5 by default, looking for profanity and animal-derived content; uncertain or failed classifications go to review); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
 | FR-11 | Admin operations | identity-service, ai-service, payment-service, blog-service, recipe-service | User administration (`/admin/users`: search/filter, lock/unlock status, role assignment); AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
 | FR-12 | Payment and subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
 | FR-13 | Daily nutrition diary | nutrition-service (calls ai-service) | A signed-in user logs foods per meal (`/nutrition/me/food-logs`), water (`/nutrition/me/water`) and activity (`/nutrition/me/daily-activity`) and reads a daily summary (`GET /nutrition/me/daily-summary?date=&goalType=`). The calorie target is not computed in nutrition-service: it calls `GET /ai/meal-plans/nutrition-target` with the caller's token and the requested goal (`LOSE`, `MAINTAIN` or `GAIN`, default `MAINTAIN`), then splits the target 50% carbohydrate, 20% protein and 30% fat. Without a complete health record and profile the summary fails with error 2013 (HTTP 400), for a user under 18 with error 2014 (HTTP 400), and when ai-service cannot be reached with error 2012 (HTTP 503); an unknown `goalType` gives error 1018. |
@@ -913,7 +918,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 | # | Feature | System function | Description |
 | :-: | :--- | :--- | :--- |
 | 1 | Video | Video maintenance (`VideoMaintenanceService`, every 5 minutes by default) | Fails and refunds video jobs that stayed in `PROCESSING` longer than the stale limit, deletes temporary files, purges old job states and cleans orphan files. |
-| 2 | Video | Video processing worker | Runs the asynchronous extraction job: FFmpeg audio extraction, speech-to-text, LLM recipe extraction. |
+| 2 | Video | Video processing worker | Runs the asynchronous extraction job: FFmpeg audio extraction, speech-to-text and LLM recipe extraction through Groq. |
 | 3 | Subscription | `expireSubscriptions` (`SubscriptionService`, hourly by default) | Moves subscriptions whose period has ended back to the FREE plan. |
 | 4 | Payment | PayOS webhook endpoint (`POST /payments/webhook/payos`) | Verifies the signature and amount, locks the order, marks it paid and activates or extends the subscription. |
 | 5 | Moderation | Moderation check (`POST /ai/moderation/check`) | Called by blog-service when content is published or submitted; returns approve, reject or review-required. |
@@ -1041,7 +1046,7 @@ Reading the diagram: it shows the main business entities independent of the serv
 
 * **Trigger:** Menu Planner, Generate Plan (mobile); `/meal-planner` (web).
 * **Description:** `POST /ai/meal-plans` with a plan name, goal (`LOSE`, `MAINTAIN`, `GAIN`), optional preferences, optional available ingredients (at most 30) and an optional custom nutrition target. `GET /ai/meal-plans/nutrition-target?goalType=` previews the computed target.
-* **Function details:** Steps: read recipes, allergens and the latest health record; resolve the daily target (BMR/TDEE and goal); reserve one unit of the monthly quota; remove allergen recipes; rank by available ingredients; ask the LLM for a plan built from real recipe IDs, or use the deterministic planner if the call fails; validate seven days of breakfast, lunch and dinner, allowed recipe IDs, allergen safety and calorie budgets; store the plan. The design is detailed in Section IV.4.2. Abnormal: error 6010 without a health record, 6020 without date of birth, gender or activity level, 6021 under 18 (these do not consume quota), 6003 when the quota is exhausted.
+* **Function details:** Steps: read recipes, allergens and the latest health record; resolve the daily target (BMR/TDEE and goal); reserve one unit of the monthly quota; remove allergen recipes; rank by available ingredients; ask the language model (local Qwen2.5 through llama.cpp by default) for a plan built from real recipe IDs, or use the deterministic planner if the call fails; validate seven days of breakfast, lunch and dinner, allowed recipe IDs, allergen safety and calorie budgets; store the plan. The design is detailed in Section IV.4.2. Abnormal: error 6010 without a health record, 6020 without date of birth, gender or activity level, 6021 under 18 (these do not consume quota), 6003 when the quota is exhausted.
 
 ##### 3.5.2 Edit, Replace, Version and Favorite a Plan (UC5)
 
@@ -1159,7 +1164,8 @@ Reading the diagram: only a `PENDING` order can change. A valid webhook moves it
 | Client - API | HTTPS REST JSON through the gateway; `Authorization: Bearer <JWT>`; common envelope `{ code, message, result }`. |
 | Identity | Services validate HS256 JWTs locally with a shared secret; Google ID tokens are verified in identity-service. |
 | Inter-service | Synchronous REST; non-public endpoints use an internal service token (`/internal/subscriptions/{userId}`, badge award). |
-| AI | Groq API: chat completions (default model `openai/gpt-oss-20b`) and speech-to-text. |
+| AI (text) | Local llama.cpp server with Qwen2.5-1.5B-Instruct (Q4_K_M GGUF), OpenAI-compatible `/v1/chat/completions` at `AI_LOCAL_BASE_URL` (default `http://localhost:8088/v1`, `http://llama:8080/v1` inside Docker); used for chat, meal plans, recommendations and text moderation. |
+| AI (video) | Groq API: speech-to-text (`whisper-large-v3-turbo`) and chat completions (default `openai/gpt-oss-20b`) for video extraction; also available for a text feature when its provider switch is set to `groq`. |
 | Payment | PayOS API for payment links; signed webhook at `POST /api/payments/webhook/payos`; VND only. |
 | Media | Cloudinary for avatars, blog thumbnails, recipe images and uploaded videos; FFmpeg / FFprobe on the ai-service host. |
 | E-mail | SMTP server for OTP e-mails; without `MAIL_HOST` the code is written to the application log in local development. |
@@ -1167,12 +1173,12 @@ Reading the diagram: only a `PENDING` order can change. A valid webhook moves it
 
 #### 4.2 Quality Attributes
 
-* **Performance and scalability:** services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status and publish date, comment target). AI response time depends on the Groq API; ai-service applies a 5-second connect timeout and a 45-second read timeout with limited retries.
+* **Performance and scalability:** services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status and publish date, comment target). AI response time depends on the local llama.cpp server (context size, batch size, GPU layers and concurrency are configurable; ai-service uses 10-second connect and 120-second read timeouts for it) and, for video, on the Groq API (5-second connect and 45-second read timeouts with limited retries).
 * **Security:** passwords are hashed with BCrypt (cost 10); OTP codes and refresh tokens are stored as SHA-256 hashes. JWTs are signed with HS256 and validated by every service as an OAuth2 resource server; refresh tokens are rotated and revoked. Non-public inter-service calls use an internal service token. PayOS webhooks are accepted only after signature verification. CORS is configured only at the gateway. Uploaded images are validated by content type and magic bytes. Secrets are supplied through environment variables.
-* **Availability and resilience:** each service runs in its own container with an HTTP health check and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if payment-service cannot be reached, falls back to a deterministic planner if the LLM call fails, and queues content as `REVIEW_REQUIRED` (`PENDING`) when LLM moderation is unavailable.
+* **Availability and resilience:** each service runs in its own container with an HTTP health check and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if payment-service cannot be reached, falls back to a deterministic planner if the model call fails (a failure of the local model never triggers a Groq request), and queues content as `REVIEW_REQUIRED` (`PENDING`) when LLM moderation is unavailable.
 * **Data integrity:** database-per-service isolation with no cross-database foreign keys. Unique constraints protect votes, recipe likes, refresh-token hashes, allergen selections, plan codes and payment order codes. Payment orders are updated under a row lock, and `vote_score` and `like_count` counters are updated with atomic SQL statements.
 * **Maintainability:** layered code per service (controller, service, repository, DTO and mapper), consistent response envelope and error codes, OpenAPI documentation per service aggregated at the gateway.
-* **Portability:** the entire backend starts with a single Docker Compose command.
+* **Portability:** the backend services start with Docker Compose; the local inference server is a second Compose project that joins the same network and needs the model file downloaded once.
 * **Usability:** Vietnamese interface, light and dark themes, error messages translated from server error codes.
 
 ### 5. Requirement Appendix
@@ -1184,16 +1190,17 @@ Reading the diagram: only a `PENDING` order can change. A valid webhook moves it
 | ID | Rule definition |
 | :--- | :--- |
 | BR-01 | **Plant-based catalog.** The ingredient and recipe catalog contains plant-based content; each ingredient carries a `vegan` flag and an `allergen` flag. |
-| BR-02 | **Strict allergen exclusion.** A recipe is excluded from the candidate list for meal planning if it contains an ingredient matching the user's declared allergens. The generated plan is validated again on the server. |
-| BR-03 | **Guest limits.** A guest session lasts 24 hours; one IP can create at most 3 sessions per day and send at most 3 guest chat requests per day. |
+| BR-02 | **Strict allergen exclusion.** A recipe is excluded from the candidate list for meal planning if it contains an ingredient matching the user's declared allergens. The model receives only filtered candidates by default, and the generated plan is validated again on the server. |
+| BR-03 | **Guest limits.** A guest session lasts 24 hours; one IP can create at most 3 sessions per day and send at most 3 guest chat requests per day. Guest replies use the same local text model as member chat by default. |
 | BR-04 | **Content ownership.** Only the author or an administrator may edit or remove content. |
 | BR-05 | **Idempotent webhook execution.** A payment order that is already `PAID` or `CANCELLED` is not changed or credited again when a duplicate webhook arrives; the amount in the webhook must match the order amount. |
-| BR-06 | **Quota by plan.** Chat, meal-plan and video usage are limited by the user's active subscription; an expired or unavailable subscription is treated as FREE. |
+| BR-06 | **Quota by plan.** Chat, meal-plan and video usage are limited by the user's active subscription; an expired or unavailable subscription is treated as FREE. Choosing the local model does not change quota reservation. |
 | BR-07 | **Active accounts only.** Login, Google sign-in and token refresh are refused for accounts that are not `ACTIVE` (error 1021). |
 | BR-08 | **Single-use refresh tokens.** A refresh token is rotated on every use; reusing an old token is rejected (error 1030). |
 | BR-09 | **Video job limits.** A video job accepts at most 100 MB and 30 minutes; quota is reserved when the job is accepted and refunded when it fails. |
 | BR-10 | **Moderation fallback.** When AI moderation is unavailable, content is held as `PENDING` for manual review instead of being published or failing. |
 | BR-11 | **Calorie target for adults.** A calorie target is computed only for users aged 18 or older with a complete health record and profile. |
+| BR-12 | **Explicit AI provider per feature.** Chat, meal planning, recommendations and text moderation each use the provider selected by `AI_CHAT_PROVIDER`, `AI_MEAL_PROVIDER`, `AI_RECOMMENDATION_PROVIDER` and `AI_MODERATION_PROVIDER` (default `local`; pinned to `local` in the Docker stack). A local failure never triggers a Groq request; video always uses Groq. |
 
 #### 5.2 Common Requirements
 
@@ -1257,7 +1264,8 @@ VeggiePal uses a REST-based microservices architecture: seven business services 
 | blog-service | 8083 | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Blogs, videos, categories, comments, votes |
 | recipe-service | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Recipes (per-serving nutrition, image upload, likes and popular), ingredients, steps |
 | location-service | 8085 | `/api/restaurants/**` | Restaurant data, keyword search and nearby search |
-| ai-service | 8086 | `/api/ai/**`, `/ai/**` | Chatbot, meal plans, video extraction, moderation, quotas, monitoring |
+| ai-service | 8086 | `/api/ai/**`, `/ai/**` | Chatbot, meal plans, recommendations and text moderation on the local model; video extraction through Groq; quotas, monitoring |
+| llama.cpp (`llama`) | 8080 inside Docker (host 127.0.0.1:8088) | - | Local inference server running Qwen2.5-1.5B-Instruct (Q4_K_M); started by the separate `backend/ai-inference/compose.local-ai.yml` project that joins the `veggiepal-prm-backend` network |
 | payment-service | 8087 | `/api/payments/**`, `/api/subscriptions/**`, `/api/admin/payments/**` | Plans, PayOS orders and webhook, subscriptions, admin payment statistics |
 | MySQL 8.4 | 3306 (host 4307) | - | One schema per service |
 | Ngrok | host 5041 (inspector) | - | Tunnel from the Internet to `api-gateway:8080` for the PayOS webhook |
@@ -1317,14 +1325,16 @@ flowchart TB
     BL -. "badge award" .-> ID
     NU -. "calorie target" .-> AI
 
-    subgraph EX["External providers"]
-        GQ["Groq (LLM, speech-to-text)"]
+    subgraph EX["AI and external providers"]
+        GQ["Groq (video LLM, speech-to-text)"]
+        LL["llama.cpp :8080<br/>Qwen2.5-1.5B (local)"]
         CD["Cloudinary (images, videos)"]
         GO["Google (ID token verification)"]
         PO["PayOS (VietQR payments)"]
     end
 
     AI --> GQ
+    AI --> LL
     ID --> CD
     BL --> CD
     RE --> CD
@@ -1334,7 +1344,7 @@ flowchart TB
 ```
 *Figure 11: REST-based microservices architecture*
 
-Reading the diagram: every client request enters through the gateway, which fans out to seven independent services. Each service owns exactly one MySQL schema. Dotted arrows are synchronous REST calls between services: ai-service reads nutrition, recipe, identity and payment data; blog-service asks ai-service to check content and identity-service to award the challenge badge; nutrition-service asks ai-service for the daily calorie target. External providers are reached directly by the service that needs them; PayOS reaches the system by sending a webhook to the gateway.
+Reading the diagram: every client request enters through the gateway, which fans out to seven independent services. Each service owns exactly one MySQL schema. Dotted arrows are synchronous REST calls between services: ai-service reads nutrition, recipe, identity and payment data; blog-service asks ai-service to check content and identity-service to award the challenge badge; nutrition-service asks ai-service for the daily calorie target. ai-service sends chat, meal-plan, recommendation and moderation prompts to the local llama.cpp server and sends only video transcription and extraction to Groq. Other external providers are reached directly by the service that needs them; PayOS reaches the system by sending a webhook to the gateway.
 
 ```mermaid
 flowchart LR
@@ -1343,6 +1353,7 @@ flowchart LR
         P1["localhost:9080"]
         P2["127.0.0.1:4307"]
         P3["127.0.0.1:5041"]
+        P4["127.0.0.1:8088"]
     end
 
     subgraph NET["Docker network: backend (project veggiepal-prm)"]
@@ -1350,6 +1361,7 @@ flowchart LR
         SVC["identity, nutrition, blog, recipe,<br/>location, ai, payment services"]
         MY[("mysql 8.4 :3306")]
         NG["ngrok container"]
+        LL["llama.cpp :8080"]
     end
 
     INET(("Internet"))
@@ -1358,6 +1370,8 @@ flowchart LR
     BR --> P1 --> GW
     GW --> SVC
     SVC --> MY
+    SVC --> LL
+    P4 --> LL
     P2 --> MY
     P3 --> NG
     NG -- "tunnel target api-gateway:8080" --> GW
@@ -1365,7 +1379,7 @@ flowchart LR
 ```
 *Figure 12: Docker networking and infrastructure*
 
-Reading the diagram: only three ports are published to the host: 9080 (gateway), 4307 (MySQL, bound to 127.0.0.1) and 5041 (Ngrok inspector, bound to 127.0.0.1). All other services are reachable only inside the Docker network. The Ngrok container forwards public traffic, such as the PayOS webhook, to `api-gateway:8080`.
+Reading the diagram: the main stack publishes three ports to the host: 9080 (gateway), 4307 (MySQL, bound to 127.0.0.1) and 5041 (Ngrok inspector, bound to 127.0.0.1). The separate local-inference Compose project publishes 8088, bound to 127.0.0.1, for host development; ai-service reaches `llama:8080` through the backend network. All other services are reachable only inside the Docker network. The Ngrok container forwards public traffic, such as the PayOS webhook, to `api-gateway:8080`.
 
 #### 1.2 Package Diagram
 
@@ -1403,11 +1417,14 @@ flowchart TB
         AMN["monitoring"]
         AS["subscription"]
         AG["groq"]
+        APR["provider<br/>local / Groq switch"]
         ASE["security / configuration / common"]
-        AC --> AG
-        AM --> AG
+        AC --> APR
+        AM --> APR
+        AMO --> APR
+        AR --> APR
+        APR --> AG
         AV --> AG
-        AMO --> AG
         AM --> AQ
         AV --> AQ
         AC --> AQ
@@ -1416,7 +1433,7 @@ flowchart TB
 ```
 *Figure 13: Package diagram of the backend services*
 
-Reading the diagram: in a typical service a controller calls a service, which uses repositories and mappers over JPA entities and throws exceptions defined by the service's `ErrorCode`. In ai-service, each feature package (chat, meal plan, video, moderation) calls the `groq` client and the `quota` package, and the quota package reads plan limits through the `subscription` client.
+Reading the diagram: in a typical service a controller calls a service, which uses repositories and mappers over JPA entities and throws exceptions defined by the service's `ErrorCode`. In ai-service, the text feature packages (chat, meal plan, recommendation, moderation) call the `provider` package, which sends the request to the local llama.cpp server or, when selected, to the `groq` client, while the video package calls the `groq` client directly; all of them use the `quota` package, and the quota package reads plan limits through the `subscription` client.
 
 ```mermaid
 flowchart LR
@@ -1456,7 +1473,7 @@ Reading the diagram: both clients are organised by feature. Each web feature hol
 | 5 | `...repository` | Spring Data JPA repositories, including native queries such as `ST_Distance_Sphere`. |
 | 6 | `...entity`, `...enums` | JPA entities and enumerations. |
 | 7 | `...exception` | `ErrorCode` enumeration and the global exception handler producing the common envelope. |
-| 8 | `com.veggiepal.ai.<feature>` | ai-service feature packages: `chat`, `mealplan`, `video`, `moderation`, `quota`, `recommendation`, `monitoring`, `subscription`, `groq`, `security`, `configuration`, `common`. |
+| 8 | `com.veggiepal.ai.<feature>` | ai-service feature packages: `chat`, `mealplan`, `video`, `moderation`, `quota`, `recommendation`, `monitoring`, `subscription`, `provider`, `groq`, `security`, `configuration`, `common`. |
 | 9 | `com.veggiepal.payment.payos` | PayOS gateway interface and SDK adapter. |
 
 ##### Table 30: Client package descriptions
@@ -2164,9 +2181,12 @@ classDiagram
         +calculate(height, weight, ...)
         +guessGoal(goalText)
     }
-    class GroqClient {
+    class AiProviderClient {
+        <<interface>>
         +complete(model, messages, temperature, maxTokens)
     }
+    class LocalAiClient
+    class GroqClient
     class QuotaService {
         +reserveFeature(principal, feature, period, limit)
         +refundFeature(principal, feature, period)
@@ -2176,7 +2196,9 @@ classDiagram
     MealPlanController --> MealPlanService
     MealPlanService --> MealPlanValidator
     MealPlanService --> NutritionTargetCalculator
-    MealPlanService --> GroqClient
+    MealPlanService --> AiProviderClient
+    LocalAiClient ..|> AiProviderClient
+    GroqClient ..|> AiProviderClient
     MealPlanService --> QuotaService
     MealPlanService --> MealPlanRepository
     MealPlanService --> MealPlanVersionRepository
@@ -2184,7 +2206,7 @@ classDiagram
 ```
 *Figure 23: Class diagram of the meal-plan feature*
 
-Reading the diagram: `MealPlanService` orchestrates the use cases. It asks `NutritionTargetCalculator` for the target, `QuotaService` for a quota slot and `GroqClient` for the plan, and relies on `MealPlanValidator` (with `AllergenDetector`) to filter candidates and validate the result before saving through the repositories.
+Reading the diagram: `MealPlanService` orchestrates the use cases. It asks `NutritionTargetCalculator` for the target, `QuotaService` for a quota slot and the configured `AiProviderClient` for the plan (`LocalAiClient`, which calls the local llama.cpp server, by default; `GroqClient` only when the meal-plan provider is set to `groq`), and relies on `MealPlanValidator` (with `AllergenDetector`) to filter candidates and validate the result before saving through the repositories.
 
 ##### Table 41: Class specifications - meal-plan feature
 
@@ -2207,7 +2229,7 @@ The numbered steps of the flow are:
 3. If the request has no daily nutrition target, ai-service computes one from the profile and health record (BMR/TDEE adjusted by the goal type) and validates it.
 4. ai-service reserves one meal-plan unit from the monthly quota (plan limits are read from payment-service; an unavailable lookup is treated as FREE).
 5. The validator removes every recipe that contains a declared allergen and ranks the remaining recipes by matching available ingredients.
-6. ai-service asks the Groq LLM (default model `openai/gpt-oss-20b`) to build a plan from these real recipe IDs. If the call fails, a deterministic planner is used.
+6. ai-service asks the local Qwen2.5 model through llama.cpp (`AI_LOCAL_MODEL`, default `qwen2.5-1.5b-instruct`) to build a plan from these real recipe IDs. If inference fails, a deterministic planner is used; Groq is used only when `AI_MEAL_PROVIDER` is explicitly set to `groq`, and a local failure never triggers a Groq request.
 7. The validator checks and enriches the plan: exactly seven days with breakfast, lunch and dinner, only allowed recipe IDs, allergen safety, and calories scaled toward the daily meal budgets.
 8. The plan is stored in `ai_meal_plans` and returned; later edits create new versions.
 
@@ -2220,7 +2242,7 @@ sequenceDiagram
     participant NU as nutrition-service
     participant RE as recipe-service
     participant PA as payment-service
-    participant GQ as Groq LLM
+    participant GQ as Local llama.cpp (Qwen2.5)
     participant DB as veggiepal_ai
 
     C->>GW: POST /api/ai/meal-plans (JWT, goal, preferences, ingredients)
@@ -2236,7 +2258,7 @@ sequenceDiagram
     PA-->>AI: plan quotas
     AI->>DB: reserve monthly meal-plan quota
     AI->>AI: exclude allergen recipes, rank by available ingredients
-    AI->>GQ: prompt with safe recipes and constraints
+    AI->>GQ: POST /v1/chat/completions with safe recipes and constraints
     alt LLM answered
         GQ-->>AI: candidate plan JSON
     else LLM failed
@@ -2248,7 +2270,7 @@ sequenceDiagram
 ```
 *Figure 24: Sequence diagram - meal plan generation*
 
-Reading the diagram: ai-service gathers data from three services, reserves quota, filters unsafe recipes before the LLM sees them, lets the LLM choose among real recipes only, and validates the result again on the server. When the LLM is unavailable the deterministic planner still produces a valid plan.
+Reading the diagram: ai-service gathers data from three services, reserves quota, filters unsafe recipes before local inference, lets Qwen2.5 choose among real recipe IDs only, and validates the result again on the server. When inference is unavailable the deterministic planner still produces a valid plan.
 
 #### 4.3 Payment and Subscription
 
@@ -2352,14 +2374,14 @@ sequenceDiagram
     participant GW as API Gateway
     participant BL as blog-service
     participant AI as ai-service
-    participant GQ as Groq LLM
+    participant GQ as Local llama.cpp (Qwen2.5)
     participant DB as veggiepal_ai
     actor AD as Admin
 
     U->>GW: POST /api/blogs (publish)
     GW->>BL: forward request
     BL->>AI: POST /ai/moderation/check (title, content)
-    AI->>GQ: classify profanity and animal-derived content
+    AI->>GQ: classify profanity and animal-derived content (local model by default)
     alt LLM answered
         GQ-->>AI: decision
         AI->>DB: save moderation case
@@ -2383,10 +2405,10 @@ Reading the diagram: a publish request is checked by ai-service. Approved conten
 | Concern | Mechanism | Location |
 | :--- | :--- | :--- |
 | Allergen exposure | Allergen recipes removed before the LLM call; the generated plan is validated again, including hidden allergens and missing allergen data. | `MealPlanValidator`, `AllergenDetector` |
-| LLM outage or malformed output | Timeouts with limited retries, deterministic planner fallback, structural validation of every plan. | `MealPlanService`, `GroqClient` |
-| Quota abuse | Atomic per-principal counters for chat, meal plans and videos; guest sessions limited by hashed IP. | `QuotaService`, `GuestSessionService` |
+| Model outage or malformed output | Timeouts (10 s connect, 120 s read for the local model), deterministic planner fallback, structural validation of every plan; no automatic switch from the local model to Groq. | `MealPlanService`, `LocalAiClient`, `GroqClient` |
+| Quota abuse | Atomic per-principal counters for chat, meal plans and videos; guest sessions limited by hashed IP. An optional local-testing quota policy (profile `local-testing`, off by default) applies daily request and token limits per feature. | `QuotaService`, `GuestSessionService`, `LocalTestQuotaPolicy` |
 | Quota lost on failure | Quota reservation flags on the video job and automatic refund. | `VideoJobStateService`, `VideoMaintenanceService` |
-| Moderation unavailable | Content held as `PENDING` / `REVIEW_REQUIRED` for manual review. | `ModerationService`, `BlogService` |
+| Moderation unavailable or uncertain | Content held as `PENDING` / `REVIEW_REQUIRED` for manual review; uncertain or failed classifications of the small local model also go to review. | `ModerationService`, `BlogService` |
 | Invalid calorie target | Target computed only for adults with a complete profile; floors and ceilings applied to the result. | `NutritionTargetCalculator` |
 
 #### 4.5 Video Recipe Extraction
@@ -2501,7 +2523,7 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | Purpose | Environment | Version |
 | :--- | :--- | :--- |
 | Developer machine | Windows 11 with OpenJDK 21 and the Maven wrapper | Java 21.0.12 |
-| Test run for this report | Maven 3.10.0 from the wrapper, run on 2 November 2026 | H2-based modules only |
+| Test run for this report | Maven 3.10.0 from the wrapper, run on 2 November 2026 | H2-based modules only (ai-service re-run after the merge) |
 | CI runner | GitHub-hosted runner with a MySQL 8.4 service container on port 3307 | `ubuntu-latest`, Temurin 21 |
 | Deployment check | Docker Compose on a self-hosted Windows x64 runner | Compose project `veggiepal-prm` |
 
@@ -2527,11 +2549,11 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | blog-service | 26 | 263 | MySQL 8.4 | `./mvnw test` |
 | recipe-service | 6 | 38 | H2 | `./mvnw test` |
 | location-service | 3 | 19 | MySQL 8.4 | `./mvnw test` |
-| ai-service | 35 | 215 | H2 | `./mvnw test` |
+| ai-service | 39 | 241 | H2 | `./mvnw test` |
 | payment-service | 4 | 26 | H2 | `mvn test` |
-| **Total** | **111** | **732** | | |
+| **Total** | **115** | **758** | | |
 
-Test methods are counted from the `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in the source; parameterized tests run more than once, so the runtime count of a module can be higher (ai-service runs 219).
+Test methods are counted from the `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in the source; parameterized tests run more than once, so the runtime count of a module can be higher (ai-service runs 245).
 
 The tables below list selected test cases that exist in the source. The result column states whether the test was executed for this report.
 
@@ -2583,13 +2605,13 @@ The modules that use H2 or no database were run on 2 November 2026 with `mvn tes
 | api-gateway | 10 | 0 | 0 | Pass |
 | payment-service | 26 | 0 | 0 | Pass |
 | recipe-service | 38 | 0 | 0 | Pass |
-| ai-service | 219 | 0 | 0 | Pass (`mvn clean test`) |
+| ai-service | 245 | 0 | 0 | Pass (`mvn clean test`, after merging the self-hosted AI changes) |
 | identity-service | - | - | - | Not run here (needs MySQL) |
 | nutrition-service | - | - | - | Not run here (needs MySQL) |
 | blog-service | - | - | - | Not run here (needs MySQL) |
 | location-service | - | - | - | Not run here (needs MySQL) |
 
-A first run of ai-service reported 27 errors, "Unresolved compilation problem", in two test classes. They came from class files in `target/` that an IDE had compiled with errors; after `mvn clean test` all 219 tests passed. Use `mvn clean test` when the IDE has compiled the project.
+A first run of ai-service, before the self-hosted AI merge, reported 27 errors, "Unresolved compilation problem", in two test classes. They came from class files in `target/` that an IDE had compiled with errors; after `mvn clean test` all tests passed. Use `mvn clean test` when the IDE has compiled the project. The ai-service tests do not call a real llama.cpp server, so the quality and latency of the local model are not measured by this report.
 
 #### 5.2 Code Coverage
 
@@ -2643,10 +2665,10 @@ Reading the diagram: the pipeline starts only when a change touches `backend/` o
 | 1 | Backend source code | `/backend` | 7 Spring Boot business services and 1 API gateway, each with its own Dockerfile |
 | 2 | Web frontend | `/frontend` | React 19, Vite, Tailwind CSS web application |
 | 3 | Mobile application | `/mobile` | Flutter client application (user app and admin app) |
-| 4 | Database provisioning | `/backend/docker-compose.yml` | Starts an empty MySQL 8.4; Flyway (ai-service) and Hibernate create the schemas and `data.sql` seeds reference data |
+| 4 | Backend deployment | `/backend/docker-compose.yml`, `/backend/docker-compose.infra.yml`, `/backend/ai-inference/compose.local-ai.yml` | The main stack starts the gateway, seven services, MySQL 8.4 and Ngrok; the local-AI file starts one llama.cpp server on the same network; the infrastructure file runs MySQL and Ngrok for host development. Flyway (ai-service), Hibernate and `data.sql` prepare the service data. |
 | 5 | CI/CD pipeline | `/.github/workflows/ci-cd.yml` | Backend Maven matrix, Docker build, Compose validation, deployment to a self-hosted runner |
 | 6 | API documentation | `http://localhost:9080/swagger-ui.html` | Aggregated OpenAPI / Swagger specification |
-| 7 | Documentation | `/docs` | This report and the course documents |
+| 7 | Documentation | `/docs`, `/backend/SELF_HOSTED_AI_*.md` | This report, the course documents and the self-hosted AI architecture, setup and benchmark notes |
 
 ### 2. Installation Guides
 
@@ -2657,7 +2679,7 @@ Reading the diagram: the pipeline starts only when a change touches `backend/` o
 | Component | Requirement |
 | :--- | :--- |
 | Operating system | Windows 10/11 64-bit, macOS, or Ubuntu 22.04 LTS |
-| Hardware | At least 8 GB RAM, 4-core CPU and 20 GB free disk space. No local AI model is hosted; AI features need internet access and a `GROQ_API_KEY`. |
+| Hardware | Local inference targets a 32 GB RAM Windows 11 / WSL2 machine with an NVIDIA Quadro T2000 (4 GB VRAM); a CPU fallback is provided. The Q4_K_M model file is about 1.12 GB, with extra memory for context and buffers. Video processing needs internet access and a `GROQ_API_KEY`. |
 | Backend | Docker Desktop (Docker Compose v2+), Git; OpenJDK 21 only for running services outside Docker |
 | Web | Node.js and npm |
 | Mobile | A Flutter SDK compatible with the Dart constraint `^3.13.2` in `mobile/pubspec.yaml` |
@@ -2674,12 +2696,21 @@ cd VeggiePal-Microservice
 # 2. Create the environment file and fill it in
 cp backend/.env.example backend/.env
 
-# 3. Start the whole backend
+# 3. Download the Qwen2.5-1.5B-Instruct Q4_K_M GGUF file into backend/ai-inference/models
+#    (see backend/SELF_HOSTED_AI_SETUP.md)
+
+# 4. Start MySQL and the backend network, then the local inference server
 cd backend
+docker compose --project-name veggiepal-prm up -d mysql
+docker compose -f ai-inference/compose.local-ai.yml up -d
+
+# 5. Start the whole backend
 docker compose --project-name veggiepal-prm up -d --build --wait
 ```
 
-Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`. Needed for the related features: `INTERNAL_SERVICE_TOKEN`, `GROQ_API_KEY` (AI), `CLOUDINARY_*` (images and videos), `GOOGLE_CLIENT_ID` (Google sign-in), `MAIL_*` (SMTP delivery for OTP e-mails; the code is written to the application log when `MAIL_HOST` is omitted in local development) and the `PAYOS_*` credentials (payments).
+The local inference container joins the `veggiepal-prm-backend` network created by the main project, and `ai-service` reaches it at `http://llama:8080/v1`. Use `-f ai-inference/compose.local-ai.yml -f ai-inference/compose.cpu.yml` for the CPU fallback.
+
+Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`. Needed for the related features: `INTERNAL_SERVICE_TOKEN`, `GROQ_API_KEY` (video AI), `CLOUDINARY_*` (images and videos), `GOOGLE_CLIENT_ID` (Google sign-in), `MAIL_*` (SMTP delivery for OTP e-mails; the code is written to the application log when `MAIL_HOST` is omitted in local development) and the `PAYOS_*` credentials (payments). The template also lists `AI_LOCAL_BASE_URL`, `AI_LOCAL_MODEL`, the local connect and read timeouts, the four provider switches (`AI_CHAT_PROVIDER`, `AI_MEAL_PROVIDER`, `AI_RECOMMENDATION_PROVIDER`, `AI_MODERATION_PROVIDER`, all `local` by default) and the optional local-testing quota settings.
 
 ##### Table 58: System endpoints after start-up
 
@@ -2688,6 +2719,7 @@ Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`.
 | API gateway and Swagger UI | http://localhost:9080/swagger-ui.html |
 | MySQL | 127.0.0.1:4307 |
 | Ngrok inspector | http://localhost:5041 |
+| Local inference server (llama.cpp) | http://127.0.0.1:8088 (`/health`), bound to loopback |
 
 Register the PayOS webhook as `https://<ngrok-domain>/api/payments/webhook/payos`.
 
@@ -2856,7 +2888,7 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 4. **Write:** create blogs, recipes (with an image uploaded from the device) and videos (YouTube link or an `.mp4` of at most 30 MB). New blogs and videos are moderated; if the AI is unavailable the item is held as "Chờ kiểm duyệt" (pending).
 5. **Vote, comment, like:** vote up or down on blogs and videos, comment on several levels, like recipes.
 6. **Extract a recipe from a video:** on a published uploaded video choose the AI extraction; the result is shared and kept for 30 days, and each job uses one unit of the monthly video quota.
-7. **Chat with the assistant:** members get conversation history and the remaining daily requests; formatted replies show headings, lists and tables.
+7. **Chat with the assistant:** members get conversation history and the remaining daily requests; formatted replies show headings, lists and tables. Replies come from the local Qwen2.5 model, so they can be slower than a cloud model on a machine without a GPU.
 
 #### 3.4 Administrator
 
@@ -2887,8 +2919,10 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 | Refresh token | An opaque, single-use token stored hashed on the server and exchanged for a new access token. |
 | Moderation case | The stored result of an AI content check, reviewed by an administrator when it needs review. |
 | Webhook | The signed HTTP call that PayOS sends to confirm a payment. |
+| Local inference | Running the language model on the project's own host through llama.cpp instead of calling a cloud API. |
 | Idempotent | Processing the same webhook or request more than once has the same effect as processing it once. |
 | VietQR | The Vietnamese QR bank-transfer standard used by PayOS. |
+| Provider switch | A per-feature setting (`local` or `groq`) that selects which AI backend serves chat, meal plans, recommendations or text moderation. |
 | Database-per-service | Each microservice owns its schema; other services refer to its data only by ID. |
 
 ### 2. References
@@ -2902,7 +2936,8 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 7. RFC 7519 - JSON Web Token (JWT), Internet Engineering Task Force (IETF).
 8. PayOS developer documentation - payment link creation and webhook verification.
 9. Groq API documentation - chat completions and speech-to-text.
-10. VeggiePal source code - [github.com/Phu0312/VeggiePal-Microservice](https://github.com/Phu0312/VeggiePal-Microservice).
+10. llama.cpp and Qwen2.5 documentation; project notes `backend/SELF_HOSTED_AI_ARCHITECTURE.md` and `backend/SELF_HOSTED_AI_SETUP.md`.
+11. VeggiePal source code - [github.com/Phu0312/VeggiePal-Microservice](https://github.com/Phu0312/VeggiePal-Microservice).
 
 ### 3. Others
 
@@ -2915,17 +2950,17 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 | Backend modules | 8 (7 business services and 1 API gateway) |
 | Database schemas | 7 isolated MySQL schemas |
 | Database tables | 36 |
-| Test classes / test methods | 111 / 732 |
+| Test classes / test methods | 115 / 758 |
 | Subscription plans | 3 (FREE, PLUS, PRO) |
 | CI jobs | `maven` and `docker` (matrix of 8 modules each), `compose-check`, `deploy` |
-| Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector) |
+| Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector), 8088 (local inference, loopback only) |
 | Client applications | React web application, Flutter mobile application |
 
 #### 3.2 Results Achieved
 
-* A microservices backend (7 services and a gateway) that starts with one Docker Compose command and exposes aggregated Swagger documentation.
+* A microservices backend (7 services and a gateway) started with Docker Compose, a separate local-inference Compose project, and aggregated Swagger documentation.
 * Authentication with BCrypt, HS256 JWT validation in every service, opaque refresh-token rotation and revocation, 6-digit e-mail OTP password recovery and verification, and Google sign-in.
-* Allergen-aware AI meal planning with server-side validation and a fallback planner; AI chatbot, video recipe extraction and moderation backed by Groq.
+* Allergen-aware AI meal planning with server-side validation and a fallback planner; a local Qwen2.5 model served by llama.cpp for chat, meal planning, recommendations and text moderation, with Groq used for video extraction.
 * A community module with nested comments, voting, follows, a 7-day challenge and administrator moderation.
 * A domestic payment flow with PayOS VietQR, signed and idempotent webhook processing, and plan-based quotas.
 * A GitHub Actions pipeline that tests, packages, builds images, validates Compose and deploys to a local runner.
@@ -2934,6 +2969,6 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 
 * **Quality:** archive Surefire reports from CI, add JaCoCo to measure code coverage (target at least 60%), and add reproducible load tests for the gateway and the AI endpoints.
 * **CI/CD:** add build and lint steps for the React and Flutter projects, and publish test reports as workflow artifacts.
-* **Resilience and observability:** add retry and circuit-breaker policies and monitoring for the external Groq, Cloudinary, Google and PayOS dependencies.
+* **Resilience and observability:** add retry and circuit-breaker policies and monitoring for the local inference server and the external Groq, Cloudinary, Google and PayOS dependencies.
 * **Scalability:** introduce asynchronous messaging only if measured throughput requires it, for example for video processing and moderation.
 * **Product:** push notifications, richer nutrition analysis (micronutrient tracking), and more recipe and restaurant data.
