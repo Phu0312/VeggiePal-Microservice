@@ -75,6 +75,32 @@ class PremiumQuotaServiceTest {
         assertThat(overview.video().remaining()).isEqualTo(0);
     }
 
+    @Test
+    void localTestingUsesDailyCountersWhileProductionSubscriptionRemainsUntouched() {
+        when(quotas.isLocalTestEnabled()).thenReturn(true);
+        when(quotas.localTestLimit()).thenReturn(100);
+        when(quotas.localTestFeature("MEAL_PLAN")).thenReturn("MEAL_PLAN_LOCAL_TEST");
+        when(quotas.localTestFeature("CHAT")).thenReturn("CHAT_LOCAL_TEST");
+        when(subscriptions.getEffectiveSubscription(7L)).thenReturn(SubscriptionEntitlement.free());
+        when(quotas.getUsedCount("user:7", "MEAL_PLAN_LOCAL_TEST", QuotaPeriod.DAILY)).thenReturn(3);
+
+        service.reserveChat(7L);
+        service.reserveMealPlan(7L);
+        var status = service.getMealPlanQuota(7L);
+        var overview = service.getQuotaOverview(7L);
+
+        verify(quotas).reserveLocalTestFeature("user:7", "CHAT");
+        verify(quotas).reserveLocalTestFeature("user:7", "MEAL_PLAN");
+        verify(quotas, never()).reserveFeature(anyString(), anyString(), any(), anyInt());
+        assertThat(status.period()).isEqualTo("DAILY");
+        assertThat(status.limit()).isEqualTo(100);
+        assertThat(status.used()).isEqualTo(3);
+        assertThat(status.remaining()).isEqualTo(97);
+        assertThat(overview.mealPlan().period()).isEqualTo("DAILY");
+        assertThat(overview.chat().limit()).isEqualTo(100);
+        assertThat(overview.video().limit()).isZero();
+    }
+
     private void assertLimits(SubscriptionEntitlement entitlement, int chat, int meals, int videos) {
         when(subscriptions.getEffectiveSubscription(7L)).thenReturn(entitlement);
         service.reserveChat(7L);

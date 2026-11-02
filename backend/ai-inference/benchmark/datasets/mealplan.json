@@ -1,0 +1,259 @@
+[
+  {
+    "id": "MP_01",
+    "scenario": "weight_loss",
+    "description": "Weight loss plan with feasible calorie target (1200-1450 kcal) and low fat",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn giảm cân lành mạnh 7 ngày",
+      "healthGoal": "Giảm mỡ bụng, ưu tiên món thanh đạm ít dầu mỡ",
+      "goalType": "LOSE",
+      "preferences": ["ít dầu mỡ", "nhiều rau xanh", "thanh đạm"],
+      "availableIngredients": ["đậu hũ", "nấm", "bông cải xanh", "cà chua", "yến mạch"],
+      "dailyNutritionTarget": {
+        "minCalories": 1200,
+        "maxCalories": 1450,
+        "minProtein": 40,
+        "maxProtein": 75,
+        "minCarbohydrate": 120,
+        "maxCarbohydrate": 200,
+        "minFat": 20,
+        "maxFat": 50
+      }
+    }
+  },
+  {
+    "id": "MP_02",
+    "scenario": "weight_maintenance",
+    "description": "Weight maintenance plan with balanced feasible macro targets (1450-1700 kcal)",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn giữ dáng cân bằng",
+      "healthGoal": "Duy trì cân nặng ổn định và đủ năng lượng làm việc",
+      "goalType": "MAINTAIN",
+      "preferences": ["cân bằng", "dễ nấu", "món Việt"],
+      "availableIngredients": ["đậu phụ", "nấm đùi gà", "rau muống", "gạo lứt", "đậu xanh"],
+      "dailyNutritionTarget": {
+        "minCalories": 1450,
+        "maxCalories": 1700,
+        "minProtein": 50,
+        "maxProtein": 85,
+        "minCarbohydrate": 150,
+        "maxCarbohydrate": 220,
+        "minFat": 35,
+        "maxFat": 65
+      }
+    }
+  },
+  {
+    "id": "MP_03",
+    "scenario": "muscle_gain_feasible",
+    "description": "Muscle gain plan with feasible high-calorie and protein target within 1.50x serving limit",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn tăng cơ thuần chay khả thi",
+      "healthGoal": "Tăng cơ săn chắc kết hợp tập luyện",
+      "goalType": "GAIN",
+      "preferences": ["giàu đạm", "đậu hũ", "các loại hạt"],
+      "availableIngredients": ["đậu hũ", "tàu hũ ky", "hạt điều", "đậu đen", "khoai lang"],
+      "dailyNutritionTarget": {
+        "minCalories": 1600,
+        "maxCalories": 1950,
+        "minProtein": 65,
+        "maxProtein": 95,
+        "minCarbohydrate": 160,
+        "maxCarbohydrate": 250,
+        "minFat": 40,
+        "maxFat": 80
+      }
+    }
+  },
+  {
+    "id": "MP_04",
+    "scenario": "high_protein_infeasible_macro",
+    "description": "High-protein vegan request (90-130g protein at 1500-1700 kcal) mathematically infeasible at 1.50x serving scale; verifies targetMet=true, allTargetsMet=false, targetDeviations.protein reported",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": false,
+    "expectedDeviationFields": ["protein"],
+    "request": {
+      "name": "Thực đơn chay giàu đạm 90-130g",
+      "healthGoal": "Tăng cơ giảm mỡ với mức protein rất cao",
+      "goalType": "GAIN",
+      "preferences": ["giàu đạm", "ít đường"],
+      "availableIngredients": ["đậu phụ", "nấm", "bông cải xanh", "yến mạch", "hạt chia"],
+      "dailyNutritionTarget": {
+        "minCalories": 1500,
+        "maxCalories": 1700,
+        "minProtein": 90,
+        "maxProtein": 130,
+        "minCarbohydrate": 150,
+        "maxCarbohydrate": 210,
+        "minFat": 40,
+        "maxFat": 60
+      }
+    }
+  },
+  {
+    "id": "MP_05",
+    "scenario": "restricted_ingredients_pantry",
+    "description": "Pantry-driven plan prioritizing specific household ingredients",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn tiết kiệm từ nguyên liệu có sẵn",
+      "healthGoal": "Tận dụng nguyên liệu sẵn có trong tủ lạnh",
+      "goalType": "MAINTAIN",
+      "preferences": ["tiết kiệm", "nhanh gọn"],
+      "availableIngredients": ["cà tím", "đậu que", "bắp cải", "nấm bào ngư", "cà rốt", "đậu hũ non"],
+      "dailyNutritionTarget": {
+        "minCalories": 1300,
+        "maxCalories": 1600,
+        "minProtein": 45,
+        "maxProtein": 80,
+        "minCarbohydrate": 130,
+        "maxCarbohydrate": 210,
+        "minFat": 25,
+        "maxFat": 60
+      }
+    }
+  },
+  {
+    "id": "MP_06",
+    "scenario": "food_allergy_peanut_sesame",
+    "description": "Allergy safety test with Peanut (id=4) and Sesame (id=9) allergens configured",
+    "allergenIds": [4, 9],
+    "forbiddenKeywords": ["đậu phộng", "lạc", "mè", "vừng", "peanut", "sesame"],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn không đậu phộng và mè",
+      "healthGoal": "Ăn chay an toàn cho người dị ứng đậu phộng và hạt mè",
+      "goalType": "MAINTAIN",
+      "preferences": ["không đậu phộng", "không mè"],
+      "availableIngredients": ["đậu hũ", "nấm đông cô", "rau cải", "bí đỏ", "hạt sen"],
+      "dailyNutritionTarget": {
+        "minCalories": 1350,
+        "maxCalories": 1650,
+        "minProtein": 45,
+        "maxProtein": 85,
+        "minCarbohydrate": 140,
+        "maxCarbohydrate": 220,
+        "minFat": 25,
+        "maxFat": 60
+      }
+    }
+  },
+  {
+    "id": "MP_07",
+    "scenario": "food_allergy_mushroom_gluten",
+    "description": "Allergy safety test with Gluten (id=1) and Mushroom (id=28) allergens configured",
+    "allergenIds": [1, 28],
+    "forbiddenKeywords": ["nấm", "mì căn", "lúa mì", "gluten", "mushroom"],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn không nấm và không gluten",
+      "healthGoal": "Ăn chay tránh dị ứng nấm và gluten",
+      "goalType": "LOSE",
+      "preferences": ["không nấm", "không gluten"],
+      "availableIngredients": ["đậu hũ", "đậu xanh", "bí đao", "rau muống", "khoai lang"],
+      "dailyNutritionTarget": {
+        "minCalories": 1250,
+        "maxCalories": 1550,
+        "minProtein": 40,
+        "maxProtein": 80,
+        "minCarbohydrate": 130,
+        "maxCarbohydrate": 210,
+        "minFat": 25,
+        "maxFat": 55
+      }
+    }
+  },
+  {
+    "id": "MP_08",
+    "scenario": "weekly_meal_diversity",
+    "description": "Weekly diversity scenario testing distinct daily combinations and unique recipe count across 7 days",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "minUniqueRecipes": 7,
+    "minUniqueDaySignatures": 5,
+    "request": {
+      "name": "Thực đơn đa dạng 7 ngày không trùng lặp",
+      "healthGoal": "Đa dạng món ăn mỗi ngày trong tuần",
+      "goalType": "MAINTAIN",
+      "preferences": ["đa dạng", "món canh", "món xào", "món kho"],
+      "availableIngredients": ["đậu hũ", "nấm", "hạt sen", "củ sen", "bông cải", "đậu cô ve"],
+      "dailyNutritionTarget": {
+        "minCalories": 1400,
+        "maxCalories": 1650,
+        "minProtein": 50,
+        "maxProtein": 80,
+        "minCarbohydrate": 140,
+        "maxCarbohydrate": 210,
+        "minFat": 30,
+        "maxFat": 60
+      }
+    }
+  },
+  {
+    "id": "MP_09",
+    "scenario": "server_computed_bmr_tdee_target",
+    "description": "Meal plan without custom dailyNutritionTarget so server computes BMR/TDEE calorie range from profile and health record",
+    "allergenIds": [],
+    "expectedHttpStatus": 200,
+    "expectTargetMet": true,
+    "expectAllTargetsMet": true,
+    "request": {
+      "name": "Thực đơn theo chỉ số cơ thể TDEE",
+      "healthGoal": "Ăn uống khoa học theo chỉ số BMI và TDEE cá nhân",
+      "goalType": "LOSE",
+      "preferences": ["thanh đạm", "giàu chất xơ"],
+      "availableIngredients": ["đậu hũ", "rau xanh", "khoai lang", "nấm"],
+      "dailyNutritionTarget": null
+    }
+  },
+  {
+    "id": "MP_10",
+    "scenario": "invalid_nutrition_constraints",
+    "description": "Invalid nutrition target where minCalories > maxCalories (1800 > 1200); verifies deterministic HTTP 400 validation error",
+    "allergenIds": [],
+    "expectedHttpStatus": 400,
+    "expectTargetMet": null,
+    "expectAllTargetsMet": null,
+    "request": {
+      "name": "Thực đơn kiểm thử ràng buộc không hợp lệ",
+      "healthGoal": "Kiểm tra lỗi khi minCalories lớn hơn maxCalories",
+      "goalType": "MAINTAIN",
+      "preferences": ["cân bằng"],
+      "availableIngredients": ["đậu hũ"],
+      "dailyNutritionTarget": {
+        "minCalories": 1800,
+        "maxCalories": 1200,
+        "minProtein": 90,
+        "maxProtein": 40,
+        "minCarbohydrate": 150,
+        "maxCarbohydrate": 200,
+        "minFat": 30,
+        "maxFat": 50
+      }
+    }
+  }
+]
+

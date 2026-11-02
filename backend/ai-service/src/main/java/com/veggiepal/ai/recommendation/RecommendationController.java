@@ -14,6 +14,6 @@ public class RecommendationController {
     private final RecommendationService service;
     @GetMapping ApiResponse<List<Recommendation>> get(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(required=false) String interest,@RequestParam(defaultValue="6") int limit) {
-        return ApiResponse.success(service.recommend(CurrentUser.id(jwt),interest,limit));
+        return ApiResponse.success(service.recommend(CurrentUser.id(jwt),jwt.getTokenValue(),interest,limit));
     }
 }
