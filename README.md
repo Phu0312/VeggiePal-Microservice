@@ -2,7 +2,7 @@
 
 Hệ sinh thái số hỗ trợ lối sống ăn chay: theo dõi sức khỏe và dị ứng, lên thực đơn 7 ngày bằng AI, trò chuyện với trợ lý AI, cộng đồng blog/video, tìm quán chay gần bạn và đăng ký gói thành viên qua PayOS VietQR.
 
-Đồ án môn PRM393 (FPT University). Báo cáo đầy đủ: [docs/PRM_CAPSTONE.md](docs/PRM_CAPSTONE.md).
+Đồ án môn PRM393 (FPT University). Báo cáo đầy đủ: [docs/REPORT7_FINAL_PROJECT_REPORT.md](docs/REPORT7_FINAL_PROJECT_REPORT.md).
 
 ## Mục lục
 
@@ -278,7 +278,7 @@ Runner cần online liên tục để nhận job deploy. Không dùng chung runn
 
 ## Tài liệu liên quan
 
-- [docs/PRM_CAPSTONE.md](docs/PRM_CAPSTONE.md): báo cáo capstone (yêu cầu, thiết kế, kiểm thử, hướng dẫn).
+- [docs/REPORT7_FINAL_PROJECT_REPORT.md](docs/REPORT7_FINAL_PROJECT_REPORT.md): báo cáo capstone (yêu cầu, thiết kế, kiểm thử, hướng dẫn).
 - [backend/README.md](backend/README.md), [backend/CLAUDE.md](backend/CLAUDE.md): tài liệu và quy ước backend.
 - [frontend/CLAUDE.md](frontend/CLAUDE.md), [frontend/docs/TECH_STACK.md](frontend/docs/TECH_STACK.md): quy ước web.
 - [AGENTS.md](AGENTS.md): quy tắc cho AI coding agent, gồm yêu cầu giữ báo cáo đồng bộ với code.
