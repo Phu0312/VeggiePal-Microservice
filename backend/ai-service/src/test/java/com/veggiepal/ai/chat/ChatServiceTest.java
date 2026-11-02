@@ -14,6 +14,29 @@ import org.junit.jupiter.api.Test;
 
 class ChatServiceTest {
     @Test
+    void failedMemberInferenceStillConsumesTheReservedQuotaSlot() {
+        PremiumQuotaService premium = mock(PremiumQuotaService.class);
+        ChatConversationRepository conversations = mock(ChatConversationRepository.class);
+        ChatMessageRepository messages = mock(ChatMessageRepository.class);
+        GroqClient provider = mock(GroqClient.class);
+        UsageService usage = mock(UsageService.class);
+        when(conversations.save(any(ChatConversation.class))).thenAnswer(call -> call.getArgument(0));
+        when(messages.findByConversationIdOrderByCreatedAtDesc(any(), any())).thenReturn(List.of());
+        when(provider.complete(eq("chat-model"), anyList(), eq(0.4), eq(700)))
+                .thenThrow(new IllegalStateException("inference failed"));
+        ChatService service = new ChatService(conversations, messages, mock(QuotaService.class), premium,
+                new QuotaProperties(3, 50, 12, 4000), provider,
+                new ModelProperties("chat-model", "m", "r", "p", "v", "w"), usage,
+                mock(GuestSessionService.class), mock(ChatPersistenceService.class));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.member(7L, new ChatDtos.ChatRequest(null, "protein?")));
+        verify(premium).reserveChat(7L);
+        verify(usage).failure(eq(7L), eq("user:7"), eq("CHAT"), anyString(), anyLong(), any());
+        verifyNoMoreInteractions(premium);
+    }
+
+    @Test
     void guestChatUsesQuotaAndReturnsProviderUsage() {
         QuotaService quota=mock(QuotaService.class);GroqClient groq=mock(GroqClient.class);UsageService usage=mock(UsageService.class);
         when(quota.reserveChat("guest-ip:ip-hash",true)).thenReturn(2);

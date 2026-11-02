@@ -2,8 +2,7 @@ import '../../../core/constants/endpoints.dart';
 import '../../../core/network/api_client.dart';
 import 'payment_models.dart';
 
-/// Mã lỗi của payment-service nằm trong dải 7000-7009 (trước đây là 6000-6009, trùng dải với ai-service). Bảng này
-/// chỉ dịch riêng mã payment; mã 6xxx của ai-service (ví dụ 6003 hết lượt AI) không được dịch ở đây.
+/// Mã lỗi payment-service dùng dải 7000-7009; bảng này chuyển mã thành thông báo cho màn thanh toán.
 const paymentErrorMessages = {
   7000: 'Vui lòng chọn gói thành viên.',
   7001: 'Gói không tồn tại.',

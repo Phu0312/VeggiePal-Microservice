@@ -1,0 +1,45 @@
+name: veggiepal-local-ai
+services:
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda-b10884
+    restart: unless-stopped
+    gpus: all
+    command:
+      - --model
+      - /models/${LLAMA_MODEL_FILE:-qwen2.5-1.5b-instruct-q4_k_m.gguf}
+      - --alias
+      - ${AI_LOCAL_MODEL:-qwen2.5-1.5b-instruct}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${LLAMA_CTX_SIZE:-2048}
+      - --parallel
+      - ${LLAMA_PARALLEL:-1}
+      - --batch-size
+      - ${LLAMA_BATCH_SIZE:-256}
+      - --n-gpu-layers
+      - ${LLAMA_GPU_LAYERS:-16}
+    ports:
+      - 127.0.0.1:${LLAMA_HOST_PORT:-8088}:8080
+    volumes:
+      - ./models:/models:ro
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+networks:
+  backend:
+    external: true
+    name: veggiepal-prm-backend

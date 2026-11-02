@@ -6,9 +6,21 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 public class RestClientConfig {
+    @Bean("localAiRestClient")
+    RestClient localAiRestClient(@Value("${ai.local.base-url:http://localhost:8088/v1}") String baseUrl,
+            @Value("${ai.local.connect-timeout:10s}") java.time.Duration connectTimeout,
+            @Value("${ai.local.read-timeout:120s}") java.time.Duration readTimeout,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeout);
+        factory.setReadTimeout(readTimeout);
+        return RestClient.builder().baseUrl(baseUrl).requestFactory(factory)
+                .messageConverters(items -> items.add(0, new MappingJackson2HttpMessageConverter(objectMapper))).build();
+    }
     @Bean
     com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
         return new com.fasterxml.jackson.databind.ObjectMapper()
