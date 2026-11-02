@@ -1,0 +1,17 @@
+{
+  "name": "Thực đơn giảm cân 1 ngày",
+  "healthGoal": "Giảm cân lành mạnh, duy trì cơ bắp và đảm bảo đủ dinh dưỡng",
+  "preferences": ["Món ăn Việt Nam", "Ít dầu mỡ", "Giàu protein", "Không quá cay", "Hạn chế lặp lại món ăn trong tuần"],
+  "availableIngredients": ["Ức gà", "Trứng gà", "Gạo lứt", "Cá hồi", "Rau cải", "Cà rốt", "Khoai lang", "Đậu phụ", "Chuối", "Yến mạch"],
+  "dailyNutritionTarget": {
+    "minCalories": 1500,
+    "maxCalories": 1700,
+    "minProtein": 90,
+    "maxProtein": 130,
+    "minCarbohydrate": 150,
+    "maxCarbohydrate": 210,
+    "minFat": 40,
+    "maxFat": 60
+  },
+  "goalType": "LOSE"
+}
