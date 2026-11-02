@@ -341,7 +341,7 @@ class MealPlanValidatorTest {
 
     @Test
     void flagsDaysThatMissTheTargetInsteadOfRejectingThePlan() {
-        // Recipe has 76 kcal per serving. Each meal is scaled on its own, at most 2.00x -> 152 kcal, 456 kcal a day.
+        // Recipe has 76 kcal per serving. Each meal is scaled on its own, at most 1.50x -> 114 kcal, 342 kcal a day.
         // Target: 1000-1200 kcal (impossible to reach).
         ObjectNode r1 = recipe(false);
         ArrayNode recipes = mapper.createArrayNode().add(r1);
@@ -359,7 +359,7 @@ class MealPlanValidatorTest {
         var day = plan.path("days").get(0);
         assertEquals(false, day.path("targetMet").asBoolean(true));
         var calories = day.path("targetDeviations").path("calories");
-        assertEquals(new BigDecimal("456.00"), calories.path("actual").decimalValue());
+        assertEquals(new BigDecimal("342.00"), calories.path("actual").decimalValue());
         assertEquals(0, new BigDecimal("1000").compareTo(calories.path("min").decimalValue()));
         assertEquals(0, new BigDecimal("1200").compareTo(calories.path("max").decimalValue()));
         assertEquals(false, day.path("targetDeviations").has("protein"), "protein has no target, so it cannot deviate");
@@ -427,7 +427,7 @@ class MealPlanValidatorTest {
                 assertEquals(false, id == 1L || id == 2L, "recipes too light for any budget must not be picked");
                 if (meal.has("servingMultiplier")) {
                     BigDecimal scale = meal.path("servingMultiplier").decimalValue();
-                    assertEquals(true, scale.compareTo(new BigDecimal("0.75")) >= 0 && scale.compareTo(new BigDecimal("2.00")) <= 0);
+                    assertEquals(true, scale.compareTo(new BigDecimal("0.75")) >= 0 && scale.compareTo(new BigDecimal("1.50")) <= 0);
                 }
             }
         }
@@ -496,7 +496,7 @@ class MealPlanValidatorTest {
 
     @Test
     void laterMealsAbsorbAShortBreakfast() {
-        // Breakfast is kept at 100 kcal x 2.00 = 200 (repick = false); lunch and dinner must carry the rest.
+        // Breakfast is kept at 100 kcal x 1.50 = 150 (repick = false); lunch and dinner must carry the rest.
         // With fixed shares (lunch 1120.8, dinner 980.7) the day would end near 2300, below 2522.
         ArrayNode recipes = recipesWithKcal(1, 100, 4, 700, 5, 650, 6, 800, 7, 900);
         ObjectNode plan = planOf(1L, null, null);
@@ -506,7 +506,7 @@ class MealPlanValidatorTest {
         for (var day : plan.path("days")) {
             var breakfast = day.path("meals").get(0);
             assertEquals(1L, breakfast.path("recipeId").asLong());
-            assertEquals(0, new BigDecimal("2.00").compareTo(breakfast.path("servingMultiplier").decimalValue()));
+            assertEquals(0, new BigDecimal("1.50").compareTo(breakfast.path("servingMultiplier").decimalValue()));
         }
         assertEveryDayMeetsTarget(plan, TARGET_2522_3082);
     }
@@ -536,7 +536,7 @@ class MealPlanValidatorTest {
         ArrayNode recipes = recipesWithKcal(1, 100, 4, 700, 5, 650, 6, 800, 7, 900);
         ObjectNode plan = planOf(1L, null, null);
         MealPlanDtos.NutritionTarget minOnly = new MealPlanDtos.NutritionTarget(
-                new BigDecimal("2802"), null, null, null, null, null, null, null);
+                new BigDecimal("2400"), null, null, null, null, null, null, null);
 
         validator.validateAndEnrich(plan, recipes, mapper.createArrayNode(), minOnly, false);
 
@@ -569,13 +569,15 @@ class MealPlanValidatorTest {
         String hint = validator.mealBudgetHint(new MealPlanDtos.NutritionTarget(
                 new BigDecimal("2400"), new BigDecimal("2600"), null, null, null, null, null, null));
         assertEquals(true, hint.contains("BREAKFAST khoảng 625 kcal, LUNCH khoảng 1000 kcal, DINNER khoảng 875 kcal"), hint);
-        assertEquals(true, hint.contains("từ 0,75 đến 2 lần"), hint);
+        assertEquals(true, hint.contains("từ 0,75 đến 1,5 lần"), hint);
         assertEquals("", validator.mealBudgetHint(null));
     }
 
     @Test
     void reachesBudgetUsesThePortionRange() {
-        assertEquals(true, validator.reachesBudget(recipeWithKcal(4, 700), new BigDecimal("1120.80")));
+        assertEquals(true, validator.reachesBudget(recipeWithKcal(4, 800), new BigDecimal("1120.80")));
+        assertEquals(false, validator.reachesBudget(recipeWithKcal(4, 700), new BigDecimal("1120.80")));
+        assertEquals(true, validator.reachesBudget(recipeWithKcal(4, 700), new BigDecimal("1000.00")));
         assertEquals(false, validator.reachesBudget(recipeWithKcal(1, 120), new BigDecimal("1120.80")));
         assertEquals(true, validator.reachesBudget(recipeWithKcal(1, 120), null));
     }
@@ -588,6 +590,90 @@ class MealPlanValidatorTest {
         AppException ex = assertThrows(AppException.class,
                 () -> validator.pickReplacement(candidates, Set.of(1L, 3L, 4L, 5L, 6L), new BigDecimal("1120.80")));
         assertEquals(com.veggiepal.ai.common.ErrorCode.NO_VALID_RECIPES, ex.getErrorCode());
+    }
+
+    @Test
+    void calorieFlagStaysCompatibleWhileAllTargetsFlagCoversEveryMacro() {
+        ObjectNode day = mapper.createObjectNode();
+        MealPlanDtos.NutritionTarget target = macroTarget();
+        validator.markTarget(day, new MealPlanValidator.Macro(
+                new BigDecimal("1600"), new BigDecimal("45"),
+                new BigDecimal("245"), new BigDecimal("75")), target);
+        assertEquals(true, day.path("targetMet").asBoolean());
+        assertEquals(false, day.path("allTargetsMet").asBoolean(true));
+        assertEquals(false, day.path("targetDeviations").has("calories"));
+        assertEquals(true, day.path("targetDeviations").has("protein"));
+        assertEquals(true, day.path("targetDeviations").has("carbohydrate"));
+        assertEquals(true, day.path("targetDeviations").has("fat"));
+
+        validator.markTarget(day, new MealPlanValidator.Macro(
+                new BigDecimal("1600"), new BigDecimal("110"),
+                new BigDecimal("180"), new BigDecimal("50")), target);
+        assertEquals(true, day.path("targetMet").asBoolean());
+        assertEquals(true, day.path("allTargetsMet").asBoolean(false));
+        assertEquals(false, day.has("targetDeviations"));
+    }
+
+    @Test
+    void calorieMissCannotReportAllTargetsMet() {
+        ObjectNode day = mapper.createObjectNode();
+        validator.markTarget(day, new MealPlanValidator.Macro(
+                new BigDecimal("1400"), new BigDecimal("110"),
+                new BigDecimal("180"), new BigDecimal("50")), macroTarget());
+        assertEquals(false, day.path("targetMet").asBoolean(true));
+        assertEquals(false, day.path("allTargetsMet").asBoolean(true));
+        assertEquals(true, day.path("targetDeviations").has("calories"));
+    }
+
+    @Test
+    void deterministicOptimizerFindsVerifiedMacrosDespitePoorAiPicks() {
+        ArrayNode recipes = mapper.createArrayNode();
+        recipes.add(recipeWithMacros(1, 500, 5, 90, 10));
+        recipes.add(recipeWithMacros(2, 400, 30, 40, 10));
+        recipes.add(recipeWithMacros(3, 600, 40, 70, 20));
+        recipes.add(recipeWithMacros(4, 600, 40, 70, 20));
+        ObjectNode plan = sevenDayPlan(1);
+
+        validator.validateAndEnrich(plan, recipes, mapper.createArrayNode(), macroTarget(), true);
+
+        for (var day : plan.path("days")) {
+            assertEquals(true, day.path("allTargetsMet").asBoolean(false), day.toString());
+            assertEquals(true, day.path("targetMet").asBoolean(false));
+            assertEquals(false, day.has("targetDeviations"));
+            assertEquals(3, day.path("meals").size());
+        }
+    }
+
+    @Test
+    void infeasibleMacroTargetIsReportedWithoutInventingNutrition() {
+        ArrayNode recipes = mapper.createArrayNode().add(recipeWithMacros(1, 500, 5, 80, 10));
+        ObjectNode plan = sevenDayPlan(1);
+        validator.validateAndEnrich(plan, recipes, mapper.createArrayNode(), macroTarget(), true);
+        for (var day : plan.path("days")) {
+            assertEquals(false, day.path("allTargetsMet").asBoolean(true));
+            assertEquals(true, day.path("targetDeviations").has("protein"));
+            assertEquals(true, day.path("nutritionTotals").path("protein").decimalValue()
+                    .compareTo(new BigDecimal("90")) < 0);
+        }
+    }
+
+    private MealPlanDtos.NutritionTarget macroTarget() {
+        return new MealPlanDtos.NutritionTarget(new BigDecimal("1500"), new BigDecimal("1700"),
+                new BigDecimal("90"), new BigDecimal("130"),
+                new BigDecimal("150"), new BigDecimal("210"),
+                new BigDecimal("40"), new BigDecimal("60"));
+    }
+
+    private ObjectNode recipeWithMacros(long id, int calories, int protein, int carbs, int fat) {
+        ObjectNode recipe = mapper.createObjectNode();
+        recipe.put("id", id).put("title", "Recipe " + id).put("servings", 1);
+        recipe.putArray("ingredients").addObject()
+                .put("ingredientName", "Ingredient " + id).put("normalizedName", "ingredient " + id)
+                .put("quantity", 100).put("unit", "GRAM")
+                .put("caloriesPer100g", calories).put("proteinPer100g", protein)
+                .put("carbsPer100g", carbs).put("fatPer100g", fat)
+                .put("vegan", true).put("allergen", false);
+        return recipe;
     }
 
     private static final MealPlanDtos.NutritionTarget TARGET_2522_3082 = new MealPlanDtos.NutritionTarget(

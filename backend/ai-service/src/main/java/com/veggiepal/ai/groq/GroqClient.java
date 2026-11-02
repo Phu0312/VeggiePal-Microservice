@@ -20,7 +20,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
-public class GroqClient {
+public class GroqClient implements com.veggiepal.ai.provider.AiProviderClient {
     private static final Logger log = LoggerFactory.getLogger(GroqClient.class);
     private final RestClient restClient;
     private final RestClient transcriptionRestClient;

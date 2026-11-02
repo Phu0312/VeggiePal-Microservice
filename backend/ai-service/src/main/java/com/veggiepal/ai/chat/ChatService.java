@@ -7,19 +7,19 @@ import java.util.List;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
 import com.veggiepal.ai.groq.GroqClient;
+import com.veggiepal.ai.provider.AiProviderClient;
 import com.veggiepal.ai.groq.ModelProperties;
 import com.veggiepal.ai.groq.dto.GroqRequest;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.QuotaProperties;
 import com.veggiepal.ai.quota.QuotaService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class ChatService {
     private static final String SYSTEM_PROMPT = """
             Bạn là trợ lý dinh dưỡng chay của VeggiePal. Trả lời bằng ngôn ngữ người dùng, thực tế và ngắn gọn.
@@ -32,11 +32,27 @@ public class ChatService {
     private final QuotaService quota;
     private final PremiumQuotaService premiumQuota;
     private final QuotaProperties quotaProperties;
-    private final GroqClient groq;
+    private final AiProviderClient groq;
     private final ModelProperties models;
     private final UsageService usage;
     private final GuestSessionService guestSessions;
     private final ChatPersistenceService persistence;
+
+    public ChatService(ChatConversationRepository conversations, ChatMessageRepository messages,
+            QuotaService quota, PremiumQuotaService premiumQuota, QuotaProperties quotaProperties,
+            @Qualifier("chatAiProvider") AiProviderClient groq, ModelProperties models,
+            UsageService usage, GuestSessionService guestSessions, ChatPersistenceService persistence) {
+        this.conversations = conversations;
+        this.messages = messages;
+        this.quota = quota;
+        this.premiumQuota = premiumQuota;
+        this.quotaProperties = quotaProperties;
+        this.groq = groq;
+        this.models = models;
+        this.usage = usage;
+        this.guestSessions = guestSessions;
+        this.persistence = persistence;
+    }
 
     public ChatReply guest(String guestSession, String text, String clientIp) {
         GuestSession session = guestSessions.requireValid(guestSession, clientIp);
@@ -68,10 +84,10 @@ public class ChatService {
         long start = System.nanoTime();
         try {
             var result = groq.complete(models.chat(), prompts, 0.4, 700);
-            usage.success(userId, principal, "CHAT", models.chat(), result, elapsed(start));
+            usage.success(userId, principal, "CHAT", AiProviderClient.usageModel(groq, models.chat()), result, elapsed(start));
             return result;
         } catch (RuntimeException exception) {
-            usage.failure(userId, principal, "CHAT", models.chat(), elapsed(start), exception);
+            usage.failure(userId, principal, "CHAT", AiProviderClient.usageModel(groq, models.chat()), elapsed(start), exception);
             throw exception;
         }
     }

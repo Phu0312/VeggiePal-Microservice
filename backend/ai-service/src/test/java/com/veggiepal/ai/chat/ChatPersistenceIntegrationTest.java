@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.veggiepal.ai.groq.GroqClient;
+import com.veggiepal.ai.provider.AiProviderClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +17,7 @@ class ChatPersistenceIntegrationTest {
     @Autowired ChatService service;
     @Autowired ChatMessageRepository messages;
     @Autowired ChatConversationRepository conversations;
-    @MockitoBean GroqClient groq;
+    @MockitoBean(name = "chatAiProvider") AiProviderClient groq;
 
     @BeforeEach
     void clean() {
