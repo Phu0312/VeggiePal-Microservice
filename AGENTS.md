@@ -2,6 +2,16 @@
 
 Rules for any AI coding agent working in this repository (backend, frontend, mobile).
 
+## Files agents must not edit
+
+These files are maintained by the team by hand. Do not edit, rewrite, reformat, rename or delete them, even when a code change seems to affect them, and do not apply the "keep the report in sync" rules below to them:
+
+- [docs/requirement_1.md](docs/requirement_1.md) - course requirement (project scope, deliverables, grading).
+- [docs/requirement_2.md](docs/requirement_2.md) - course requirement for Task 2 (database, DevOps/CI/CD, self-hosted AI model, experiments).
+- [docs/ho_so_trien_khai_ai_veggiepal.md](docs/ho_so_trien_khai_ai_veggiepal.md) - the team's self-hosted AI deployment dossier.
+
+If a code change makes one of them out of date, or you find a mistake in one, report it to the user in your reply and leave the file as it is. Only edit them when the user explicitly asks for that specific file in the current request.
+
 ## Keep the capstone report in sync with the code
 
 The final report is [docs/PRM_CAPSTONE.md](docs/PRM_CAPSTONE.md). It is graded against the code, so it must describe what the code does today, not what was planned.
