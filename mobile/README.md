@@ -66,4 +66,4 @@ Test nằm trong `test/` (model, repository, màn hình chính). Các test giả
 | `navigation/` | Thanh điều hướng dưới và màn hình chính |
 | `main.dart` | Điểm vào, nạp `.env` và khởi tạo app |
 
-Báo cáo của dự án (`docs/PRM_CAPSTONE.md`) mô tả chi tiết các chức năng của app mobile.
+Báo cáo của dự án (`docs/REPORT7_FINAL_PROJECT_REPORT.md`) mô tả chi tiết các chức năng của app mobile.
