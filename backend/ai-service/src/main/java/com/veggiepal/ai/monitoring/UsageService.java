@@ -13,6 +13,10 @@ public class UsageService {
     private final UsageLogRepository repository;
     private final QuotaService quotaService;
     public void checkBudget(String principal) { quotaService.checkTokenBudget(principal); }
+    public void checkTextBudget(String principal) { quotaService.checkLocalTextTokenBudget(principal); }
+    public void reserveLocalTestRequest(String principal, String feature) {
+        quotaService.reserveLocalTestFeature(principal, feature);
+    }
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void success(Long userId, String principal, String feature, String model, GroqResult result, long latency) {
         repository.save(new UsageLog(userId, principal, feature, model, "SUCCESS", result.promptTokens(), result.completionTokens(), latency, null));

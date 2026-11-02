@@ -11,6 +11,7 @@ import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
 import com.veggiepal.ai.common.PageResponse;
 import com.veggiepal.ai.groq.GroqClient;
+import com.veggiepal.ai.provider.AiProviderClient;
 import com.veggiepal.ai.groq.ModelProperties;
 import com.veggiepal.ai.groq.dto.GroqRequest;
 import com.veggiepal.ai.monitoring.UsageService;
@@ -42,7 +43,7 @@ public class MealPlanService {
     private final String recipeUrl;
     private final String nutritionUrl;
     private final String identityUrl;
-    private final GroqClient groq;
+    private final AiProviderClient groq;
     private final ModelProperties models;
     private final ObjectMapper mapper;
     private final UsageService usage;
@@ -57,7 +58,7 @@ public class MealPlanService {
             @Value("${services.recipe.base-url}") String recipeUrl,
             @Value("${services.nutrition.base-url}") String nutritionUrl,
             @Value("${services.identity.base-url}") String identityUrl,
-            GroqClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage,
+            @Qualifier("mealAiProvider") AiProviderClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage,
             MealPlanValidator validator,
             MealPlanFavoriteRepository favoriteRepository,
             MealPlanVersionRepository versionRepository,
@@ -97,7 +98,8 @@ public class MealPlanService {
         // Reserved only once the target is resolved, so 6020/6021/6010 never spend a quota slot.
         premiumQuota.reserveMealPlan(userId);
         ArrayNode candidates = validator.safeCandidates(allRecipes, allergies, request.availableIngredients());
-        ArrayNode promptRecipes = validator.promptCandidates(candidates);
+        ArrayNode promptCandidates = validator.selectPromptCandidates(candidates, target);
+        ArrayNode promptRecipes = validator.compactPromptCandidates(promptCandidates);
 
         String prompt = """
                 Tạo thực đơn chay đúng 7 ngày từ danh sách recipe thật. Không tự tạo recipe hoặc ID.
@@ -112,7 +114,7 @@ public class MealPlanService {
 
         ObjectNode plan;
         try {
-            JsonNode aiNode = call(userId, prompt);
+            JsonNode aiNode = call(userId, prompt, 850);
             plan = (aiNode instanceof ObjectNode on) ? on : mapper.createObjectNode();
         } catch (AppException ex) {
             if (ex.getErrorCode() == ErrorCode.QUOTA_EXCEEDED
@@ -168,12 +170,12 @@ public class MealPlanService {
                 + (budget == null ? "" : ", ngân sách calo của bữa này khoảng "
                         + budget.setScale(0, RoundingMode.HALF_UP).toPlainString() + " kcal")
                 + ". Trả duy nhất JSON {\"recipeId\":1,\"note\":\"...\"}, note viết bằng tiếng Việt. Recipes: "
-                + json(validator.promptCandidates(candidates));
+                + json(validator.compactPromptCandidates(validator.selectReplacePromptCandidates(candidates, budget, request.currentRecipeId(), 15)));
 
         long replacementId = -1;
         String note = "Món ăn thay thế dinh dưỡng";
         try {
-            JsonNode replacement = call(userId, prompt);
+            JsonNode replacement = call(userId, prompt, 200);
             replacementId = replacement.path("recipeId").asLong(-1);
             if (replacement.hasNonNull("note") && !replacement.path("note").asText().isBlank()) {
                 note = replacement.path("note").asText();
@@ -683,23 +685,26 @@ public class MealPlanService {
     }
 
     private JsonNode call(Long userId, String prompt) {
-        usage.checkBudget("user:" + userId);
+        return call(userId, prompt, 850);
+    }
+
+    private JsonNode call(Long userId, String prompt, int maxTokens) {
+        usage.checkTextBudget("user:" + userId);
         long start = System.nanoTime();
         try {
             var result = groq.complete(models.mealPlan(), List.of(
                     new GroqRequest.Message("system", "Lập thực đơn chay an toàn chỉ từ dữ liệu được cung cấp. Không tự tính dinh dưỡng."),
-                    new GroqRequest.Message("user", prompt)), 0.2, 1800);
-            usage.success(userId, "user:" + userId, "MEAL_PLAN", models.mealPlan(), result, elapsed(start));
+                    new GroqRequest.Message("user", prompt)), 0.2, maxTokens);
+            usage.success(userId, "user:" + userId, "MEAL_PLAN", AiProviderClient.usageModel(groq, models.mealPlan()), result, elapsed(start));
             return read(cleanJson(result.content()));
         } catch (AppException exception) {
-            usage.failure(userId, "user:" + userId, "MEAL_PLAN", models.mealPlan(), elapsed(start), exception);
+            usage.failure(userId, "user:" + userId, "MEAL_PLAN", AiProviderClient.usageModel(groq, models.mealPlan()), elapsed(start), exception);
             throw exception;
         } catch (Exception exception) {
-            usage.failure(userId, "user:" + userId, "MEAL_PLAN", models.mealPlan(), elapsed(start), exception);
+            usage.failure(userId, "user:" + userId, "MEAL_PLAN", AiProviderClient.usageModel(groq, models.mealPlan()), elapsed(start), exception);
             throw new AppException(ErrorCode.INVALID_AI_RESPONSE, exception);
         }
     }
-
     private JsonNode get(String url, String jwt) {
         try {
             var spec = http.get().uri(url);

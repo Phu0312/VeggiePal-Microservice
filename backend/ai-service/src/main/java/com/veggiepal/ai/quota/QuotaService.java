@@ -1,23 +1,52 @@
 package com.veggiepal.ai.quota;
 
 import java.time.LocalDate;
+import java.util.Set;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 
 @Service
-@RequiredArgsConstructor
 public class QuotaService {
+    private static final Set<String> LOCAL_TEST_FEATURES = Set.of("CHAT", "MEAL_PLAN", "RECOMMENDATION", "MODERATION");
     private final DailyQuotaRepository repository;
     private final QuotaProperties properties;
     private final TokenProperties tokenProperties;
+    private final LocalTestQuotaPolicy localTestPolicy;
+
+    @Autowired
+    public QuotaService(DailyQuotaRepository repository, QuotaProperties properties,
+            TokenProperties tokenProperties, LocalTestQuotaPolicy localTestPolicy) {
+        this.repository = repository;
+        this.properties = properties;
+        this.tokenProperties = tokenProperties;
+        this.localTestPolicy = localTestPolicy;
+    }
+
+    // Existing unit tests construct this service without a Spring context.
+    QuotaService(DailyQuotaRepository repository, QuotaProperties properties, TokenProperties tokenProperties) {
+        this(repository, properties, tokenProperties,
+                new LocalTestQuotaPolicy(new StandardEnvironment(), false, 100, 5000000, "production"));
+    }
 
     @Transactional(readOnly = true)
     public void checkTokenBudget(String principalKey) {
-        if (repository.totalTokens(principalKey, LocalDate.now()) >= tokenProperties.dailyLimit()) {
+        checkBudgetAtLimit(principalKey, tokenProperties.dailyLimit());
+    }
+
+    @Transactional(readOnly = true)
+    public void checkLocalTextTokenBudget(String principalKey) {
+        long limit = localTestPolicy.enabled() && principalKey.startsWith("user:")
+                ? localTestPolicy.dailyTokenLimit() : tokenProperties.dailyLimit();
+        checkBudgetAtLimit(principalKey, limit);
+    }
+
+    private void checkBudgetAtLimit(String principalKey, long limit) {
+        if (repository.totalTokens(principalKey, LocalDate.now()) >= limit) {
             throw new AppException(ErrorCode.QUOTA_EXCEEDED);
         }
     }
@@ -45,6 +74,10 @@ public class QuotaService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int reserveFeature(String principalKey, String feature, QuotaPeriod period, int limit) {
         checkTokenBudget(principalKey);
+        return reserveFeatureRow(principalKey, feature, period, limit);
+    }
+
+    private int reserveFeatureRow(String principalKey, String feature, QuotaPeriod period, int limit) {
         LocalDate today = LocalDate.now();
         LocalDate periodDate = period == QuotaPeriod.MONTHLY ? today.withDayOfMonth(1) : today;
         repository.ensureExists(principalKey, feature, periodDate);
@@ -53,6 +86,21 @@ public class QuotaService {
         if (limit <= 0 || quota.getRequestCount() >= limit) throw new AppException(ErrorCode.QUOTA_EXCEEDED);
         quota.reserve();
         return limit - quota.getRequestCount();
+    }
+
+    public boolean isLocalTestEnabled() { return localTestPolicy.enabled(); }
+    public int localTestLimit() { return localTestPolicy.dailyRequestsPerFeature(); }
+    public String localTestFeature(String feature) { return feature + "_LOCAL_TEST"; }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int reserveLocalTestFeature(String principalKey, String feature) {
+        if (!localTestPolicy.enabled()) return -1;
+        if (!principalKey.startsWith("user:") || !LOCAL_TEST_FEATURES.contains(feature)) {
+            throw new IllegalArgumentException("Local test quota is only for signed-in text features");
+        }
+        checkLocalTextTokenBudget(principalKey);
+        return reserveFeatureRow(principalKey, localTestFeature(feature), QuotaPeriod.DAILY,
+                localTestPolicy.dailyRequestsPerFeature());
     }
 
     @Transactional

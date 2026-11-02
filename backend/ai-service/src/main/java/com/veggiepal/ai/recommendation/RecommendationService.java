@@ -10,14 +10,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
 import com.veggiepal.ai.groq.GroqClient;
+import com.veggiepal.ai.provider.AiProviderClient;
 import com.veggiepal.ai.groq.ModelProperties;
 import com.veggiepal.ai.groq.dto.GroqRequest;
 import com.veggiepal.ai.monitoring.UsageService;
+import com.veggiepal.ai.mealplan.MealPlanValidator;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -27,24 +31,46 @@ public class RecommendationService {
     private final RestClient http;
     private final String blogUrl;
     private final String recipeUrl;
-    private final GroqClient groq;
+    private final AiProviderClient groq;
     private final ModelProperties models;
     private final ObjectMapper mapper;
     private final UsageService usage;
+    private final MealPlanValidator validator;
+    private final String nutritionUrl;
 
+    @Autowired
     public RecommendationService(@Qualifier("serviceRestClient") RestClient http,
             @Value("${services.blog.base-url}") String blogUrl, @Value("${services.recipe.base-url}") String recipeUrl,
-            GroqClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage) {
+            @Qualifier("recommendationAiProvider") AiProviderClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage,
+            MealPlanValidator validator, @Value("${services.nutrition.base-url}") String nutritionUrl) {
         this.http=http; this.blogUrl=blogUrl; this.recipeUrl=recipeUrl; this.groq=groq; this.models=models; this.mapper=mapper; this.usage=usage;
+        this.validator=validator; this.nutritionUrl=nutritionUrl;
+    }
+
+    public RecommendationService(RestClient http, String blogUrl, String recipeUrl,
+            AiProviderClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage) {
+        this.http=http; this.blogUrl=blogUrl; this.recipeUrl=recipeUrl; this.groq=groq; this.models=models; this.mapper=mapper; this.usage=usage;
+        this.validator=null; this.nutritionUrl=null;
     }
 
     public List<Recommendation> recommend(Long userId, String interest, int limit) {
+        return recommend(userId, null, interest, limit);
+    }
+
+    public List<Recommendation> recommend(Long userId, String jwt, String interest, int limit) {
         int safeLimit=Math.max(1,Math.min(limit,10));
         List<Candidate> candidates=fetchCandidates(query(interest));
         // A keyword that matches no title would leave the AI nothing to rank; let it pick from the latest items.
         if (candidates.isEmpty() && !query(interest).isEmpty()) candidates=fetchCandidates("");
         if (candidates.isEmpty()) return List.of();
-        usage.checkBudget("user:"+userId);
+        if (validator != null) {
+            JsonNode allergies=allergies(jwt);
+            candidates=candidates.stream().filter(c -> !"RECIPE".equals(c.type)
+                    || (validator.isVegan(c.node) && validator.isAllergySafe(c.node, allergies))).toList();
+        }
+        if (candidates.isEmpty()) return List.of();
+        usage.reserveLocalTestRequest("user:" + userId, "RECOMMENDATION");
+        usage.checkTextBudget("user:"+userId);
         String compact;
         try { compact=mapper.writeValueAsString(candidates.stream().map(c -> Map.of("type",c.type,"id",c.id,"title",c.node.path("title").asText())).toList()); }
         catch (Exception e) { throw new AppException(ErrorCode.INVALID_REQUEST,e); }
@@ -53,7 +79,7 @@ public class RecommendationService {
         try {
             // gpt-oss spends part of max_completion_tokens on reasoning; 500 cut the JSON short.
             var result=groq.complete(models.recommendation(),List.of(new GroqRequest.Message("user",prompt)),0.2,1500);
-            usage.success(userId,"user:"+userId,"RECOMMENDATION",models.recommendation(),result,elapsed(start));
+            usage.success(userId,"user:"+userId,"RECOMMENDATION",AiProviderClient.usageModel(groq, models.recommendation()),result,elapsed(start));
             JsonNode ranked=mapper.readTree(cleanJson(result.content()));
             if(!ranked.isArray()) throw new AppException(ErrorCode.INVALID_AI_RESPONSE);
             Map<String,Candidate> byKey=new HashMap<>(); candidates.forEach(c -> byKey.put(c.type+":"+c.id,c));
@@ -65,8 +91,19 @@ public class RecommendationService {
                 if(c!=null && seen.add(key) && response.size()<safeLimit) response.add(new Recommendation(type,id,item.path("reason").asText(),mapper.convertValue(c.node,Object.class)));
             }
             return response;
-        } catch (AppException e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",models.recommendation(),elapsed(start),e); throw e; }
-        catch (Exception e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",models.recommendation(),elapsed(start),e); throw new AppException(ErrorCode.INVALID_AI_RESPONSE,e); }
+        } catch (AppException e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",AiProviderClient.usageModel(groq, models.recommendation()),elapsed(start),e); throw e; }
+        catch (Exception e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",AiProviderClient.usageModel(groq, models.recommendation()),elapsed(start),e); throw new AppException(ErrorCode.INVALID_AI_RESPONSE,e); }
+    }
+    private JsonNode allergies(String jwt) {
+        if (jwt == null || jwt.isBlank()) throw new AppException(ErrorCode.UNAUTHENTICATED);
+        try {
+            JsonNode response=http.get().uri(nutritionUrl+"/nutrition/me/allergies")
+                    .header(HttpHeaders.AUTHORIZATION,"Bearer "+jwt).retrieve().body(JsonNode.class);
+            JsonNode items=response==null?null:response.path("result");
+            if (items==null || !items.isArray()) throw new AppException(ErrorCode.DOWNSTREAM_UNAVAILABLE);
+            return items;
+        } catch (AppException ex) { throw ex; }
+        catch (Exception ex) { throw new AppException(ErrorCode.DOWNSTREAM_UNAVAILABLE,ex); }
     }
     // One source down still leaves the other to recommend from; only both down is an outage.
     private List<Candidate> fetchCandidates(String keywordQuery) {

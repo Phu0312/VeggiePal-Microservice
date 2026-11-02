@@ -158,6 +158,17 @@ services:
     environment:
       <<: *database-environment
       AI_SERVICE_PORT: "8086"
+      SPRING_PROFILES_ACTIVE: ${AI_SERVICE_PROFILES:-}
+      AI_DEPLOYMENT_MODE: ${AI_DEPLOYMENT_MODE:-production}
+      AI_LOCAL_TEST_QUOTA_ENABLED: ${AI_LOCAL_TEST_QUOTA_ENABLED:-false}
+      AI_LOCAL_TEST_QUOTA_DAILY_LIMIT: ${AI_LOCAL_TEST_QUOTA_DAILY_LIMIT:-100}
+      AI_LOCAL_TEST_TOKEN_DAILY_LIMIT: ${AI_LOCAL_TEST_TOKEN_DAILY_LIMIT:-5000000}
+      AI_LOCAL_BASE_URL: http://llama:8080/v1
+      AI_LOCAL_MODEL: ${AI_LOCAL_MODEL:-qwen2.5-1.5b-instruct}
+      AI_CHAT_PROVIDER: local
+      AI_MEAL_PROVIDER: local
+      AI_RECOMMENDATION_PROVIDER: local
+      AI_MODERATION_PROVIDER: local
       IDENTITY_SERVICE_URL: http://identity-service:8081
       BLOG_SERVICE_URL: http://blog-service:8083
       RECIPE_SERVICE_URL: http://recipe-service:8084
