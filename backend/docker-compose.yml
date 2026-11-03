@@ -165,18 +165,12 @@ services:
       AI_LOCAL_TEST_TOKEN_DAILY_LIMIT: ${AI_LOCAL_TEST_TOKEN_DAILY_LIMIT:-5000000}
       AI_LOCAL_BASE_URL: http://llama:8080/v1
       AI_LOCAL_MODEL: ${AI_LOCAL_MODEL:-qwen2.5-1.5b-instruct}
-      AI_CHAT_PROVIDER: local
-      AI_MEAL_PROVIDER: local
-      AI_RECOMMENDATION_PROVIDER: local
-      AI_MODERATION_PROVIDER: local
       IDENTITY_SERVICE_URL: http://identity-service:8081
       BLOG_SERVICE_URL: http://blog-service:8083
       RECIPE_SERVICE_URL: http://recipe-service:8084
       NUTRITION_SERVICE_URL: http://nutrition-service:8082
       PAYMENT_SERVICE_URL: http://payment-service:8087
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN must be set in .env}
-      FFMPEG_PATH: ffmpeg
-      FFPROBE_PATH: ffprobe
     depends_on:
       mysql:
         condition: service_healthy

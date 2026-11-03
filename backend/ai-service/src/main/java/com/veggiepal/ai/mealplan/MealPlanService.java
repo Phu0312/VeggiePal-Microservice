@@ -1,5 +1,6 @@
 package com.veggiepal.ai.mealplan;
 
+import com.veggiepal.ai.provider.LocalAiClient;
 import static com.veggiepal.ai.mealplan.MealPlanDtos.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,10 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
 import com.veggiepal.ai.common.PageResponse;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.provider.AiProviderClient;
-import com.veggiepal.ai.groq.ModelProperties;
-import com.veggiepal.ai.groq.dto.GroqRequest;
+import com.veggiepal.ai.provider.AiMessage;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
 import com.veggiepal.ai.quota.QuotaDtos;
@@ -25,12 +23,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -43,8 +41,7 @@ public class MealPlanService {
     private final String recipeUrl;
     private final String nutritionUrl;
     private final String identityUrl;
-    private final AiProviderClient groq;
-    private final ModelProperties models;
+    private final LocalAiClient ai;
     private final ObjectMapper mapper;
     private final UsageService usage;
     private final MealPlanValidator validator;
@@ -58,7 +55,7 @@ public class MealPlanService {
             @Value("${services.recipe.base-url}") String recipeUrl,
             @Value("${services.nutrition.base-url}") String nutritionUrl,
             @Value("${services.identity.base-url}") String identityUrl,
-            @Qualifier("mealAiProvider") AiProviderClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage,
+            LocalAiClient ai, ObjectMapper mapper, UsageService usage,
             MealPlanValidator validator,
             MealPlanFavoriteRepository favoriteRepository,
             MealPlanVersionRepository versionRepository,
@@ -68,8 +65,7 @@ public class MealPlanService {
         this.recipeUrl = recipeUrl;
         this.nutritionUrl = nutritionUrl;
         this.identityUrl = identityUrl;
-        this.groq = groq;
-        this.models = models;
+        this.ai = ai;
         this.mapper = mapper;
         this.usage = usage;
         this.validator = validator;
@@ -82,9 +78,9 @@ public class MealPlanService {
             RestClient http,
             String recipeUrl,
             String nutritionUrl,
-            GroqClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage,
+            LocalAiClient ai, ObjectMapper mapper, UsageService usage,
             MealPlanValidator validator, PremiumQuotaService premiumQuota) {
-        this(repository, http, recipeUrl, nutritionUrl, "http://identity-service", groq, models, mapper, usage, validator, null, null, premiumQuota);
+        this(repository, http, recipeUrl, nutritionUrl, "http://identity-service", ai, mapper, usage, validator, null, null, premiumQuota);
     }
 
     public MealPlanResponse generate(Long userId, String jwt, GenerateRequest request) {
@@ -119,13 +115,13 @@ public class MealPlanService {
         } catch (AppException ex) {
             if (ex.getErrorCode() == ErrorCode.QUOTA_EXCEEDED
                     || ex.getErrorCode() == ErrorCode.UNAUTHENTICATED
-                    || ex.getErrorCode() == ErrorCode.GROQ_NOT_CONFIGURED) {
+                    || ex.getErrorCode() == ErrorCode.AI_UNAVAILABLE) {
                 throw ex;
             }
-            log.warn("Groq plan generation failed with error {}, falling back to deterministic planner.", ex.getErrorCode(), ex);
+            log.warn("Local AI plan generation failed with error {}, falling back to deterministic planner.", ex.getErrorCode(), ex);
             plan = mapper.createObjectNode();
         } catch (Exception ex) {
-            log.warn("Groq plan generation failed with unexpected error, falling back to deterministic planner.", ex);
+            log.warn("Local AI plan generation failed with unexpected error, falling back to deterministic planner.", ex);
             plan = mapper.createObjectNode();
         }
 
@@ -692,16 +688,16 @@ public class MealPlanService {
         usage.checkTextBudget("user:" + userId);
         long start = System.nanoTime();
         try {
-            var result = groq.complete(models.mealPlan(), List.of(
-                    new GroqRequest.Message("system", "Lập thực đơn chay an toàn chỉ từ dữ liệu được cung cấp. Không tự tính dinh dưỡng."),
-                    new GroqRequest.Message("user", prompt)), 0.2, maxTokens);
-            usage.success(userId, "user:" + userId, "MEAL_PLAN", AiProviderClient.usageModel(groq, models.mealPlan()), result, elapsed(start));
+            var result = ai.complete(List.of(
+                    new AiMessage("system", "Lập thực đơn chay an toàn chỉ từ dữ liệu được cung cấp. Không tự tính dinh dưỡng."),
+                    new AiMessage("user", prompt)), 0.2, maxTokens);
+            usage.success(userId, "user:" + userId, "MEAL_PLAN", ai.configuredModel(), result, elapsed(start));
             return read(cleanJson(result.content()));
         } catch (AppException exception) {
-            usage.failure(userId, "user:" + userId, "MEAL_PLAN", AiProviderClient.usageModel(groq, models.mealPlan()), elapsed(start), exception);
+            usage.failure(userId, "user:" + userId, "MEAL_PLAN", ai.configuredModel(), elapsed(start), exception);
             throw exception;
         } catch (Exception exception) {
-            usage.failure(userId, "user:" + userId, "MEAL_PLAN", AiProviderClient.usageModel(groq, models.mealPlan()), elapsed(start), exception);
+            usage.failure(userId, "user:" + userId, "MEAL_PLAN", ai.configuredModel(), elapsed(start), exception);
             throw new AppException(ErrorCode.INVALID_AI_RESPONSE, exception);
         }
     }

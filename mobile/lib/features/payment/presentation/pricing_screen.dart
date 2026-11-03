@@ -189,7 +189,6 @@ class _CurrentPlanCard extends StatelessWidget {
             const Divider(height: 24),
             QuotaMeter(title: 'Hỏi trợ lý AI', quota: q.chat),
             QuotaMeter(title: 'Tạo thực đơn tuần', quota: q.mealPlan),
-            QuotaMeter(title: 'Bóc tách công thức từ video', quota: q.video),
           ],
         ]),
       ),
@@ -267,13 +266,6 @@ class _PlanCard extends StatelessWidget {
           const Divider(height: 24),
           _feature(context, LucideIcons.messageCircle, '${plan.chatPerDay} lượt hỏi trợ lý AI mỗi ngày'),
           _feature(context, LucideIcons.calendarDays, '${plan.mealPlansPerMonth} thực đơn tuần mỗi tháng'),
-          _feature(
-              context,
-              LucideIcons.video,
-              plan.videosPerMonth > 0
-                  ? '${plan.videosPerMonth} lượt bóc tách video mỗi tháng'
-                  : 'Không có bóc tách công thức từ video',
-              enabled: plan.videosPerMonth > 0),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,

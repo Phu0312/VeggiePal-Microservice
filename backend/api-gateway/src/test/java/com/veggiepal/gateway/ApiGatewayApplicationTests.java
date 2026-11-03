@@ -22,7 +22,7 @@ class ApiGatewayApplicationTests {
 
 	@Test
 	void corsAllowsCredentialedFrontendPreflight() throws Exception {
-		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/ai/videos");
+		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/ai/chat");
 		request.addHeader(HttpHeaders.ORIGIN, "http://localhost:5173");
 		request.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST");
 		request.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type");
@@ -37,7 +37,7 @@ class ApiGatewayApplicationTests {
 
 	@Test
 	void corsRejectsUntrustedArbitraryOrigin() throws Exception {
-		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/ai/videos");
+		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/ai/chat");
 		request.addHeader(HttpHeaders.ORIGIN, "https://evil-hacker.com");
 		request.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST");
 		request.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type");
@@ -50,7 +50,7 @@ class ApiGatewayApplicationTests {
 
 	@Test
 	void corsAllowsConfiguredProductionOrigin() throws Exception {
-		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/ai/videos");
+		MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/ai/chat");
 		request.addHeader(HttpHeaders.ORIGIN, "https://veggiepal.com");
 		request.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST");
 		request.addHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type");

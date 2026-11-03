@@ -1,5 +1,6 @@
 package com.veggiepal.ai.recommendation;
 
+import com.veggiepal.ai.provider.LocalAiClient;
 import static com.veggiepal.ai.recommendation.RecommendationDtos.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,10 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.provider.AiProviderClient;
-import com.veggiepal.ai.groq.ModelProperties;
-import com.veggiepal.ai.groq.dto.GroqRequest;
+import com.veggiepal.ai.provider.AiMessage;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.mealplan.MealPlanValidator;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +29,7 @@ public class RecommendationService {
     private final RestClient http;
     private final String blogUrl;
     private final String recipeUrl;
-    private final AiProviderClient groq;
-    private final ModelProperties models;
+    private final LocalAiClient ai;
     private final ObjectMapper mapper;
     private final UsageService usage;
     private final MealPlanValidator validator;
@@ -41,15 +38,15 @@ public class RecommendationService {
     @Autowired
     public RecommendationService(@Qualifier("serviceRestClient") RestClient http,
             @Value("${services.blog.base-url}") String blogUrl, @Value("${services.recipe.base-url}") String recipeUrl,
-            @Qualifier("recommendationAiProvider") AiProviderClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage,
+            LocalAiClient ai, ObjectMapper mapper, UsageService usage,
             MealPlanValidator validator, @Value("${services.nutrition.base-url}") String nutritionUrl) {
-        this.http=http; this.blogUrl=blogUrl; this.recipeUrl=recipeUrl; this.groq=groq; this.models=models; this.mapper=mapper; this.usage=usage;
+        this.http=http; this.blogUrl=blogUrl; this.recipeUrl=recipeUrl; this.ai=ai; this.mapper=mapper; this.usage=usage;
         this.validator=validator; this.nutritionUrl=nutritionUrl;
     }
 
     public RecommendationService(RestClient http, String blogUrl, String recipeUrl,
-            AiProviderClient groq, ModelProperties models, ObjectMapper mapper, UsageService usage) {
-        this.http=http; this.blogUrl=blogUrl; this.recipeUrl=recipeUrl; this.groq=groq; this.models=models; this.mapper=mapper; this.usage=usage;
+            LocalAiClient ai, ObjectMapper mapper, UsageService usage) {
+        this.http=http; this.blogUrl=blogUrl; this.recipeUrl=recipeUrl; this.ai=ai; this.mapper=mapper; this.usage=usage;
         this.validator=null; this.nutritionUrl=null;
     }
 
@@ -77,9 +74,9 @@ public class RecommendationService {
         String prompt="Chọn tối đa "+safeLimit+" nội dung phù hợp sở thích '"+(interest==null?"ăn chay":interest)+"'. Chỉ dùng candidate đã cho. Trả JSON array [{\"type\":\"BLOG|RECIPE\",\"id\":1,\"reason\":\"...\"}]. Candidates: "+compact;
         long start=System.nanoTime();
         try {
-            // gpt-oss spends part of max_completion_tokens on reasoning; 500 cut the JSON short.
-            var result=groq.complete(models.recommendation(),List.of(new GroqRequest.Message("user",prompt)),0.2,1500);
-            usage.success(userId,"user:"+userId,"RECOMMENDATION",AiProviderClient.usageModel(groq, models.recommendation()),result,elapsed(start));
+            // Allow enough output tokens for a complete ranked JSON response.
+            var result=ai.complete(List.of(new AiMessage("user",prompt)),0.2,1500);
+            usage.success(userId,"user:"+userId,"RECOMMENDATION",ai.configuredModel(),result,elapsed(start));
             JsonNode ranked=mapper.readTree(cleanJson(result.content()));
             if(!ranked.isArray()) throw new AppException(ErrorCode.INVALID_AI_RESPONSE);
             Map<String,Candidate> byKey=new HashMap<>(); candidates.forEach(c -> byKey.put(c.type+":"+c.id,c));
@@ -91,8 +88,8 @@ public class RecommendationService {
                 if(c!=null && seen.add(key) && response.size()<safeLimit) response.add(new Recommendation(type,id,item.path("reason").asText(),mapper.convertValue(c.node,Object.class)));
             }
             return response;
-        } catch (AppException e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",AiProviderClient.usageModel(groq, models.recommendation()),elapsed(start),e); throw e; }
-        catch (Exception e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",AiProviderClient.usageModel(groq, models.recommendation()),elapsed(start),e); throw new AppException(ErrorCode.INVALID_AI_RESPONSE,e); }
+        } catch (AppException e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",ai.configuredModel(),elapsed(start),e); throw e; }
+        catch (Exception e) { usage.failure(userId,"user:"+userId,"RECOMMENDATION",ai.configuredModel(),elapsed(start),e); throw new AppException(ErrorCode.INVALID_AI_RESPONSE,e); }
     }
     private JsonNode allergies(String jwt) {
         if (jwt == null || jwt.isBlank()) throw new AppException(ErrorCode.UNAUTHENTICATED);

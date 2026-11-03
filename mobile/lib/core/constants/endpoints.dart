@@ -102,12 +102,6 @@ class Endpoints {
 
   static const restaurantsNearby = '/restaurants/nearby';
   static const restaurantsSearch = '/restaurants/search';
-  // ---- AI service: bóc tách công thức từ video ----
-  static const videoJobs = '/ai/videos';
-  static const videoProcess = '/ai/videos/process';
-  static const videoProcessExisting = '/ai/videos/process-existing';
-  static String videoRecipe(int videoId) => '/ai/videos/by-video/$videoId';
-  static String videoJob(int id) => '/ai/videos/$id';
 
   // ---- AI service: gợi ý nội dung ----
   static const aiRecommendations = '/ai/recommendations';

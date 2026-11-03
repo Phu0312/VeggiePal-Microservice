@@ -11,8 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.groq.ModelProperties;
+import com.veggiepal.ai.provider.LocalAiClient;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
 import com.veggiepal.ai.quota.QuotaDtos;
@@ -50,7 +49,7 @@ class MealPlanControllerTest {
         when(repository.findByUserIdOrderByCreatedAtDesc(7L))
                 .thenReturn(List.of(new MealPlan(7L, "Tuần này", "Ăn lành mạnh", planJson)));
         MealPlanService service = new MealPlanService(repository, mock(RestClient.class), "http://recipe",
-                "http://nutrition", mock(GroqClient.class), new ModelProperties("c", "m", "r", "p", "v", "w"),
+                "http://nutrition", mock(LocalAiClient.class),
                 mapper, mock(UsageService.class), new MealPlanValidator(mapper), mock(PremiumQuotaService.class));
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new MealPlanController(service))
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).build();
@@ -101,8 +100,7 @@ class MealPlanControllerTest {
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         MealPlanService service = new MealPlanService(repository, mock(RestClient.class), "http://recipe",
-                "http://nutrition", "http://identity", mock(GroqClient.class),
-                new ModelProperties("c", "m", "r", "p", "v", "w"),
+                "http://nutrition", "http://identity", mock(LocalAiClient.class),
                 mapper, mock(UsageService.class), new MealPlanValidator(mapper),
                 mock(MealPlanFavoriteRepository.class), versionRepository, mock(PremiumQuotaService.class));
 
@@ -134,8 +132,7 @@ class MealPlanControllerTest {
         when(versionRepository.findByMealPlanIdAndVersion(15L, 99)).thenReturn(Optional.empty());
 
         MealPlanService service = new MealPlanService(repository, mock(RestClient.class), "http://recipe",
-                "http://nutrition", "http://identity", mock(GroqClient.class),
-                new ModelProperties("c", "m", "r", "p", "v", "w"),
+                "http://nutrition", "http://identity", mock(LocalAiClient.class),
                 mapper, mock(UsageService.class), new MealPlanValidator(mapper),
                 mock(MealPlanFavoriteRepository.class), versionRepository, mock(PremiumQuotaService.class));
 

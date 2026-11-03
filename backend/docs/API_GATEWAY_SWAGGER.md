@@ -1,5 +1,7 @@
 # VeggiePal API Gateway & Swagger/OpenAPI Documentation
 
+> Historical gateway test notes below may refer to removed video AI or Groq endpoints. Current Swagger is generated from the controllers. The four retained AI features use only local Qwen through llama.cpp.
+
 > Dự án: **VeggiePal Microservices Backend**  
 > Cổng API Gateway: `8080`  
 > Swagger UI tổng hợp: `http://localhost:8080/swagger-ui.html`  
@@ -210,7 +212,7 @@ springdoc.swagger-ui.urls[5].url=/ai-service/v3/api-docs
 | **Blog Service** | `8083` | `3.1.0` | [`OpenApiConfig.java`](file:///d:/project/VeggiePal/VeganApp_BE/blog-service/src/main/java/com/veggiepal/blog/configuration/OpenApiConfig.java) | `permitAll()` qua `PUBLIC_ENDPOINTS` | Có (`bearerAuth`) | Đầy đủ: Blogs (CRUD, vote, related), Categories, Comments, Internal moderation |
 | **Recipe Service** | `8084` | `3.1.0` | [`OpenApiConfig.java`](file:///d:/project/VeggiePal/VeganApp_BE/recipe-service/src/main/java/com/veggiepal/recipe/configuration/OpenApiConfig.java) | `permitAll()` qua `authorizeHttpRequests` | Đã bổ sung (`bearerAuth`) | Đầy đủ: Ingredients (Admin/Public), Recipes (CRUD, publish, detail, search) |
 | **Location Service** | `8085` | `3.1.0` | [`OpenApiConfig.java`](file:///d:/project/VeggiePal/VeganApp_BE/location-service/src/main/java/com/veggiepal/location/configuration/OpenApiConfig.java) | Mặc định mở (không dùng security starter) | Không cần (100% Public) | Đầy đủ: Restaurant nearby search theo tọa độ GPS, bán kính và bộ lọc thuần chay |
-| **AI Service** | `8086` | `3.1.0` | [`OpenApiConfig.java`](file:///d:/project/VeggiePal/VeganApp_BE/ai-service/src/main/java/com/veggiepal/ai/configuration/OpenApiConfig.java) | `permitAll()` qua `PUBLIC_ENDPOINTS` | Đã bổ sung (`bearerAuth`) | Đầy đủ: Chat (Guest/Member), Moderation, Recommendations, Meal Plans, Video Jobs, Monitoring |
+| **AI Service** | `8086` | `3.1.0` | [`OpenApiConfig.java`](file:///d:/project/VeggiePal/VeganApp_BE/ai-service/src/main/java/com/veggiepal/ai/configuration/OpenApiConfig.java) | `permitAll()` qua `PUBLIC_ENDPOINTS` | Đã bổ sung (`bearerAuth`) | Đầy đủ: Chat (Guest/Member), Moderation, Recommendations, Meal Plans, Monitoring |
 
 ---
 
@@ -279,7 +281,7 @@ Tại góc trên bên phải của giao diện, nhấp vào menu thả xuống *
 - **Blog Service:** Xem các API bài viết ẩm thực, danh mục món ăn, bình luận và bình chọn.
 - **Recipe Service:** Xem các API tra cứu nguyên liệu, công thức nấu món chay và quản lý món của tôi.
 - **Location Service:** Xem API tìm kiếm quán ăn/nhà hàng chay gần nhất theo tọa độ GPS.
-- **AI Service:** Xem các API Chatbot chay (Guest & Member), kiểm duyệt nội dung, gợi ý bài viết/món ăn, lập thực đơn tuần, trích xuất công thức video và thống kê AI.
+- **AI Service:** Xem các API Chatbot chay (Guest & Member), kiểm duyệt nội dung, gợi ý bài viết/món ăn, lập thực đơn tuần và thống kê AI.
 
 ### 6.3. Xác thực bằng Bearer JWT (Authorize)
 1. Chọn **Identity Service** từ menu definition.
@@ -325,12 +327,8 @@ Tại góc trên bên phải của giao diện, nhấp vào menu thả xuống *
 ## 8. Các API Giới hạn Kiểm thử & Khuyến nghị Vận hành
 
 ### 8.1. Các API chưa thể gọi trực tiếp Live E2E
-1. **Chat Completions & Video Extraction thật qua Groq:**
-   - **Lý do:** Biến môi trường `GROQ_API_KEY` hiện chưa được cấu hình API key thực tế của nhà cung cấp Groq. Khi gọi, AI Service sẽ trả về lỗi nghiệp vụ kiểm soát được `HTTP 503 (code 6005 - GROQ_API_KEY is not configured)`.
-   - **Đánh giá:** Logic xử lý, quản lý quota, fail-closed và ghi nhận usage log đã được kiểm chứng 100% bằng 25 automated unit/integration tests trong `ai-service`.
-2. **Video Audio Extraction qua FFmpeg binary thật:**
-   - **Lý do:** Máy chủ môi trường hiện tại chưa cài đặt sẵn binary `ffmpeg.exe` và `ffprobe.exe` trong biến môi trường `PATH`.
-   - **Đánh giá:** Toàn bộ validation multipart, giới hạn dung lượng 100MB, cấu trúc DTO, phân quyền user và cơ chế xử lý ngoại lệ đã được kiểm chứng qua `VideoProcessingServiceTest`.
+1. **Local AI inference:** Chat, meal planning, recommendations and moderation use the local Qwen model through llama.cpp. If it is unavailable, the AI service returns a controlled error (6004); moderation queues content for manual review. Video transcription and recipe extraction endpoints have been removed.
+2. **Local runtime:** Start the local llama.cpp Compose project and the backend stack before live gateway checks.
 3. **Cập nhật ảnh đại diện lên Cloudinary thật:**
    - **Lý do:** Chưa cung cấp credentials `CLOUDINARY_API_KEY` và `CLOUDINARY_API_SECRET` thực tế trong file `.env`.
 

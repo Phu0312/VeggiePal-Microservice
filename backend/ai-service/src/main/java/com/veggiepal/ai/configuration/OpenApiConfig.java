@@ -21,7 +21,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("VeggiePal AI Service API")
                         .version("1.0")
-                        .description("AI Chat, Moderation, Recommendation, Meal Planning, Video & Monitoring APIs for VeggiePal"))
+                        .description("Chat, meal planning, recommendations and text moderation use local Qwen through llama.cpp. Monitoring APIs report usage and tokens."))
                 .servers(List.of(
                         new Server().url("/").description("Direct / Gateway (/ai)"),
                         new Server().url("/api").description("API Gateway (/api)")

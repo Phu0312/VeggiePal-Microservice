@@ -4,8 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.provider.AiProviderClient;
+import com.veggiepal.ai.provider.LocalAiClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +16,7 @@ class ChatPersistenceIntegrationTest {
     @Autowired ChatService service;
     @Autowired ChatMessageRepository messages;
     @Autowired ChatConversationRepository conversations;
-    @MockitoBean(name = "chatAiProvider") AiProviderClient groq;
+    @MockitoBean LocalAiClient ai;
 
     @BeforeEach
     void clean() {
@@ -27,9 +26,10 @@ class ChatPersistenceIntegrationTest {
 
     @Test
     void memberConversationPersistsAndContinues() {
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult("Câu trả lời 1", 12, 5))
-                .thenReturn(new GroqClient.GroqResult("Câu trả lời 2", 20, 6));
+        when(ai.configuredModel()).thenReturn("qwen2.5-1.5b-instruct");
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult("Câu trả lời 1", 12, 5))
+                .thenReturn(new LocalAiClient.AiResult("Câu trả lời 2", 20, 6));
 
         var first=service.member(42L,new ChatDtos.ChatRequest(null,"Tôi cần thêm protein"));
         var second=service.member(42L,new ChatDtos.ChatRequest(first.conversationId(),"Gợi ý bữa sáng"));
@@ -39,6 +39,6 @@ class ChatPersistenceIntegrationTest {
         assertEquals(4,detail.messages().size());
         assertEquals("user",detail.messages().getFirst().role());
         assertEquals("Câu trả lời 2",detail.messages().getLast().content());
-        verify(groq,times(2)).complete(anyString(),anyList(),anyDouble(),anyInt());
+        verify(ai,times(2)).complete(anyList(),anyDouble(),anyInt());
     }
 }

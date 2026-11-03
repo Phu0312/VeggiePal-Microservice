@@ -57,10 +57,10 @@ PayOS ──► Ngrok ──► api-gateway                   ├─► recipe-s
 | `blog-service` | 8083 | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Blog, video, danh mục, bình luận, vote |
 | `recipe-service` | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Công thức, nguyên liệu |
 | `location-service` | 8085 | `/api/restaurants/**` | Quán chay và tìm quán gần vị trí |
-| `ai-service` | 8086 | `/api/ai/**`, `/ai/**` | Chatbot, thực đơn 7 ngày, bóc tách công thức từ video, kiểm duyệt, hạn mức, giám sát |
+| `ai-service` | 8086 | `/api/ai/**`, `/ai/**` | Chatbot, thực đơn 7 ngày, gợi ý công thức, kiểm duyệt, hạn mức, giám sát |
 | `payment-service` | 8087 | `/api/payments/**`, `/api/subscriptions/**`, `/api/admin/payments/**` | Gói thành viên, đơn PayOS, webhook, hạn mức theo gói, thống kê cho admin |
 
-Hạ tầng đi kèm: MySQL 8.4, Ngrok (đưa webhook PayOS vào gateway), Cloudinary (ảnh/video) và Groq (LLM, speech-to-text). Sơ đồ chi tiết ở mục IV của báo cáo.
+Hạ tầng đi kèm: MySQL 8.4, Ngrok (đưa webhook PayOS vào gateway), Cloudinary (ảnh/video) và local llama.cpp (Qwen text inference). Sơ đồ chi tiết ở mục IV của báo cáo.
 
 Swagger UI tổng hợp của gateway gom tài liệu API của các service (xem [Port và địa chỉ](#port-và-địa-chỉ)). Mọi response dùng envelope `{ code, message, result }`; các endpoint cần đăng nhập nhận `Authorization: Bearer <JWT>`.
 
@@ -92,7 +92,7 @@ Swagger UI tổng hợp của gateway gom tài liệu API của các service (xe
 | Backend | Java 21, Spring Boot 4.1.1, Spring Cloud Gateway Server WebMVC 2025.1.3, Spring Data JPA, Spring Security OAuth2 Resource Server (JWT HS256), MySQL 8.4, MapStruct, Lombok, springdoc OpenAPI, JUnit 5 + Mockito |
 | Web | React 19, Vite 8, Tailwind CSS v4, shadcn/ui (`@base-ui/react`), React Router v7, TanStack Query v5, Zustand v5, React Hook Form + Zod, Axios, Mapbox GL, `qrcode.react`, ESLint 10 |
 | Mobile | Flutter (Dart `^3.13.2`), Dio, Provider, `flutter_secure_storage`, `google_sign_in`, `flutter_map` + `geolocator`, `video_player` + `youtube_player_iframe`, `qr_flutter`, `image_picker` |
-| Hạ tầng | Docker Compose, GitHub Actions, Ngrok, Cloudinary, Groq, PayOS |
+| Hạ tầng | Docker Compose, GitHub Actions, Ngrok, Cloudinary, local llama.cpp, PayOS |
 
 ## Yêu cầu môi trường
 
@@ -101,7 +101,7 @@ Swagger UI tổng hợp của gateway gom tài liệu API của các service (xe
 - JDK 21: chỉ cần khi chạy service ngoài Docker hoặc chạy test cục bộ.
 - Node.js `^20.19.0` hoặc `>=22.12.0`: cho web.
 - Flutter SDK tương thích Dart `^3.13.2`: cho mobile.
-- Kết nối internet và `GROQ_API_KEY` cho các tính năng AI.
+- Local llama.cpp running Qwen2.5-1.5B-Instruct for the four AI features.
 
 ## Chạy nhanh
 
@@ -189,7 +189,7 @@ INTERNAL_SERVICE_TOKEN=...
 NGROK_AUTHTOKEN=...
 ```
 
-Các biến còn lại bật tính năng tương ứng: `GROQ_API_KEY` (AI), `CLOUDINARY_*` (ảnh, video), `GOOGLE_CLIENT_ID` (đăng nhập Google), `PAYOS_*` (thanh toán). Xem danh sách đầy đủ và giá trị mặc định trong `backend/.env.example`.
+Các biến còn lại bật tính năng tương ứng: `CLOUDINARY_*` (ảnh, video), `GOOGLE_CLIENT_ID` (đăng nhập Google), `PAYOS_*` (thanh toán). Xem danh sách đầy đủ và giá trị mặc định trong `backend/.env.example`.
 
 Webhook PayOS đăng ký bằng URL public `https://<ngrok-domain>/api/payments/webhook/payos`; domain Ngrok hiện tại xem tại Ngrok inspector. Return/cancel URL của PayOS trỏ về frontend và cấu hình qua `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL`.
 

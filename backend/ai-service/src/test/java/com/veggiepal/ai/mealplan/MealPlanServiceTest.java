@@ -16,8 +16,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.groq.ModelProperties;
+import com.veggiepal.ai.provider.LocalAiClient;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
 import java.math.BigDecimal;
@@ -39,8 +38,7 @@ class MealPlanServiceTest {
     private RestClient http;
     private RestClient.RequestHeadersUriSpec uriSpec;
     private RestClient.ResponseSpec responseSpec;
-    private GroqClient groq;
-    private ModelProperties models;
+    private LocalAiClient ai;
     private ObjectMapper mapper;
     private UsageService usage;
     private MealPlanValidator validator;
@@ -53,8 +51,7 @@ class MealPlanServiceTest {
         http = mock(RestClient.class);
         uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
         responseSpec = mock(RestClient.ResponseSpec.class);
-        groq = mock(GroqClient.class);
-        models = new ModelProperties("chat-model", "meal-model", "rec-model", "profile-model", "video-model", "whisper-model");
+        ai = mock(LocalAiClient.class);
         mapper = new ObjectMapper();
         usage = mock(UsageService.class);
         validator = new MealPlanValidator(mapper);
@@ -70,8 +67,7 @@ class MealPlanServiceTest {
                 http,
                 "http://recipe-service",
                 "http://nutrition-service",
-                groq,
-                models,
+                ai,
                 mapper,
                 usage,
                 validator,
@@ -240,9 +236,9 @@ class MealPlanServiceTest {
 
         stubProfile("1995-01-01", "FEMALE", "LIGHT");
 
-        // Groq fails with an exception
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenThrow(new RuntimeException("Groq timeout or server error"));
+        // LocalAi fails with an exception
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenThrow(new RuntimeException("LocalAi timeout or server error"));
 
         // Save mock
         when(repository.save(any(MealPlan.class))).thenAnswer(invocation -> {
@@ -260,7 +256,7 @@ class MealPlanServiceTest {
         );
 
         MealPlanDtos.MealPlanResponse response = service.generate(1L, "test-jwt", request);
-        verify(groq).complete(any(), argThat((List<com.veggiepal.ai.groq.dto.GroqRequest.Message> messages) ->
+        verify(ai).complete(argThat((List<com.veggiepal.ai.provider.AiMessage> messages) ->
                 messages.getLast().content().contains("note viết bằng tiếng Việt")), anyDouble(), anyInt());
 
         assertEquals("Kế hoạch 7 ngày", response.name());
@@ -330,9 +326,9 @@ class MealPlanServiceTest {
         when(allergyUriSpec.retrieve()).thenReturn(allergyRespSpec);
         when(allergyRespSpec.body(any(Class.class))).thenReturn(allergiesResult);
 
-        // Groq returns replacement with recipeId = 2
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenReturn(new com.veggiepal.ai.groq.GroqClient.GroqResult(
+        // LocalAi returns replacement with recipeId = 2
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenReturn(new com.veggiepal.ai.provider.LocalAiClient.AiResult(
                         "{\"recipeId\": 2, \"note\": \"Thay món giàu vitamin\"}", 100, 50));
 
         MealPlanDtos.ReplaceMealRequest replaceRequest = new MealPlanDtos.ReplaceMealRequest(
@@ -340,7 +336,7 @@ class MealPlanServiceTest {
         );
 
         MealPlanDtos.MealPlanResponse response = service.replace(1L, 100L, "test-jwt", replaceRequest);
-        verify(groq).complete(any(), argThat((List<com.veggiepal.ai.groq.dto.GroqRequest.Message> messages) ->
+        verify(ai).complete(argThat((List<com.veggiepal.ai.provider.AiMessage> messages) ->
                 messages.getLast().content().contains("note viết bằng tiếng Việt")), anyDouble(), anyInt());
 
         com.fasterxml.jackson.databind.JsonNode updatedDay = mapper.valueToTree(response.plan()).path("days").get(0);
@@ -399,7 +395,7 @@ class MealPlanServiceTest {
         ObjectNode health = mapper.createObjectNode();
         health.putObject("result").put("weightKg", 80).put("heightCm", 180);
         stubGet("http://nutrition-service/nutrition/me/health-records/latest", health, true);
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class))).thenThrow(new RuntimeException("Groq down"));
+        when(ai.complete(any(), any(Double.class), any(Integer.class))).thenThrow(new RuntimeException("LocalAi down"));
         when(repository.save(any(MealPlan.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -457,7 +453,7 @@ class MealPlanServiceTest {
     }
 
     @Test
-    void generateWhoseQuotaIsExhaustedThrowsTheQuotaErrorAndNeverCallsGroq() {
+    void generateWhoseQuotaIsExhaustedThrowsTheQuotaErrorAndNeverCallsLocalAi() {
         stubGenerateDownstreams();
         stubProfile(java.time.LocalDate.now().minusYears(25).toString(), "MALE", "LIGHT");
         when(premiumQuota.reserveMealPlan(1L)).thenThrow(new AppException(ErrorCode.QUOTA_EXCEEDED));
@@ -465,7 +461,7 @@ class MealPlanServiceTest {
         AppException ex = assertThrows(AppException.class, () -> service.generate(1L, "test-jwt", requestWithoutTarget()));
 
         assertEquals(ErrorCode.QUOTA_EXCEEDED, ex.getErrorCode());
-        verify(groq, org.mockito.Mockito.never()).complete(any(), any(), any(Double.class), any(Integer.class));
+        verify(ai, org.mockito.Mockito.never()).complete(any(), any(Double.class), any(Integer.class));
     }
 
     @Test
@@ -498,6 +494,21 @@ class MealPlanServiceTest {
     }
 
     @Test
+    void unavailableLocalInferenceReturnsControlledErrorWithoutSavingPlan() {
+        stubGenerateDownstreams();
+        org.mockito.Mockito.doThrow(new AppException(ErrorCode.AI_UNAVAILABLE))
+                .when(ai).complete(any(), any(Double.class), any(Integer.class));
+
+        AppException error = assertThrows(AppException.class, () -> service.generate(1L, "test-jwt",
+                new MealPlanDtos.GenerateRequest("Plan", "Maintain", List.of(), List.of(),
+                        new MealPlanDtos.NutritionTarget(new BigDecimal("2000"), new BigDecimal("2200"),
+                                null, null, null, null, null, null), GoalType.MAINTAIN)));
+
+        assertEquals(ErrorCode.AI_UNAVAILABLE, error.getErrorCode());
+        verify(repository, org.mockito.Mockito.never()).save(any(MealPlan.class));
+    }
+
+    @Test
     void generatePromptCarriesTheMealBudgets() {
         ObjectNode recipes = mapper.createObjectNode();
         addRecipe(recipes.putObject("result").putArray("content"), 1, 600);
@@ -508,8 +519,8 @@ class MealPlanServiceTest {
         ObjectNode health = mapper.createObjectNode();
         health.putObject("result").put("weightKg", 65).put("heightCm", 170);
         stubGet("http://nutrition-service/nutrition/me/health-records/latest", health, true);
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenThrow(new RuntimeException("Groq down"));
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenThrow(new RuntimeException("LocalAi down"));
         when(repository.save(any(MealPlan.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.generate(1L, "test-jwt", new MealPlanDtos.GenerateRequest(
@@ -517,7 +528,7 @@ class MealPlanServiceTest {
                 new MealPlanDtos.NutritionTarget(new BigDecimal("2400"), new BigDecimal("2600"),
                         null, null, null, null, null, null), GoalType.MAINTAIN));
 
-        verify(groq).complete(any(), argThat((List<com.veggiepal.ai.groq.dto.GroqRequest.Message> messages) ->
+        verify(ai).complete(argThat((List<com.veggiepal.ai.provider.AiMessage> messages) ->
                 messages.getLast().content().contains("LUNCH khoảng 1000 kcal")), anyDouble(), anyInt());
     }
 
@@ -550,13 +561,13 @@ class MealPlanServiceTest {
         stubGet("http://nutrition-service/nutrition/me/allergies", allergies, true);
 
         // The AI suggests the 120 kcal recipe for a ~1121 kcal lunch: 120 x 2.00 can never reach it.
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenReturn(new com.veggiepal.ai.groq.GroqClient.GroqResult("{\"recipeId\": 1, \"note\": \"Món nhẹ\"}", 100, 50));
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenReturn(new com.veggiepal.ai.provider.LocalAiClient.AiResult("{\"recipeId\": 1, \"note\": \"Món nhẹ\"}", 100, 50));
 
         MealPlanDtos.MealPlanResponse response = service.replace(1L, 100L, "test-jwt",
                 new MealPlanDtos.ReplaceMealRequest("MONDAY", "LUNCH", 4L));
 
-        verify(groq).complete(any(), argThat((List<com.veggiepal.ai.groq.dto.GroqRequest.Message> messages) ->
+        verify(ai).complete(argThat((List<com.veggiepal.ai.provider.AiMessage> messages) ->
                 messages.getLast().content().contains("khoảng 1121 kcal")), anyDouble(), anyInt());
         var planDays = mapper.valueToTree(response.plan()).path("days");
         // 6 is the only reachable recipe that is neither the current lunch (4) nor another Monday meal (3, 5).
@@ -598,8 +609,8 @@ class MealPlanServiceTest {
         stubGet("http://nutrition-service/nutrition/me/allergies", allergies, true);
 
         // Rejected: it is the current recipe.
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenReturn(new com.veggiepal.ai.groq.GroqClient.GroqResult("{\"recipeId\": 1}", 100, 50));
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenReturn(new com.veggiepal.ai.provider.LocalAiClient.AiResult("{\"recipeId\": 1}", 100, 50));
 
         MealPlanDtos.MealPlanResponse response = service.replace(1L, 100L, "test-jwt",
                 new MealPlanDtos.ReplaceMealRequest("MONDAY", "BREAKFAST", 1L));
@@ -635,8 +646,8 @@ class MealPlanServiceTest {
         stubGet("http://nutrition-service/nutrition/me/allergies", allergies, true);
 
         // Rejected: it is used by another meal of Monday.
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenReturn(new com.veggiepal.ai.groq.GroqClient.GroqResult("{\"recipeId\": 1}", 100, 50));
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenReturn(new com.veggiepal.ai.provider.LocalAiClient.AiResult("{\"recipeId\": 1}", 100, 50));
 
         MealPlanDtos.MealPlanResponse response = service.replace(1L, 100L, "test-jwt",
                 new MealPlanDtos.ReplaceMealRequest("MONDAY", "BREAKFAST", null));

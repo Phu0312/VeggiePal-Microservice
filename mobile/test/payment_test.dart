@@ -69,9 +69,9 @@ Map<String, dynamic> _order({
     };
 
 const _plans = [
-  {'id': 1, 'code': 'FREE', 'price': 0, 'durationDays': 0, 'chatPerDay': 5, 'mealPlansPerMonth': 2, 'videosPerMonth': 0},
-  {'id': 2, 'code': 'PLUS', 'price': 29000, 'durationDays': 30, 'chatPerDay': 20, 'mealPlansPerMonth': 8, 'videosPerMonth': 3},
-  {'id': 3, 'code': 'PRO', 'price': 59000, 'durationDays': 30, 'chatPerDay': 50, 'mealPlansPerMonth': 20, 'videosPerMonth': 8},
+  {'id': 1, 'code': 'FREE', 'price': 0, 'durationDays': 0, 'chatPerDay': 5, 'mealPlansPerMonth': 2},
+  {'id': 2, 'code': 'PLUS', 'price': 29000, 'durationDays': 30, 'chatPerDay': 20, 'mealPlansPerMonth': 8},
+  {'id': 3, 'code': 'PRO', 'price': 59000, 'durationDays': 30, 'chatPerDay': 50, 'mealPlansPerMonth': 20},
 ];
 
 Map<String, dynamic> _sub(String code) => {
@@ -80,7 +80,6 @@ Map<String, dynamic> _sub(String code) => {
       'expiresAt': code == 'FREE' ? null : '2026-12-01T00:00:00Z',
       'chatPerDay': code == 'PRO' ? 50 : (code == 'PLUS' ? 20 : 5),
       'mealPlansPerMonth': code == 'PRO' ? 20 : (code == 'PLUS' ? 8 : 2),
-      'videosPerMonth': code == 'PRO' ? 8 : (code == 'PLUS' ? 3 : 0),
     };
 
 /// Màn hình rất cao để ListView dựng sẵn toàn bộ nội dung (danh sách chỉ dựng phần đang nhìn thấy).
@@ -97,7 +96,6 @@ void main() {
     test('Plan và Subscription đọc hạn mức; gói FREE không có hạn', () {
       final plus = Plan.fromJson(Map<String, dynamic>.from(_plans[1]));
       expect(plus.isFree, isFalse);
-      expect(plus.videosPerMonth, 3);
       expect(Plan.fromJson(Map<String, dynamic>.from(_plans[0])).isFree, isTrue);
 
       final free = Subscription.fromJson(_sub('FREE'));
@@ -286,7 +284,6 @@ void main() {
       expect(find.text('59.000 ₫'), findsOneWidget);
       expect(find.textContaining('Hạn sử dụng đến'), findsOneWidget);
       expect(find.text('Gia hạn gói'), findsOneWidget); // đang dùng PLUS
-      expect(find.text('Không có bóc tách công thức từ video'), findsOneWidget); // gói FREE
     });
 
     testWidgets('chọn gói khi đang dùng gói trả phí khác phải xác nhận trước', (tester) async {

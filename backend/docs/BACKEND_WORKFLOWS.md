@@ -1,5 +1,7 @@
 # VeggiePal Backend Workflows & Technical Architecture Documentation
 
+> Historical reference: the video transcription and recipe extraction workflow and Groq provider descriptions below have been removed from the current implementation. Chat, meal planning, recommendations and text moderation use only local Qwen through llama.cpp. See `docs/PRM_CAPSTONE.md` for the current branch.
+
 > **Tài liệu Kỹ thuật Backend VeggiePal Microservices**  
 > **Dành cho:** Kỹ sư phát triển, Kiểm thử E2E, Đánh giá đồ án & Vận hành hệ thống  
 > **Phiên bản:** `1.0.0` | **Trạng thái:** Toàn diện 100% dựa trên mã nguồn thực tế  

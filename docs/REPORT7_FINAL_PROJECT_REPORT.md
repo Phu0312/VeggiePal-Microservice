@@ -1,4 +1,6 @@
 # CAPSTONE PROJECT DOCUMENT
+
+> Historical report: AI video transcription and recipe extraction described below have been removed from the current branch. See `docs/PRM_CAPSTONE.md` for current behavior.
 ## REPORT 7: FINAL PROJECT REPORT
 
 **MINISTRY OF EDUCATION AND TRAINING**  
