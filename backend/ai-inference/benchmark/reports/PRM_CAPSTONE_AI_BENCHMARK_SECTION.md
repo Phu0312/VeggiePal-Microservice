@@ -8,7 +8,7 @@
 
 ### 1. Local Inference Architecture & Runtime Configuration
 
-VeggiePal runs four text-based AI features on a self-hosted `llama.cpp` CUDA inference container (`veggiepal-local-ai-llama-1`), while keeping Video Processing on Groq (`whisper-large-v3-turbo` and `openai/gpt-oss-120b`):
+VeggiePal runs four text-based AI features on a self-hosted `llama.cpp` CUDA inference container (`veggiepal-local-ai-llama-1`). Video transcription and recipe extraction have been removed:
 
 | Component | Configuration |
 |---|---|

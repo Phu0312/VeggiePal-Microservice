@@ -1,22 +1,19 @@
 package com.veggiepal.ai.chat;
 
+import com.veggiepal.ai.provider.LocalAiClient;
 import static com.veggiepal.ai.chat.ChatDtos.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.provider.AiProviderClient;
-import com.veggiepal.ai.groq.ModelProperties;
-import com.veggiepal.ai.groq.dto.GroqRequest;
+import com.veggiepal.ai.provider.AiMessage;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.QuotaProperties;
 import com.veggiepal.ai.quota.QuotaService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -32,23 +29,21 @@ public class ChatService {
     private final QuotaService quota;
     private final PremiumQuotaService premiumQuota;
     private final QuotaProperties quotaProperties;
-    private final AiProviderClient groq;
-    private final ModelProperties models;
+    private final LocalAiClient ai;
     private final UsageService usage;
     private final GuestSessionService guestSessions;
     private final ChatPersistenceService persistence;
 
     public ChatService(ChatConversationRepository conversations, ChatMessageRepository messages,
             QuotaService quota, PremiumQuotaService premiumQuota, QuotaProperties quotaProperties,
-            @Qualifier("chatAiProvider") AiProviderClient groq, ModelProperties models,
+            LocalAiClient ai,
             UsageService usage, GuestSessionService guestSessions, ChatPersistenceService persistence) {
         this.conversations = conversations;
         this.messages = messages;
         this.quota = quota;
         this.premiumQuota = premiumQuota;
         this.quotaProperties = quotaProperties;
-        this.groq = groq;
-        this.models = models;
+        this.ai = ai;
         this.usage = usage;
         this.guestSessions = guestSessions;
         this.persistence = persistence;
@@ -58,7 +53,7 @@ public class ChatService {
         GuestSession session = guestSessions.requireValid(guestSession, clientIp);
         String principal = "guest-ip:" + session.getIpHash();
         int remaining = quota.reserveChat(principal, true);
-        var prompts = List.of(new GroqRequest.Message("system", SYSTEM_PROMPT), new GroqRequest.Message("user", text.trim()));
+        var prompts = List.of(new AiMessage("system", SYSTEM_PROMPT), new AiMessage("user", text.trim()));
         var result = call(null, principal, prompts);
         return new ChatReply(null, result.content(), remaining, result.promptTokens(), result.completionTokens());
     }
@@ -72,22 +67,22 @@ public class ChatService {
         List<ChatMessage> history = messages.findByConversationIdOrderByCreatedAtDesc(conversation.getId(),
                 PageRequest.of(0, quotaProperties.maxHistoryMessages()));
         Collections.reverse(history);
-        List<GroqRequest.Message> prompts = new ArrayList<>();
-        prompts.add(new GroqRequest.Message("system", SYSTEM_PROMPT));
-        history.forEach(m -> prompts.add(new GroqRequest.Message(m.getRole(), m.getContent())));
-        prompts.add(new GroqRequest.Message("user", request.message().trim()));
+        List<AiMessage> prompts = new ArrayList<>();
+        prompts.add(new AiMessage("system", SYSTEM_PROMPT));
+        history.forEach(m -> prompts.add(new AiMessage(m.getRole(), m.getContent())));
+        prompts.add(new AiMessage("user", request.message().trim()));
         var result = call(userId, principal, prompts);
         return persistence.saveExchange(conversation, principal, request.message().trim(), result, remaining);
     }
 
-    private GroqClient.GroqResult call(Long userId, String principal, List<GroqRequest.Message> prompts) {
+    private LocalAiClient.AiResult call(Long userId, String principal, List<AiMessage> prompts) {
         long start = System.nanoTime();
         try {
-            var result = groq.complete(models.chat(), prompts, 0.4, 700);
-            usage.success(userId, principal, "CHAT", AiProviderClient.usageModel(groq, models.chat()), result, elapsed(start));
+            var result = ai.complete(prompts, 0.4, 700);
+            usage.success(userId, principal, "CHAT", ai.configuredModel(), result, elapsed(start));
             return result;
         } catch (RuntimeException exception) {
-            usage.failure(userId, principal, "CHAT", AiProviderClient.usageModel(groq, models.chat()), elapsed(start), exception);
+            usage.failure(userId, principal, "CHAT", ai.configuredModel(), elapsed(start), exception);
             throw exception;
         }
     }

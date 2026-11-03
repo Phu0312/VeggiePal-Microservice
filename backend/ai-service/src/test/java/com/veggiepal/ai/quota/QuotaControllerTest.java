@@ -33,8 +33,7 @@ class QuotaControllerTest {
                 "GREEN",
                 Instant.parse("2026-11-15T00:00:00Z"),
                 new QuotaDtos.FeatureQuotaStatus("MEAL_PLAN", "MONTHLY", 30, 4, 26, start, reset),
-                new QuotaDtos.FeatureQuotaStatus("CHAT", "DAILY", 30, 3, 27, LocalDate.of(2026, 10, 29), LocalDate.of(2026, 10, 30)),
-                new QuotaDtos.FeatureQuotaStatus("VIDEO", "MONTHLY", 10, 1, 9, start, reset)));
+                new QuotaDtos.FeatureQuotaStatus("CHAT", "DAILY", 30, 3, 27, LocalDate.of(2026, 10, 29), LocalDate.of(2026, 10, 30))));
 
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(Jwt.withTokenValue("token")
                 .header("alg", "HS256").claim("userId", 7L).issuedAt(Instant.now()).build()));

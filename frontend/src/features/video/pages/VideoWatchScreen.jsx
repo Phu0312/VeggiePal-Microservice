@@ -2,7 +2,6 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, PlaySquare } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/variants/button-variants";
-import AiSummaryCard from "@/features/video/components/AiSummaryCard";
 import SuggestedVideoList from "@/features/video/components/SuggestedVideoList";
 import VideoMetaHeader from "@/features/video/components/VideoMetaHeader";
 import VideoNutritionCard from "@/features/video/components/VideoNutritionCard";
@@ -58,9 +57,6 @@ export default function VideoWatchScreen() {
             <VideoPlayerFrame video={video} />
             <Reveal>
               <VideoMetaHeader video={video} author={author} />
-            </Reveal>
-            <Reveal>
-              <AiSummaryCard video={video} />
             </Reveal>
           </div>
 

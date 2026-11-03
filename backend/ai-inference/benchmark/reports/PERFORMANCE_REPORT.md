@@ -90,5 +90,5 @@ Hardware measurements from `backend/ai-inference/benchmark/results/hardware.csv`
    - Pre-filtering Meal Planning candidates to 20 balanced recipes (`compactPromptCandidates`) reduced average Meal Plan prompt size from `~10,329 tokens` (which previously caused `HTTP 400` context-window rejections) to **`1,265.43` tokens**, fitting comfortably inside the `2048`-token context window alongside `maxTokens=850` output budget (`100%` success rate across all 10 scenarios).
 4. **Max Completion Token Tuning:**
    - In `ChatService`, `maxTokens=700` allows long responses to run for `24.5 seconds`. Lowering `maxTokens` to `400–450` (and instructing the system prompt to cap bullet lists at 5 items) would reduce P95 chat latency from `24.3s` to **`~13–15s`**.
-   - In `RecommendationService`, `maxTokens` is currently set to `1500` (a legacy comment notes *"gpt-oss spends part of max_completion_tokens on reasoning"*). Since local `Qwen2.5-1.5B-Instruct` is a non-reasoning instruct model whose average recommendation completion is only **`120.55` tokens**, reducing `maxTokens` from `1500` to `450` prevents runaway generation on large `limit=10` requests.
+   - In `RecommendationService`, `maxTokens` is currently set to `1500`. Reducing this setting may limit long responses on large `limit=10` requests; re-run the benchmark after any such change.
 

@@ -16,7 +16,6 @@ class Plan {
   final int durationDays;
   final int chatPerDay;
   final int mealPlansPerMonth;
-  final int videosPerMonth;
 
   const Plan({
     required this.id,
@@ -25,7 +24,6 @@ class Plan {
     required this.durationDays,
     required this.chatPerDay,
     required this.mealPlansPerMonth,
-    required this.videosPerMonth,
   });
 
   factory Plan.fromJson(Map<String, dynamic> j) => Plan(
@@ -35,7 +33,6 @@ class Plan {
         durationDays: _i(j['durationDays']),
         chatPerDay: _i(j['chatPerDay']),
         mealPlansPerMonth: _i(j['mealPlansPerMonth']),
-        videosPerMonth: _i(j['videosPerMonth']),
       );
 
   bool get isFree => code == 'FREE' || price <= 0;
@@ -48,7 +45,6 @@ class Subscription {
   final DateTime? expiresAt;
   final int chatPerDay;
   final int mealPlansPerMonth;
-  final int videosPerMonth;
 
   const Subscription({
     required this.planCode,
@@ -56,7 +52,6 @@ class Subscription {
     this.expiresAt,
     required this.chatPerDay,
     required this.mealPlansPerMonth,
-    required this.videosPerMonth,
   });
 
   factory Subscription.fromJson(Map<String, dynamic> j) => Subscription(
@@ -65,7 +60,6 @@ class Subscription {
         expiresAt: _t(j['expiresAt']),
         chatPerDay: _i(j['chatPerDay']),
         mealPlansPerMonth: _i(j['mealPlansPerMonth']),
-        videosPerMonth: _i(j['videosPerMonth']),
       );
 
   bool get isPaid => planCode != 'FREE';
@@ -73,7 +67,7 @@ class Subscription {
 
 /// Hạn mức một tính năng AI trong kỳ hiện tại (ai-service: FeatureQuotaStatus).
 class FeatureQuota {
-  final String feature; // MEAL_PLAN | CHAT | VIDEO
+  final String feature; // MEAL_PLAN | CHAT
   final String period; // DAILY | MONTHLY
   final int limit;
   final int used;
@@ -114,14 +108,13 @@ class QuotaOverview {
   final String planCode;
   final FeatureQuota mealPlan;
   final FeatureQuota chat;
-  final FeatureQuota video;
   const QuotaOverview(
-      {required this.planCode, required this.mealPlan, required this.chat, required this.video});
+      {required this.planCode, required this.mealPlan, required this.chat});
 
   factory QuotaOverview.fromJson(Map<String, dynamic> j) {
     FeatureQuota q(String key) => FeatureQuota.fromJson(Map<String, dynamic>.from(j[key] as Map));
     return QuotaOverview(
-        planCode: '${j['planCode'] ?? 'FREE'}', mealPlan: q('mealPlan'), chat: q('chat'), video: q('video'));
+        planCode: '${j['planCode'] ?? 'FREE'}', mealPlan: q('mealPlan'), chat: q('chat'));
   }
 }
 

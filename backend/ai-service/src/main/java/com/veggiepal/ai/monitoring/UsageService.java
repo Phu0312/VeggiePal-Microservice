@@ -1,6 +1,7 @@
 package com.veggiepal.ai.monitoring;
 
-import com.veggiepal.ai.groq.GroqClient.GroqResult;
+import com.veggiepal.ai.provider.LocalAiClient;
+import com.veggiepal.ai.provider.LocalAiClient.AiResult;
 import com.veggiepal.ai.quota.QuotaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +19,7 @@ public class UsageService {
         quotaService.reserveLocalTestFeature(principal, feature);
     }
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void success(Long userId, String principal, String feature, String model, GroqResult result, long latency) {
+    public void success(Long userId, String principal, String feature, String model, AiResult result, long latency) {
         repository.save(new UsageLog(userId, principal, feature, model, "SUCCESS", result.promptTokens(), result.completionTokens(), latency, null));
         quotaService.addTokens(principal, feature, result.promptTokens(), result.completionTokens());
     }

@@ -54,7 +54,7 @@ class PaymentFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result[0].code").value("FREE"))
                 .andExpect(jsonPath("$.result[1].price").value(29000))
-                .andExpect(jsonPath("$.result[2].videosPerMonth").value(8));
+                .andExpect(jsonPath("$.result[2].mealPlansPerMonth").value(20));
 
         mvc.perform(post("/payments/checkout").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"planCode\":\"PLUS\"}"))
@@ -313,6 +313,6 @@ class PaymentFlowIntegrationTest {
                 .andExpect(jsonPath("$.result.planCode").value("FREE"))
                 .andExpect(jsonPath("$.result.chatPerDay").value(5))
                 .andExpect(jsonPath("$.result.mealPlansPerMonth").value(2))
-                .andExpect(jsonPath("$.result.videosPerMonth").value(0));
+                .andExpect(jsonPath("$.result.mealPlansPerMonth").value(2));
     }
 }

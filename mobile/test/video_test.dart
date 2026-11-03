@@ -85,12 +85,6 @@ void main() {
     expect(validateVideoFile(name: 'a.mp4', bytes: VideoLimits.maxFileBytes), isNull);
   });
 
-  test('validateJobFile: tối đa 100MB và không rỗng', () {
-    expect(validateJobFile(bytes: 50 * 1024 * 1024), isNull);
-    expect(validateJobFile(bytes: VideoLimits.jobMaxBytes + 1), contains('100MB'));
-    expect(validateJobFile(bytes: 0), isNotNull);
-  });
-
   group('Video.fromJson', () {
     test('video YouTube lấy mã từ link nhúng', () {
       final v = Video.fromJson(_videoJson());
@@ -117,104 +111,6 @@ void main() {
     expect(rejected.message, contains('Có nội dung động vật'));
     expect(videoOutcome(v('PENDING')).needsDialog, isTrue);
     expect(videoOutcome(v('BANNED')).title, contains('gỡ'));
-  });
-
-  group('VideoJob', () {
-    test('đọc công thức AI, sắp bước theo số thứ tự, đổi thời gian sang giờ máy', () {
-      final j = VideoJob.fromJson({
-        'id': 4,
-        'sourceVideoId': null,
-        'status': 'COMPLETED',
-        'filename': 'canh-chua.mp4',
-        'transcript': 'Hôm nay nấu canh chua',
-        'extraction': {
-          'title': 'Canh chua chay',
-          'ingredients': [
-            {'name': 'Dứa', 'quantity': '200g'}
-          ],
-          'steps': [
-            {'number': 2, 'instruction': 'Nấu'},
-            {'number': 1, 'instruction': 'Sơ chế'},
-          ],
-        },
-        'error': null,
-        'createdAt': '2026-10-20T08:00:00Z',
-      });
-      expect(j.extraction!.title, 'Canh chua chay');
-      expect(j.extraction!.steps.map((s) => s.instruction), ['Sơ chế', 'Nấu']);
-      expect(j.extraction!.ingredients.single.quantity, '200g');
-      expect(j.createdAt!.isUtc, isFalse);
-      expect(j.resultExpired, isFalse);
-      expect(j.sourceLabel, 'canh-chua.mp4');
-    });
-
-    test('COMPLETED mà không còn nội dung là kết quả đã hết hạn lưu', () {
-      final j = VideoJob.fromJson({'id': 1, 'status': 'COMPLETED', 'filename': 'a.mp4', 'extraction': null});
-      expect(j.resultExpired, isTrue);
-    });
-
-    test('job từ video đã đăng hiển thị số video thay cho tên tệp', () {
-      final j = VideoJob.fromJson({'id': 1, 'sourceVideoId': 8, 'status': 'PROCESSING', 'filename': 'blog-video-8.mp4'});
-      expect(j.sourceLabel, 'Video đã đăng #8');
-      expect(j.processing, isTrue);
-    });
-
-    test('describeJobError dịch lý do đã biết, lý do lạ rơi về câu chung', () {
-      expect(describeJobError('Video processing queue is full'), contains('bận'));
-      expect(describeJobError('lỗi lạ'), contains('thất bại'));
-      expect(describeJobError(null), contains('thất bại'));
-    });
-
-    test('VideoRecipe.fromJob suy ra trạng thái công thức AI', () {
-      VideoJob job(String status, {Object? extraction}) =>
-          VideoJob.fromJson({'id': 1, 'status': status, 'extraction': extraction});
-      expect(VideoRecipe.fromJob(job('PROCESSING')).state, RecipeState.processing);
-      expect(VideoRecipe.fromJob(job('FAILED')).state, RecipeState.failed);
-      expect(VideoRecipe.fromJob(job('COMPLETED')).state, RecipeState.none);
-      final ready = VideoRecipe.fromJob(job('COMPLETED', extraction: {
-        'title': 'Món',
-        'ingredients': [],
-        'steps': [],
-      }));
-      expect(ready.state, RecipeState.ready);
-    });
-  });
-
-  group('VideoRepository.recipeOf', () {
-    test('trả công thức khi đã có kết quả', () async {
-      final api = FakeApi()
-        ..getResult = {
-          'sourceVideoId': 5,
-          'extraction': {'title': 'Món', 'ingredients': [], 'steps': []},
-        };
-      final r = await VideoRepository(api).recipeOf(5);
-      expect(r.state, RecipeState.ready);
-      expect(r.extraction!.title, 'Món');
-    });
-
-    test('đổi các mã lỗi 6022 / 6023 / 6026 / 404 thành trạng thái, không ném lỗi', () async {
-      final api = FakeApi();
-      final repo = VideoRepository(api);
-      Future<RecipeState> stateFor(ApiException e) async {
-        api.getResult = e;
-        return (await repo.recipeOf(5)).state;
-      }
-
-      expect(await stateFor(ApiException('x', code: 6022, statusCode: 409)), RecipeState.processing);
-      expect(await stateFor(ApiException('x', code: 6023, statusCode: 422)), RecipeState.failed);
-      expect(await stateFor(ApiException('x', code: 6026, statusCode: 422)), RecipeState.unsupported);
-      expect(await stateFor(ApiException('x', code: 6002, statusCode: 404)), RecipeState.none);
-    });
-
-    test('6021 nay là "dưới 18 tuổi" của thực đơn, không còn bị coi là nguồn video không hỗ trợ', () async {
-      final api = FakeApi()..getResult = ApiException('x', code: 6021, statusCode: 400);
-      await expectLater(VideoRepository(api).recipeOf(5), throwsA(isA<ApiException>()));
-    });
-
-    test('lỗi khác được ném lại', () async {
-      final api = FakeApi()..getResult = ApiException('lỗi máy chủ', statusCode: 500);
-      await expectLater(VideoRepository(api).recipeOf(5), throwsA(isA<ApiException>()));
-    });
   });
 
   test('VideoRepository.create gửi link YouTube dạng multipart, không kèm tệp', () async {

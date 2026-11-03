@@ -233,7 +233,7 @@ void main() {
               _record(2, 66, '2026-10-20T08:00:00'),
               _record(1, 70, '2026-10-01T08:00:00'),
             ])
-        ..on(Endpoints.mySubscription, () => {'planCode': 'PLUS', 'expiresAt': '2026-12-01T00:00:00Z', 'chatPerDay': 20, 'mealPlansPerMonth': 8, 'videosPerMonth': 3});
+        ..on(Endpoints.mySubscription, () => {'planCode': 'PLUS', 'expiresAt': '2026-12-01T00:00:00Z', 'chatPerDay': 20, 'mealPlansPerMonth': 8});
       api.token = 't';
       final auth = AuthController(api, AuthRepository(api), SessionStore(),
           initial: const AuthSession('t', AuthUser(id: 3, email: 'an@gmail.com', fullName: 'An', role: UserRole.user)));

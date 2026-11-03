@@ -1,5 +1,7 @@
 # Self-hosted AI benchmark
 
+All four measured AI features use local Qwen through llama.cpp. The benchmark does not call a commercial inference provider. Run it only against a local stack with the model and required application services available; results depend on the local GPU, model context and concurrent load.
+
 ## 1. Automated Benchmark & Quality Evaluation Suite (`ai-inference/benchmark/`)
 
 The repository includes a reproducible end-to-end benchmark and quality evaluation suite under `backend/ai-inference/benchmark/` that authenticates dynamically via environment variables (never hardcoding JWTs), evaluates all four self-hosted AI features (`CHAT`, `MEAL_PLAN`, `RECOMMENDATION`, `MODERATION`), collects direct `llama.cpp` engine timings (`prompt_ms`, `predicted_per_second`), samples Docker and NVIDIA GPU hardware metrics (`docker stats` and `nvidia-smi`), and cleans up temporary test records.

@@ -1,4 +1,6 @@
 # BÁO CÁO KỸ THUẬT DỰ ÁN VEGGIEPAL
+
+> Historical report: AI video transcription and recipe extraction described below have been removed from the current branch. See `docs/PRM_CAPSTONE.md` for current behavior.
 ## HỆ SINH THÁI NỀN TẢNG SỐ HỖ TRỢ LỐI SỐNG THUẦN CHAY (100% VEGAN)
 
 ---

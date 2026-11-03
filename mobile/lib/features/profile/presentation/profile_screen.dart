@@ -18,7 +18,6 @@ import '../../payment/presentation/payment_history_screen.dart';
 import '../../payment/presentation/pricing_screen.dart';
 import '../../recipe/presentation/my_recipes_screen.dart';
 import '../../video/presentation/my_videos_screen.dart';
-import '../../video/presentation/video_jobs_screen.dart';
 import '../data/profile_overview.dart';
 import 'allergies_screen.dart';
 import 'badges_screen.dart';
@@ -232,9 +231,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const Divider(height: 1),
               _MenuTile(LucideIcons.video, 'Video của tôi', 'Đăng video, sửa, gửi duyệt, xem trạng thái',
                   () => _open(context, const MyVideosScreen())),
-              const Divider(height: 1),
-              _MenuTile(LucideIcons.sparkles, 'Bóc tách công thức từ video',
-                  'AI lấy nguyên liệu và các bước từ video nấu ăn', () => _open(context, const VideoJobsScreen())),
               const Divider(height: 1),
               _MenuTile(LucideIcons.crown, 'Gói thành viên', _planSubtitle(context),
                   () => _open(context, const PricingScreen())),
