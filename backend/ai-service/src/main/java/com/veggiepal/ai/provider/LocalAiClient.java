@@ -23,10 +23,25 @@ public class LocalAiClient {
     public String configuredModel() { return model; }
 
     public AiResult complete(List<AiMessage> messages, double temperature, int maxTokens) {
+        return complete(messages, temperature, maxTokens, SamplingOptions.NONE);
+    }
+
+    /**
+     * Same as the three-argument call, plus optional llama.cpp sampling controls
+     * (top_p, top_k, repeat_penalty, frequency_penalty) sent only when set.
+     */
+    public AiResult complete(List<AiMessage> messages, double temperature, int maxTokens, SamplingOptions sampling) {
         try {
+            java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("model", model);
+            body.put("messages", messages);
+            body.put("temperature", temperature);
+            body.put("max_tokens", maxTokens);
+            if (sampling != null) {
+                sampling.applyTo(body);
+            }
             AiCompletionResponse response = http.post().uri("/chat/completions")
-                    .body(java.util.Map.of("model", model, "messages", messages,
-                            "temperature", temperature, "max_tokens", maxTokens))
+                    .body(body)
                     .retrieve().body(AiCompletionResponse.class);
             if (response == null || response.choices() == null || response.choices().isEmpty()
                     || response.choices().getFirst().message() == null
@@ -50,4 +65,15 @@ public class LocalAiClient {
         }
         public boolean isLengthTruncated() { return "length".equalsIgnoreCase(finishReason); }
     }
-}
+
+    /** Optional llama.cpp sampling parameters; null fields are not sent. */
+    public record SamplingOptions(Double topP, Integer topK, Double repeatPenalty, Double frequencyPenalty) {
+        public static final SamplingOptions NONE = new SamplingOptions(null, null, null, null);
+
+        void applyTo(java.util.Map<String, Object> body) {
+            if (topP != null) body.put("top_p", topP);
+            if (topK != null) body.put("top_k", topK);
+            if (repeatPenalty != null) body.put("repeat_penalty", repeatPenalty);
+            if (frequencyPenalty != null) body.put("frequency_penalty", frequencyPenalty);
+        }
+    }}

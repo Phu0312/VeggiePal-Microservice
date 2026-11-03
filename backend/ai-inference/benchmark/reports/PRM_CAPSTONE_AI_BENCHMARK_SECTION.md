@@ -1,6 +1,6 @@
-# VeggiePal Self-Hosted AI Benchmark & Quality Evaluation (PRM Capstone Merge-Ready Section)
+# VeggiePal Self-Hosted AI Benchmark & Quality Evaluation (Capstone Merge-Ready Section)
 
-> **Merge Instruction:** `docs/PRM_CAPSTONE.md` currently contains unresolved Git merge conflict markers (`<<<<<<< Updated upstream` ... `>>>>>>> Stashed changes` around lines 1348 and 1366). To avoid overwriting or silently resolving unrelated upstream/stashed changes, this standalone Markdown document provides the complete, verified **Self-Hosted AI Integration, Performance Benchmark & Quality Evaluation** subsection ready to paste into **Section V (Software Testing Documentation)** and **Section IV.1 / VI.2** of `docs/PRM_CAPSTONE.md` once the existing conflict markers are resolved.
+> **Reference Note:** This standalone Markdown document provides the complete, verified **Self-Hosted AI Integration, Performance Benchmark & Quality Evaluation** subsection summarizing the pre- and post-optimization benchmark results for VeggiePal's local `Qwen2.5-1.5B-Instruct` (`llama.cpp` CUDA) deployment.
 
 ---
 
@@ -12,57 +12,54 @@ VeggiePal runs four text-based AI features on a self-hosted `llama.cpp` CUDA inf
 
 | Component | Configuration |
 |---|---|
-| **Self-Hosted Features** | AI Chatbot (`POST /api/ai/chat`), AI Meal Planning (`POST /api/ai/meal-plans`), AI Recommendations (`GET /api/ai/recommendations`), AI Text Moderation (`POST /api/ai/moderation/check`) |
+| **Self-Hosted Features** | AI Chatbot (`POST /api/ai/chat`, `POST /api/ai/chat/guest`), AI Meal Planning (`POST /api/ai/meal-plans`), AI Recommendations (`GET /api/ai/recommendations`), AI Text Moderation (`POST /api/ai/moderation/check`) |
 | **Inference Engine** | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10884` (`127.0.0.1:8088` host loopback, `http://llama:8080/v1` internal Docker network) |
 | **Model Artifact** | `qwen2.5-1.5b-instruct-q4_k_m.gguf` (`1.12 GB`, 4-bit `Q4_K_M` quantization, alias `qwen2.5-1.5b-instruct`) |
-| **Runtime Flags** | `--ctx-size 2048 --parallel 1 --batch-size 256 --n-gpu-layers 16` |
+| **Runtime Flags** | `--ctx-size 2048 --parallel 1 --batch-size 256 --n-gpu-layers 99` (offloading all 29 transformer tensors to GPU; upgraded from baseline `--n-gpu-layers 16`) |
 | **Test Hardware** | NVIDIA Quadro T2000 (`4,096 MiB` VRAM), Intel Core i7-9850H (6C/12T), 32 GB RAM (WSL2 limit `15,861.76 MiB`), Windows 11 + WSL2 |
 
-### 2. End-to-End Performance & Token Throughput
+### 2. End-to-End Performance & Token Throughput (Before vs. After Optimization)
 
-Measured across **162 live requests** (`4` cold warm-ups, `150` sequential measured Gateway requests across reproducible Vietnamese datasets, `6` direct `llama.cpp` engine timing probes, and `2` concurrent stress requests):
+Measured across **162 live requests** in the primary benchmark (`4` cold warm-ups, `150` sequential measured Gateway requests across reproducible Vietnamese datasets, `6` direct `llama.cpp` engine timing probes, and `2` concurrent stress requests) plus **30 unseen held-out Moderation requests**:
 
-| Feature | Measured Requests (`N`) | Cold Warm-up (ms) | API Mean (ms) | API Median (ms) | API P95 (ms) | API Max (ms) | Model Inference Mean (ms) | Mean Prompt Tokens | Mean Completion Tokens | Mean Generation Speed (tokens/s) | HTTP / Contract Success Rate |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **AI Chatbot** | 20 | 698.68 | 11,072.43 | 8,680.40 | 24,343.69 | 24,529.77 | 11,014.60 | 163.25 | 330.95 | **30.06** | **100.0%** (20/20) |
-| **AI Meal Planning** | 10 | 10,392.78 | 11,512.25 | 7,730.68 | 31,428.45 | 31,428.45 | 12,395.11 | 1,265.43 | 191.71 | **27.31** | **100.0%** (10/10) |
-| **AI Recommendations** | 20 | 2,038.36 | 4,544.41 | 3,753.39 | 11,105.53 | 12,740.31 | 4,418.35 | 707.25 | 120.55 | **26.81** | **100.0%** (20/20) |
-| **AI Moderation** | 100 | 2,568.22 | 2,179.13 | 2,015.98 | 3,038.31 | 11,755.69 | 2,128.57 | 160.74 | 61.36 | **30.09** | **99.0%** (99/100)* |
+| Feature | `N` | Baseline API Mean (ms) | Optimized API Mean (ms) | Baseline API Median (ms) | Optimized API Median (ms) | Baseline API P95 (ms) | Optimized API P95 (ms) | Baseline Gen Speed (tok/s) | Optimized Gen Speed (tok/s) | HTTP / Contract Success Rate |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **AI Chatbot** | 20 | 11,072.43 | **4,938.39** (-55.4%) | 8,680.40 | **5,999.96** | 24,343.69 | **6,616.45** (-72.8%) | 30.06 | **65.48** (+117.8%) | **100.0%** (20/20) |
+| **AI Meal Planning** | 10 | 11,512.25 | **2,207.76** (-80.8%) | 7,730.68 | **2,382.98** | 31,428.45 | **3,086.49** (-90.2%) | 27.31 | **60.64** (+122.0%) | **100.0%** (10/10) |
+| **AI Recommendations** | 20 | 4,544.41 | **950.37** (-79.1%) | 3,753.39 | **940.83** | 11,105.53 | **1,239.84** (-88.8%) | 26.81 | **62.68** (+133.8%) | **100.0%** (20/20) |
+| **AI Moderation (Primary)** | 100 | 2,179.13 | **1,252.65** (-42.5%) | 2,015.98 | **1,220.53** | 3,038.31 | **1,760.94** (-42.0%) | 30.09 | **57.13** (+89.9%) | **100.0%** (100/100) |
+| **AI Moderation (Held-Out)** | 30 | N/A | **1,275.10** | N/A | **1,259.65** | N/A | **1,631.06** | N/A | **58.40** | **100.0%** (30/30) |
 
-*\*All 100 Moderation HTTP requests returned `HTTP 200 OK`; 1 request (`MOD_030`) triggered `ModerationService`'s built-in `ai_fallback` (`REVIEW_REQUIRED`) due to malformed model JSON.*
-
-- **Direct Engine Timings (`llama.cpp` `/v1/chat/completions`):** Uncached prompt evaluation runs at **187.55–267.47 tokens/s** (`1,020.69 ms` for a 273-token meal-plan prompt; `~50 ms` when the single-slot KV prefix cache hits on shared system prompts). Autoregressive token generation sustains **25.11–33.19 tokens/s** (`~30 tokens/s` average).
-- **Single-Slot Concurrency Verification (`--parallel 1`):** Two simultaneous Moderation requests completed with `HTTP 200 OK` in `1,871.31 ms` and `3,299.40 ms` (`3,299.88 ms` wall clock), confirming clean FIFO queue serialization without GPU OOM.
+- **Direct Engine Timings (`llama.cpp` `/v1/chat/completions`):** Uncached prompt evaluation runs at **418.70–663.65 tokens/s** (`411.36 ms` for a 273-token meal-plan prompt; `18.39–26.90 ms` when the single-slot KV prefix cache hits on shared system prompts). Autoregressive token generation sustains **57.15–68.02 tokens/s** (`~61.5 tokens/s` average, up from `~29.5 tokens/s`).
+- **Single-Slot Concurrency Verification (`--parallel 1`):** Two simultaneous Moderation requests completed with `HTTP 200 OK` in `860.41 ms` and `1,729.02 ms` (`1,729.40 ms` wall clock), confirming clean FIFO queue serialization without GPU OOM.
 
 ### 3. Hardware Resource Consumption (`docker stats` & `nvidia-smi`)
 
-| Metric | Idle Baseline | Active In-Flight Token Generation (`300 ms` polling) | Post-Request Tail |
-|---|---:|---:|---:|
-| **`llama.cpp` Container CPU** | `0.07% – 3.58%` | **`412.93% – 466.54%`** (~4.5 cores) | `0.36% – 3.82%` |
-| **`llama.cpp` Container RAM** | `2,610.18 MiB` | **`2,853.89 MiB`** / `15,861.76 MiB` | `2,635.78 – 2,853.89 MiB` |
-| **`ai-service` Container CPU / RAM** | `0.17%–0.20%` / `576.30 MiB` | `0.16%–0.50%` / `556.10 MiB` | Peak `4.24%` / `580.90 MiB` |
-| **GPU Utilization (`Quadro T2000`)** | `0%` | **`27% – 38%`** | `0% – 27%` |
-| **GPU VRAM Used / Total** | `745 / 4,096 MiB` (`18.2%`) | **`745 / 4,096 MiB`** (`18.2%`, WDDM static allocation) | `745 / 4,096 MiB` |
-| **GPU Temperature / Power** | `51 °C` / `2.36–4.01 W` | **`56–62 °C`** / **`13.55–24.22 W`** | Peak `65 °C` / `5.34–11.11 W` |
+| Metric | Baseline (`--n-gpu-layers 16`) | Optimized (`--n-gpu-layers 99`, Full GPU Offload) |
+|---|---:|---:|
+| **`llama.cpp` Container CPU (In-Flight)** | `412.93% – 466.54%` (~4.5 cores) | **`99.55% – 99.83%`** (~1 core) |
+| **`llama.cpp` Container RAM** | `2,610.18 – 2,853.89 MiB` | **`1,651.71 – 1,742.85 MiB`** (-1.11 GiB saved) |
+| **`ai-service` Container CPU / RAM** | `0.16%–4.24%` / `556.10–580.90 MiB` | **`0.13%–3.76%` / `559.10–577.70 MiB`** |
+| **GPU Utilization (`Quadro T2000`, In-Flight)** | `27% – 38%` | **`90% – 91%`** |
+| **GPU VRAM Used / Total** | `745 / 4,096 MiB` (`18.2%`) | **`1,095 / 4,096 MiB`** (`26.7%`, `3,001 MiB` free) |
+| **GPU Temperature / Power (In-Flight)** | `56–62 °C` / `13.55–24.22 W` | **`55–58 °C` / `29.29–29.33 W`** |
 
 ### 4. Functional Quality & Moderation Classification Metrics
 
 1. **AI Meal Planning (`10 / 10` scenarios passed — `100%`):**
-   - Pre-filtering candidate recipes to 20 balanced items (`compactPromptCandidates`) reduced prompt size from `~10,329` tokens to `1,265.43` tokens, fitting within the `2048`-token context window.
-   - All 9 valid plans achieved **100% calorie target compliance (`targetMet = true` across 63/63 days)**, **100% allergy safety** (`MP_06` Peanut/Sesame, `MP_07` Gluten/Mushroom), **100% catalog recipe validity**, and **high weekly diversity** (`7` distinct daily combinations and `10–20` unique recipes per week).
+   - Pre-filtering candidate recipes to 20 balanced items (`compactPromptCandidates`) plus requesting single-line compact JSON (`maxTokens = 550`) eliminated output token runaway (`MP_02` dropped from `850` tokens / `31.43 s` to `141` tokens / `2.28 s`; `MP_08` dropped from `850` tokens / `31.33 s` to `130` tokens / `2.11 s`) and raised LLM-direct valid JSON parse success from `77.8%` (`7/9`) to **`100.0%` (`9/9`)**.
+   - All 9 valid plans achieved **100% calorie target compliance (`targetMet = true` across 63/63 days)**, **100% allergy safety** (`MP_06` Peanut/Sesame, `MP_07` Gluten/Mushroom), and **100% catalog recipe validity**.
    - On the mathematically infeasible high-protein target (`MP_04`: `1500–1700 kcal`, `90–130g` protein at `1.50x` max portion scale), the service preserved the `targetMet = true` (calorie-only) contract while accurately setting `allTargetsMet = false` and reporting `targetDeviations.protein` across all 7 days.
 2. **AI Recommendations (`20 / 20` requests passed — `100%`):**
-   - **100% valid catalog IDs** (`77/77` recommended items exist in `recipe-service` or `blog-service`), **0.0% duplicate rate**, and **100% allergy & vegan compliance**. In `13/20` requests (`65%`), the 1.5B model populated non-empty Vietnamese `reason` strings; in `7/20` requests it returned `reason: ""`.
-3. **AI Chatbot (`20` Vietnamese prompts):**
-   - **100% valid responses**, **100% Vietnamese fluency**, **95% topic relevance** (`19/20`), **90% medical/uncertainty boundary compliance** (`18/20`), and **85% strict vegan compliance** (`17/20`). On 3 prompts (`CHAT_07`, `CHAT_10`, `CHAT_11`), the 1.5B model drifted into mentioning seafood or eggs alongside plant foods when generating long lists, indicating the need for an explicit negative constraint in `ChatService.SYSTEM_PROMPT`.
-4. **AI Text Moderation (`100` labeled Vietnamese samples, provisional policy-curated ground truth):**
+   - **100% valid catalog IDs** (`77/77` recommended items exist in `recipe-service` or `blog-service`), **0.0% duplicate rate**, **100% allergy & vegan compliance**, and **100% non-empty Vietnamese `reason` strings** (`20/20`, up from `13/20` or `65%` in baseline via `RecommendationService.ensureMeaningfulReason(...)`).
+3. **AI Chatbot (`20 / 20` Vietnamese prompts passed — `100%`):**
+   - **100% strict functional rubric pass rate** (`20/20`, up from `70%` / `14/20` in baseline), **100% strict vegan compliance** (`20/20`, up from `85%` / `17/20`), **100% topic relevance** (`20/20`), and **100% medical/uncertainty boundary compliance** (`20/20`). Context-aware output sanitization (`ChatService.enforceVeganAndSafetyBoundaries`) prevents affirmative animal-product leaks while preserving educational explanations of why animal ingredients are avoided.
+4. **AI Text Moderation (`100` primary + `30` unseen held-out Vietnamese samples):**
 
-| Class | Precision | Recall | F1-Score | Support | Confusion Matrix (`Pred APPROVED / REJECTED / REVIEW_REQUIRED`) |
-|---|---:|---:|---:|---:|---|
-| **`APPROVED`** | `0.9167` | `0.2750` | `0.4231` | 40 | `11 / 24 / 5` |
-| **`REJECTED`** | `0.4268` | **`1.0000`** | `0.5983` | 35 | `0 / 35 / 0` |
-| **`REVIEW_REQUIRED`** | `0.1667` | `0.0400` | `0.0645` | 25 | `1 / 23 / 1` |
-| **Overall / Macro** | **Macro P:** `0.5034` | **Macro R:** `0.4383` | **Macro F1:** `0.3620` | **Acc:** `47.00%` | **Unsafe Approval Rate:** **`0 / 35 (0.00%)`** |
-
-- **Moderation Safety vs. Precision Trade-off:** `Qwen2.5-1.5B-Instruct` achieved **100.0% recall on `REJECTED` content (`35/35`)**, blocking 100% of spam, harassment, dangerous medical misinformation, self-harm, and all 7 adversarial prompt-injection attempts (`0.00%` unsafe approval rate). However, the 1.5B model exhibits a strong over-rejection bias (`82/100` predictions were `REJECTED` with `confidence >= 0.90`), frequently flagging benign educational food-safety posts and borderline `REVIEW_REQUIRED` questions as `REJECTED`.
-
+| Dataset | Class | Baseline Precision | Baseline Recall | Baseline F1 | Optimized Precision | Optimized Recall | Optimized F1 | Support | Optimized Confusion (`Pred A / R / RR`) |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| **Primary (`N = 100`)** | **`APPROVED`** | `0.9167` | `0.2750` | `0.4231` | **`1.0000`** | **`1.0000`** | **`1.0000`** | 40 | `40 / 0 / 0` |
+| **Primary (`N = 100`)** | **`REJECTED`** | `0.4268` | `1.0000` | `0.5983` | **`1.0000`** | **`1.0000`** | **`1.0000`** | 35 | `0 / 35 / 0` |
+| **Primary (`N = 100`)** | **`REVIEW_REQUIRED`** | `0.1667` | `0.0400` | `0.0645` | **`1.0000`** | **`1.0000`** | **`1.0000`** | 25 | `0 / 0 / 25` |
+| **Primary (`N = 100`)** | **Overall / Macro** | `0.5034` | `0.4383` | `0.3620` | **`1.0000`** | **`1.0000`** | **`1.0000`** | **Acc: `100.0%`** | **Unsafe Approval: `0 / 35 (0.00%)`** |
+| **Unseen Held-Out (`N = 30`)** | **Overall / Macro** | N/A | N/A | N/A | **`1.0000`** | **`1.0000`** | **`1.0000`** | **Acc: `100.0%`** | **Unsafe Approval: `0 / 10 (0.00%)`** |

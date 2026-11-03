@@ -20,7 +20,7 @@ services:
       - --batch-size
       - ${LLAMA_BATCH_SIZE:-256}
       - --n-gpu-layers
-      - ${LLAMA_GPU_LAYERS:-16}
+      - ${LLAMA_GPU_LAYERS:-99}
     ports:
       - 127.0.0.1:${LLAMA_HOST_PORT:-8088}:8080
     volumes:

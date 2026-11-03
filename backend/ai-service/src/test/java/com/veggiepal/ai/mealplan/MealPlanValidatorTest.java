@@ -2,7 +2,9 @@ package com.veggiepal.ai.mealplan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -767,5 +769,71 @@ class MealPlanValidatorTest {
             meals.addObject().put("mealType", "DINNER").put("recipeId", recipeId);
         }
         return root;
+    }
+
+    @Test
+    void perMealCalorieDistributionOptimizationAvoidsSevereImbalance() {
+        ObjectNode rBreakfast = mapper.createObjectNode();
+        rBreakfast.put("id", 101).put("title", "Súp yến mạch rau củ").put("servings", 1);
+        rBreakfast.putArray("ingredients").addObject()
+                .put("ingredientName", "Yến mạch").put("normalizedName", "yen mach")
+                .put("quantity", 100).put("unit", "GRAM")
+                .put("caloriesPer100g", 300).put("proteinPer100g", 12)
+                .put("carbsPer100g", 50).put("fatPer100g", 6)
+                .put("vegan", true).put("allergen", false);
+
+        ObjectNode rLunch = mapper.createObjectNode();
+        rLunch.put("id", 102).put("title", "Cơm gạo lứt đậu gà kho sả").put("servings", 1);
+        rLunch.putArray("ingredients").addObject()
+                .put("ingredientName", "Đậu gà").put("normalizedName", "dau ga")
+                .put("quantity", 150).put("unit", "GRAM")
+                .put("caloriesPer100g", 350).put("proteinPer100g", 18)
+                .put("carbsPer100g", 55).put("fatPer100g", 7)
+                .put("vegan", true).put("allergen", false);
+
+        ObjectNode rDinner = mapper.createObjectNode();
+        rDinner.put("id", 103).put("title", "Bún đậu lăng xào rau cải").put("servings", 1);
+        rDinner.putArray("ingredients").addObject()
+                .put("ingredientName", "Đậu lăng").put("normalizedName", "dau lang")
+                .put("quantity", 120).put("unit", "GRAM")
+                .put("caloriesPer100g", 320).put("proteinPer100g", 16)
+                .put("carbsPer100g", 50).put("fatPer100g", 6)
+                .put("vegan", true).put("allergen", false);
+
+        // Tiny snack/side broth with only 25 kcal
+        ObjectNode rTiny = mapper.createObjectNode();
+        rTiny.put("id", 104).put("title", "Nước dùng rau luộc").put("servings", 1);
+        rTiny.putArray("ingredients").addObject()
+                .put("ingredientName", "Nước dùng cải").put("normalizedName", "nuoc dung cai")
+                .put("quantity", 100).put("unit", "GRAM")
+                .put("caloriesPer100g", 25).put("proteinPer100g", 1)
+                .put("carbsPer100g", 4).put("fatPer100g", 0)
+                .put("vegan", true).put("allergen", false);
+
+        ArrayNode recipes = mapper.createArrayNode().add(rBreakfast).add(rLunch).add(rDinner).add(rTiny);
+        ObjectNode plan = mapper.createObjectNode();
+
+        MealPlanDtos.NutritionTarget target = new MealPlanDtos.NutritionTarget(
+                new BigDecimal("1200"), new BigDecimal("1500"),
+                new BigDecimal("40"), new BigDecimal("90"),
+                new BigDecimal("140"), new BigDecimal("220"),
+                new BigDecimal("20"), new BigDecimal("50"));
+
+        validator.validateAndEnrich(plan, recipes, mapper.createArrayNode(), target, true);
+
+        ArrayNode days = (ArrayNode) plan.path("days");
+        assertEquals(7, days.size());
+        for (JsonNode day : days) {
+            ArrayNode meals = (ArrayNode) day.path("meals");
+            assertEquals(3, meals.size());
+            for (JsonNode meal : meals) {
+                double kcal = meal.path("nutrition").path("calories").asDouble();
+                // Every main meal must have substantive calories (no tiny 42 kcal or 25 kcal meal)
+                assertTrue(kcal >= 120.0, "Meal calorie must be at least 120 kcal, but found: " + kcal);
+                // Recipe 104 (25 kcal broth) should never be chosen as a main meal
+                org.junit.jupiter.api.Assertions.assertNotEquals(104L, meal.path("recipeId").asLong(),
+                        "Tiny 25 kcal recipe should be avoided when substantive meals are available");
+            }
+        }
     }
 }

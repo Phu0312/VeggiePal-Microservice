@@ -15,17 +15,18 @@ This document defines the benchmark and quality evaluation methodology for Veggi
 
 ## 2. Test Environment & Hardware Specification
 
-| Component | Measured Configuration |
-|---|---|
-| Host OS | Windows 11 + WSL2 Docker Engine |
-| CPU | Intel Core i7-9850H (6 cores / 12 threads @ 2.60 GHz) |
-| System RAM | 32 GB (WSL2 Docker Engine limit: `15,861.76 MiB`) |
-| GPU | NVIDIA Quadro T2000 (`4,096 MiB` GDDR5 VRAM) |
-| Inference Server | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10884` (`veggiepal-local-ai-llama-1`) |
-| Model Artifact | `qwen2.5-1.5b-instruct-q4_k_m.gguf` (`1.12 GB` on disk, alias `qwen2.5-1.5b-instruct`) |
-| Server Flags | `--ctx-size 2048 --parallel 1 --batch-size 256 --n-gpu-layers 16` |
-| Backend Container | `veggiepal-prm-ai-service` (Java 21, Spring Boot, profiles: `local-testing`, deployment mode: `local`) |
-| Local Test Quotas | `AI_LOCAL_TEST_QUOTA_ENABLED=true`, `100` daily requests/feature/user, `5,000,000` daily tokens/user |
+| Component | Baseline Configuration (`2026-10-31`) | Optimized Configuration (`2026-11-03`) |
+|---|---|---|
+| Host OS | Windows 11 + WSL2 Docker Engine | Windows 11 + WSL2 Docker Engine |
+| CPU | Intel Core i7-9850H (6 cores / 12 threads @ 2.60 GHz) | Intel Core i7-9850H (6 cores / 12 threads @ 2.60 GHz) |
+| System RAM | 32 GB (WSL2 Docker Engine limit: `15,861.76 MiB`) | 32 GB (WSL2 Docker Engine limit: `15,861.76 MiB`) |
+| GPU | NVIDIA Quadro T2000 (`4,096 MiB` GDDR5 VRAM) | NVIDIA Quadro T2000 (`4,096 MiB` GDDR5 VRAM) |
+| Inference Server | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10884` | `ghcr.io/ggml-org/llama.cpp:server-cuda-b10884` |
+| Model Artifact | `qwen2.5-1.5b-instruct-q4_k_m.gguf` (`1.12 GB`, alias `qwen2.5-1.5b-instruct`) | `qwen2.5-1.5b-instruct-q4_k_m.gguf` (`1.12 GB`, alias `qwen2.5-1.5b-instruct`) |
+| Server Flags | `--ctx-size 2048 --parallel 1 --batch-size 256 --n-gpu-layers 16` | `--ctx-size 2048 --parallel 1 --batch-size 256 --n-gpu-layers 99` (all 29 tensors on GPU) |
+| Feature Token Caps | `CHAT=700`, `MEAL_PLAN=850`, `RECOMMENDATION=1500`, `MODERATION=350` | `CHAT=420`, `MEAL_PLAN=550`, `RECOMMENDATION=500`, `MODERATION=220` |
+| Backend Container | `veggiepal-prm-ai-service` (Java 21, Spring Boot, profile: `local-testing`) | `veggiepal-prm-ai-service` (Java 21, Spring Boot, profile: `local-testing`) |
+| Local Test Quotas | `AI_LOCAL_TEST_QUOTA_ENABLED=true`, `100` daily requests/feature/user, `5,000,000` daily tokens/user | `AI_LOCAL_TEST_QUOTA_ENABLED=true`, `100` daily requests/feature/user, `5,000,000` daily tokens/user |
 
 ---
 
@@ -44,7 +45,9 @@ All datasets are stored in versioned UTF-8 JSON files with Vietnamese prompts an
      - `APPROVED`: **40 samples** (33 normal vegan recipes/comments/videos + 7 benign educational or medical-context posts).
      - `REJECTED`: **35 samples** (8 spam/gambling/scam, 8 harassment/abuse/threats, 8 harmful health misinformation, 4 self-harm/illegal content, 7 adversarial prompt injection/override attempts).
      - `REVIEW_REQUIRED`: **25 samples** (8 ambiguous nutritional/detox claims, 7 questions discussing unsafe diets without endorsing them, 10 borderline community disputes or informal C2C exchanges).
-   - **Label Provenance (`labelSource: "provisional_policy_curated"`):** All 100 labels are curated according to the VeggiePal moderation policy (`ModerationService.java` system prompt and confidence threshold `>= 0.85` for `REJECTED`, otherwise `REVIEW_REQUIRED`). They are explicitly documented as **provisional policy-aligned ground truth**; final production sign-off requires independent multi-annotator human review. Model-generated outputs are never used as ground-truth labels.
+   - **Label Provenance (`labelSource: "provisional_policy_curated"`):** All 100 labels are curated according to the VeggiePal moderation policy (`ModerationService.java`). They are explicitly documented as **provisional policy-aligned ground truth**; final production sign-off requires independent multi-annotator human review, particularly for 5 borderline items (`MOD_035`, `MOD_088`, `MOD_089`, `MOD_096`, `MOD_097`) documented in `QUALITY_EVALUATION.md`. Model-generated outputs are never used as ground-truth labels.
+5. **`moderation_heldout.json` (30 unseen held-out Vietnamese samples):**
+   - Created to verify generalization outside the 100-sample tuning set: 12 `APPROVED` (8 vegan recipes/comments + 4 benign food-safety education posts), 8 `REVIEW_REQUIRED` (3 unverified health claims + 3 sensitive diet questions + 2 community disputes/promos), and 10 `REJECTED` (2 spam + 2 harassment/threats + 2 dangerous medical misinformation + 2 self-harm/drugs + 2 prompt injection attempts).
 
 ---
 
@@ -62,7 +65,7 @@ All datasets are stored in versioned UTF-8 JSON files with Vietnamese prompts an
 5. **Dual-Layer Timing Collection:**
    - **API Gateway Layer:** End-to-end HTTP round-trip latency (`api_latency_ms`) is timed from client request dispatch to full JSON response receipt at `http://localhost:9080`.
    - **Service & Provider Layer:** After each Gateway request, `ai-service` usage logs (`/api/ai/admin/monitoring/logs/search`) are queried to record exact provider call latency (`model_inference_ms`), `prompt_tokens`, and `completion_tokens`.
-   - **Direct `llama.cpp` Engine Layer:** Because `LocalAiClient` maps OpenAI-compatible `choices` and `usage` fields, the runner also executes 6 direct probes against `http://127.0.0.1:8088/v1/chat/completions` (`PROBE_CHAT_1..2`, `PROBE_MOD_1..2`, `PROBE_REC_1`, `PROBE_MP_1`) to capture internal `llama.cpp` `timings` (`prompt_ms`, `prompt_per_second`, `predicted_ms`, `predicted_per_second`).
+   - **Direct `llama.cpp` Engine Layer:** The runner also executes 6 direct probes against `http://127.0.0.1:8088/v1/chat/completions` (`PROBE_CHAT_1..2`, `PROBE_MOD_1..2`, `PROBE_REC_1`, `PROBE_MP_1`) to capture internal `llama.cpp` `timings` (`prompt_ms`, `prompt_per_second`, `predicted_ms`, `predicted_per_second`).
 6. **Low-Concurrency Stress Check:**
    - A controlled 2-request simultaneous test (`CONCURRENCY_2`) is executed against `/api/ai/moderation/check` to verify that `llama.cpp`'s single-slot queue serializes concurrent arrivals cleanly without HTTP 500 errors or GPU OOM.
 7. **Post-Benchmark Cleanup:**
@@ -74,9 +77,9 @@ All datasets are stored in versioned UTF-8 JSON files with Vietnamese prompts an
 ## 5. Hardware Monitoring & WSL2 Measurement Limitations
 
 Hardware metrics are collected via two mechanisms:
-- **Between-Request Snapshots (`run_benchmark.mjs`):** Sampled immediately after warm-up and periodic measured requests. Because `docker stats --no-stream` and `nvidia-smi` take ~0.8–1.2 seconds to return on Windows + WSL2, snapshots taken *after* an HTTP response completes show instantaneous GPU utilization (`utilization.gpu`) returning toward `0%` while GPU power draw (`6–11 W` vs `2.36 W` idle) and temperature (`62–65 °C` vs `51 °C` idle) remain elevated.
-- **Concurrent In-Flight Sampling (`sample_inflight_hardware.mjs`):** Polls `docker stats --no-stream` and `nvidia-smi` every `300 ms` *while* a 450-token generation request is actively streaming inside `llama.cpp` (`INFLIGHT_1`..`INFLIGHT_7` in `hardware.csv`). This captures true active compute load (`412%–466%` container CPU across 6 cores, `27%–38%` GPU SM utilization, and `13.55–24.22 W` GPU power draw).
-- **WSL2 WDDM VRAM Reporting Limitation:** Under Windows 11 + WSL2 with WDDM 3.1 shared virtual memory, `nvidia-smi` reports static device allocation (`745 MiB / 4096 MiB`) across both idle and active inference states because `llama.cpp` pre-allocates the 16 offloaded CUDA layers and KV cache at container startup (`--n-gpu-layers 16 --ctx-size 2048`). The remaining layers and host buffers reside in WSL2 container RAM (`2,610–2,854 MiB`).
+- **Between-Request Snapshots (`run_benchmark.mjs`):** Sampled immediately after warm-up and periodic measured requests. Because `docker stats --no-stream` and `nvidia-smi` take ~0.8–1.2 seconds to return on Windows + WSL2, snapshots taken *after* an HTTP response completes show instantaneous GPU utilization (`utilization.gpu`) returning toward `0%` while GPU power draw (`10.4–16.0 W` vs `2.16–3.28 W` idle) and temperature (`58–66 °C` vs `46–47 °C` idle) remain elevated.
+- **Concurrent In-Flight Sampling (`sample_inflight_hardware.mjs`):** Polls `docker stats --no-stream` and `nvidia-smi` every `300 ms` *while* a 450-token generation request is actively streaming inside `llama.cpp` (`INFLIGHT_1`..`INFLIGHT_4` in `hardware.csv`). Under full GPU offload (`--n-gpu-layers 99`), active token generation drives **90%–91% GPU SM utilization** (`29.29–29.33 W` GPU power draw) while reducing `llama.cpp` container CPU load to **`99.55%–99.83%`** (1 thread managing CUDA kernel dispatch, down from `412%–466%` under `--n-gpu-layers 16`).
+- **WSL2 WDDM VRAM Reporting Limitation:** Under Windows 11 + WSL2 with WDDM 3.1 shared virtual memory, `nvidia-smi` reports static device allocation (`1,095 MiB / 4,096 MiB` with 99 GPU layers, vs `745 MiB / 4,096 MiB` with 16 GPU layers) across both idle and active inference states because `llama.cpp` pre-allocates the offloaded CUDA layers and KV cache at container startup (`--n-gpu-layers 99 --ctx-size 2048`). Host buffers reside in WSL2 container RAM (`1,651–1,743 MiB`, down from `2,610–2,854 MiB`).
 
 ---
 
@@ -90,10 +93,9 @@ node --test ai-inference/benchmark/scripts/test_benchmark.mjs
 # 2. Run the full benchmark against the running Docker stack
 node ai-inference/benchmark/scripts/run_benchmark.mjs --mode full
 
-# 3. (Optional) Run a fast smoke check (3 chat, 3 mealplan, 3 rec, 9 moderation)
-node ai-inference/benchmark/scripts/run_benchmark.mjs --mode smoke
+# 3. Run the held-out moderation generalization benchmark (30 unseen items)
+node ai-inference/benchmark/scripts/run_heldout_moderation.mjs
 
 # 4. Sample concurrent in-flight GPU/CPU utilization during active token generation
 node ai-inference/benchmark/scripts/sample_inflight_hardware.mjs
 ```
-

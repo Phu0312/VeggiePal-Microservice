@@ -31,7 +31,7 @@ public class ChatController {
                 clientIpResolver.resolve(servletRequest)));
     }
     @PostMapping ApiResponse<ChatReply> chat(@AuthenticationPrincipal Jwt jwt, @RequestBody @Valid ChatRequest request) {
-        return ApiResponse.success(service.member(CurrentUser.id(jwt), request));
+        return ApiResponse.success(service.member(CurrentUser.id(jwt), request, jwt != null ? jwt.getTokenValue() : null));
     }
     @GetMapping("/conversations") ApiResponse<List<ConversationSummary>> list(@AuthenticationPrincipal Jwt jwt) {
         return ApiResponse.success(service.list(CurrentUser.id(jwt)));
