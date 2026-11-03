@@ -6,12 +6,15 @@ COPY src src
 RUN mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system veggiepal \
     && useradd --system --gid veggiepal --home-dir /app --shell /usr/sbin/nologin veggiepal \
+    && mkdir -p /app \
     && chown -R veggiepal:veggiepal /app
+
 WORKDIR /app
 COPY --from=build --chown=veggiepal:veggiepal /app/target/*.jar app.jar
 USER veggiepal
