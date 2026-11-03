@@ -23,6 +23,6 @@ For host development, run `docker compose -f docker-compose.infra.yml up -d` and
 
 ## API and tests
 
-The gateway routes `/api/auth`, `/api/users`, `/api/nutrition`, `/api/blogs`, `/api/videos`, `/api/categories`, `/api/comments`, `/api/recipes`, `/api/ingredients`, `/api/restaurants`, `/api/ai`, `/api/payments`, and `/api/subscriptions` to their owning services. See each module's OpenAPI document and [the capstone report](../docs/PRM_CAPSTONE.md) for the current contract.
+The gateway routes `/api/auth`, `/api/users`, `/api/nutrition`, `/api/blogs`, `/api/videos`, `/api/categories`, `/api/comments`, `/api/recipes`, `/api/ingredients`, `/api/restaurants`, `/api/ai`, `/api/payments`, and `/api/subscriptions` to their owning services. See each module's OpenAPI document and [the capstone report](../docs/REPORT7_FINAL_PROJECT_REPORT.md) for the current contract.
 
 Run `.\mvnw.cmd test` from modules with a wrapper (or `./mvnw test` on Unix); run `mvn test` in payment-service. Some integration tests need MySQL. See [CLAUDE.md](CLAUDE.md) for service-specific test commands and database notes. When `MAIL_HOST` is empty, OTP logging is available only with the `dev` Spring profile; other profiles require SMTP.
