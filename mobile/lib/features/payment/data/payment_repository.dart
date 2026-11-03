@@ -53,7 +53,7 @@ class PaymentRepository {
         return Subscription.fromJson(Map<String, dynamic>.from(r as Map));
       });
 
-  // GET /ai/quotas/me (ai-service): lượt chat / thực đơn / video đã dùng và còn lại trong kỳ. Không qua _guard vì
+  // GET /ai/quotas/me (ai-service): lượt chat / thực đơn đã dùng và còn lại trong kỳ. Không qua _guard vì
   // mã lỗi của ai-service khác bảng của payment-service.
   Future<QuotaOverview> myQuotas() async {
     _requireLogin();

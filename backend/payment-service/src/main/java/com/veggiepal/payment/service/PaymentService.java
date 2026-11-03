@@ -7,12 +7,19 @@ import com.veggiepal.payment.payos.*;
 import com.veggiepal.payment.repository.*;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentService {
+    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+    /** Minimum gap between payOS lookups for one order while the client polls it. */
+    private static final Duration SYNC_INTERVAL = Duration.ofSeconds(5);
+
     private final PaymentOrderRepository orders;
     private final SubscriptionPlanRepository plans;
     private final SubscriptionService subscriptionService;
@@ -21,6 +28,7 @@ public class PaymentService {
     private final Clock clock;
     private final String returnUrl;
     private final String cancelUrl;
+    private final Map<Long, Instant> lastSynced = new ConcurrentHashMap<>();
 
     public PaymentService(PaymentOrderRepository orders, SubscriptionPlanRepository plans,
                           SubscriptionService subscriptionService, PayOsGateway payOs,
@@ -41,10 +49,15 @@ public class PaymentService {
         if (plan.getCode() == PlanCode.FREE || plan.getPrice() <= 0) {
             throw new AppException(ErrorCode.PLAN_NOT_PURCHASABLE);
         }
-        Optional<PaymentOrder> reusable = orders
-                .findAllByUserIdAndPlanIdAndStatusOrderByCreatedAtDesc(userId, plan.getId(), PaymentStatus.PENDING)
-                .stream().filter(this::isReusable).findFirst();
-        if (reusable.isPresent()) return response(reusable.get());
+        // payOS decides whether an old link is still payable. Asking it first keeps a paid order whose
+        // webhook never arrived from being handed out again as a QR code the bank rejects as already paid.
+        for (PaymentOrder candidate : orders.findAllByUserIdAndPlanIdAndStatusOrderByCreatedAtDesc(
+                userId, plan.getId(), PaymentStatus.PENDING)) {
+            boolean wasPending = candidate.getStatus() == PaymentStatus.PENDING;
+            PaymentOrder current = syncWithPayOs(candidate, true);
+            if (wasPending && current.getStatus() == PaymentStatus.PAID) return response(current);
+            if (isReusable(current)) return response(current);
+        }
 
         PaymentOrder order = orders.save(PaymentOrder.builder().orderCode(orderCodes.next()).userId(userId)
                 .plan(plan).amount(plan.getPrice()).status(PaymentStatus.PENDING).createdAt(clock.instant()).build());
@@ -90,10 +103,15 @@ public class PaymentService {
         return response(orders.save(order));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PaymentOrderResponse getOrder(Long userId, Long orderId) {
-        return response(orders.findByIdAndUserId(orderId, userId)
-                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ORDER_NOT_FOUND)));
+        PaymentOrder order = orders.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
+        if (order.getStatus() == PaymentStatus.PENDING && syncDue(order.getId())) {
+            order = syncWithPayOs(order, false);
+            if (order.getStatus() != PaymentStatus.PENDING) lastSynced.remove(order.getId());
+        }
+        return response(order);
     }
 
     @Transactional(readOnly = true)
@@ -124,12 +142,50 @@ public class PaymentService {
                 && !order.getPaymentLinkId().equals(payment.paymentLinkId())) {
             throw new AppException(ErrorCode.PAYOS_WEBHOOK_INVALID);
         }
+        markPaid(order, payment.reference());
+    }
+
+    private void markPaid(PaymentOrder order, String reference) {
         Instant paidAt = clock.instant();
         order.setStatus(PaymentStatus.PAID);
         order.setPaidAt(paidAt);
-        order.setPaymentReference(payment.reference());
+        if (reference != null) order.setPaymentReference(reference);
         orders.save(order);
         subscriptionService.activate(order.getUserId(), order.getPlan(), paidAt);
+    }
+
+    /**
+     * Repairs a pending order from payOS, the source of truth for the link. A paid link activates the plan
+     * exactly as the webhook does. With {@code closeDeadLink} a cancelled, expired or failed link closes the
+     * order so checkout does not reuse it. A payOS outage leaves the order unchanged.
+     */
+    private PaymentOrder syncWithPayOs(PaymentOrder order, boolean closeDeadLink) {
+        if (order.getStatus() != PaymentStatus.PENDING || order.getPaymentLinkId() == null) return order;
+        // Same row lock as the webhook, so a late webhook cannot activate the plan a second time.
+        PaymentOrder locked = orders.findByIdAndUserIdForUpdate(order.getId(), order.getUserId()).orElse(order);
+        if (locked.getStatus() != PaymentStatus.PENDING) return locked;
+        PaymentLinkState state;
+        try {
+            state = payOs.getPaymentLinkState(locked.getOrderCode());
+        } catch (PayOsOperationException exception) {
+            log.warn("Could not read payOS status of order {}", locked.getOrderCode(), exception);
+            return locked;
+        }
+        if (state == PaymentLinkState.PAID) {
+            markPaid(locked, null);
+        } else if (state == PaymentLinkState.CLOSED && closeDeadLink) {
+            locked.setStatus(PaymentStatus.CANCELLED);
+            orders.save(locked);
+        }
+        return locked;
+    }
+
+    private boolean syncDue(Long orderId) {
+        Instant now = clock.instant();
+        Instant last = lastSynced.get(orderId);
+        if (last != null && last.plus(SYNC_INTERVAL).isAfter(now)) return false;
+        lastSynced.put(orderId, now);
+        return true;
     }
 
     private PaymentOrderResponse response(PaymentOrder o) {
