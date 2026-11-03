@@ -418,6 +418,9 @@ public class MealPlanValidator {
             if (exact.isEmpty()) {
                 WeekOption option = weekOption(ids, values, bestPicked, bestScales, target);
                 near.merge(option.key(), option, (a, b) -> a.error() <= b.error() ? a : b);
+                if (restart >= 400 && near.size() >= 80) break search;
+            } else if (restart >= 250 && exact.size() >= 30) {
+                break search;
             }
         }
         if (!exact.isEmpty()) return new ArrayList<>(exact.values());
@@ -480,10 +483,24 @@ public class MealPlanValidator {
                     List<Portion> ordered = List.of(option.get(breakfast), option.get(lunch), option.get(dinner));
                     double score = usedCombinations.contains(key) ? 100000 : 0;
                     score += weekOption.error() * 100;
+                    double dayCal = ordered.get(0).nutrition().calories.doubleValue()
+                            + ordered.get(1).nutrition().calories.doubleValue()
+                            + ordered.get(2).nutrition().calories.doubleValue();
+                    double targetB = dayCal * 0.25;
+                    double targetL = dayCal * 0.40;
+                    double targetD = dayCal * 0.35;
+                    double distDev = Math.abs(ordered.get(0).nutrition().calories.doubleValue() - targetB) / Math.max(1.0, targetB)
+                            + Math.abs(ordered.get(1).nutrition().calories.doubleValue() - targetL) / Math.max(1.0, targetL)
+                            + Math.abs(ordered.get(2).nutrition().calories.doubleValue() - targetD) / Math.max(1.0, targetD);
+                    score += distDev * 10.0;
                     for (int meal = 0; meal < 3; meal++) {
                         Portion portion = ordered.get(meal);
+                        double mealCal = portion.nutrition().calories.doubleValue();
+                        if (mealCal < 120.0) {
+                            score += (120.0 - mealCal) * 50.0;
+                        }
                         int uses = weeklyUsage.getOrDefault(portion.recipeId(), 0);
-                        score += uses * 100 + Math.max(0, uses - 2) * 300;
+                        score += uses * 200 + Math.max(0, uses - 1) * 400;
                         score += mealSuitabilityPenalty(byId.get(portion.recipeId()), STANDARD_MEALS.get(meal));
                         score += pantryRank.getOrDefault(portion.recipeId(), rankedCandidates.size())
                                 / (double) Math.max(1, rankedCandidates.size());
@@ -649,18 +666,35 @@ public class MealPlanValidator {
     private double searchError(int[] picked, int[] scales, double[][] nutrients,
             MealPlanDtos.NutritionTarget target, double calorieWeight) {
         double[] total = new double[4];
-        for (int i = 0; i < 3; i++) for (int j = 0; j < 4; j++)
-            total[j] += nutrients[picked[i]][j] * scales[i] / 100.0;
+        double[] mealCals = new double[3];
+        for (int i = 0; i < 3; i++) {
+            mealCals[i] = nutrients[picked[i]][0] * scales[i] / 100.0;
+            for (int j = 0; j < 4; j++) {
+                total[j] += nutrients[picked[i]][j] * scales[i] / 100.0;
+            }
+        }
+        double balancePenalty = 0.0;
+        for (int i = 0; i < 3; i++) {
+            if (mealCals[i] < 120.0) {
+                balancePenalty += (120.0 - mealCals[i]) * 0.05;
+            }
+        }
+
         return rangeError(total[0], target.minCalories(), target.maxCalories(), 1) * calorieWeight
                 + rangeError(total[1], target.minProtein(), target.maxProtein(), 1)
                 + rangeError(total[2], target.minCarbohydrate(), target.maxCarbohydrate(), 1)
-                + rangeError(total[3], target.minFat(), target.maxFat(), 1);
+                + rangeError(total[3], target.minFat(), target.maxFat(), 1)
+                + balancePenalty;
     }
 
     private boolean exactTargetMet(int[] picked, int[] scales, Macro[] values,
             MealPlanDtos.NutritionTarget target) {
         Macro total = new Macro();
-        for (int i = 0; i < 3; i++) total.add(values[picked[i]].multiply(BigDecimal.valueOf(scales[i], 2)));
+        for (int i = 0; i < 3; i++) {
+            Macro scaled = values[picked[i]].multiply(BigDecimal.valueOf(scales[i], 2));
+            if (scaled.calories.doubleValue() < 120.0) return false;
+            total.add(scaled);
+        }
         return inside(total.calories, target.minCalories(), target.maxCalories())
                 && inside(total.protein, target.minProtein(), target.maxProtein())
                 && inside(total.carbohydrate, target.minCarbohydrate(), target.maxCarbohydrate())
