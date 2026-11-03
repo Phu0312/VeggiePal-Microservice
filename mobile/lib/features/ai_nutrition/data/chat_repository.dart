@@ -43,7 +43,8 @@ class ChatRepository {
 
   Future<ChatReply> _guestSend(GuestSession session, String message) async {
     // POST /ai/chat/guest {guestSession, message}
-    final r = await _api.post(Endpoints.chatGuest, body: {'guestSession': session.id, 'message': message});
+    final r = await _api.post(Endpoints.chatGuest, body: {'guestSession': session.id, 'message': message},
+        receiveTimeout: aiReceiveTimeout);
     return ChatReply.fromJson(Map<String, dynamic>.from(r as Map));
   }
 
@@ -66,7 +67,7 @@ class ChatRepository {
     final r = await _api.post(Endpoints.chat, body: {
       'conversationId': ?conversationId,
       'message': message,
-    });
+    }, receiveTimeout: aiReceiveTimeout);
     return ChatReply.fromJson(Map<String, dynamic>.from(r as Map));
   }
 

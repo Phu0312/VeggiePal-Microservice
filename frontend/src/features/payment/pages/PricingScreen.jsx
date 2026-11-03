@@ -90,7 +90,7 @@ export default function PricingScreen() {
             </h1>
             <p className="mx-auto max-w-2xl text-sm sm:text-base text-subtle">
               Mở rộng giới hạn hỏi đáp trợ lý VeggiePal, lập thực đơn cá nhân hóa theo mục tiêu sức khỏe
-              và tóm tắt video dinh dưỡng không giới hạn.
+              và nhiều lượt hơn mỗi tháng.
             </p>
           </div>
         </Reveal>
