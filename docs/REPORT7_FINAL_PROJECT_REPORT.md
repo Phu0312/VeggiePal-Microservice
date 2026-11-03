@@ -427,7 +427,7 @@ The objective is a working platform in which a vegan practitioner can build a he
 | Functional scope | Deliver the functional requirements FR-01 to FR-13 | Each requirement has a responsible service in Table 17 |
 | Architecture | Independent services with one database each behind one gateway | 8 Maven modules (7 services and the gateway) and 7 MySQL schemas |
 | Deployment | Start the whole backend with Docker Compose | `docker compose up -d --build --wait` for the services plus `docker compose -f ai-inference/compose.local-ai.yml up -d` for the local model (Section VI.2) |
-| Automated testing | Unit and slice tests for every module, executed on each push | 758 test methods in 115 test classes cover all 8 modules; the `maven` job runs `mvn test` for each module (Section V) |
+| Automated testing | Unit and slice tests for every module, executed on each push | 758 test methods in 115 test classes cover all 8 backend modules and the `maven` job runs `mvn test` for each module; 25 Flutter test files (307 tests) cover the mobile application but are not run by CI (Section V) |
 | Code coverage | Measure the share of code exercised by tests | Not measured: no coverage tool is configured (Section V.5.2) |
 | Client builds in CI | Build the web and mobile clients automatically | Not covered: the pipeline runs for backend changes only (Section V.5.3) |
 
@@ -444,7 +444,7 @@ The objective is a working platform in which a vegan practitioner can build a he
 | 5 | A slow or unavailable service blocks its callers (synchronous REST, no broker) | Medium | Timeouts on inter-service calls; blog-service holds content as `PENDING` when moderation is unavailable; nutrition-service answers error 2012 (HTTP 503) when ai-service cannot be reached |
 | 6 | The web app, the mobile app and the services drift apart | Medium | One response envelope and enum-based error codes, and OpenAPI documentation per service aggregated at the gateway |
 | 7 | Secrets are committed to the repository | High | `.env` files stay local; only `backend/.env.example` is tracked; the deploy job reads the `BACKEND_ENV_FILE` secret |
-| 8 | Regressions in the web or mobile client are not caught automatically | Medium | Accepted: the pipeline covers the backend only and the clients are built and run manually |
+| 8 | Regressions in the web or mobile client are not caught automatically | Medium | Partly accepted: the pipeline covers the backend only and the clients are built and run manually; the Flutter application has its own test suite (`flutter test`) that developers run locally, and the web application has none |
 | 9 | The small local model (1.5B parameters, 2,048-token context) gives low-quality answers or misclassifies content | Medium | Recipes and allergens are filtered and the plan is validated in Java; moderation sends uncertain or failed classifications to manual review; a feature can be switched to Groq explicitly with its provider setting |
 
 ### 2. Management Approach
@@ -506,7 +506,7 @@ Figure 2 shows the branch model: feature branches are merged into `dev` after pu
 
 #### 2.2 Quality Management
 
-* **Automated tests:** JUnit 5, Mockito and Spring Security Test in every backend module (Section V).
+* **Automated tests:** JUnit 5, Mockito and Spring Security Test in every backend module, and `flutter_test` in the mobile application (Section V).
 * **Continuous integration:** every push or pull request to `dev` or `main` that changes `backend/` runs `mvn test` and `mvn package` for each module, builds the Docker images and validates the Compose file (Section V.5.3).
 * **Code review:** feature branches reach `dev` through pull requests that need a green CI run and an approved review (Figure 1).
 * **Layered design:** each service separates controller, service, repository, DTO and mapper code, with a common response envelope and error codes (Section IV.1.2).
@@ -603,7 +603,7 @@ Documents are kept in the repository next to the code. This report and the cours
 | AI and media | llama.cpp server with Qwen2.5-1.5B-Instruct (Q4_K_M GGUF) for chat, meal plans, recommendations and text moderation; Groq API (speech-to-text and chat completions) for video extraction; FFmpeg / FFprobe for audio extraction |
 | External services | PayOS (VietQR payments), Cloudinary (media), Google sign-in, SMTP mail server |
 | DevOps | Docker, Docker Compose (main stack and a separate local-inference project), GitHub Actions with a self-hosted Windows runner, Ngrok |
-| Testing | JUnit 5, Mockito, AssertJ, Spring Security Test, H2, Maven Surefire |
+| Testing | JUnit 5, Mockito, AssertJ, Spring Security Test, H2, Maven Surefire; `flutter_test` for the mobile application |
 
 ---
 
@@ -2459,9 +2459,9 @@ Reading the diagram: the request reserves quota, stores a job and returns at onc
 
 ### 1. Scope of Testing
 
-* **In scope:** business rules and use cases of the eight backend modules: registration, login, refresh-token rotation, OTP, BMI and calorie target calculation, allergen detection, meal-plan validation and versions, quotas and guest sessions, content moderation fallback, blog, comment and vote rules, recipe nutrition and units, restaurant search, PayOS signature and webhook handling, subscriptions, and gateway routing.
+* **In scope:** business rules and use cases of the eight backend modules: registration, login, refresh-token rotation, OTP, BMI and calorie target calculation, allergen detection, meal-plan validation and versions, quotas and guest sessions, content moderation fallback, blog, comment and vote rules, recipe nutrition and units, restaurant search, PayOS signature and webhook handling, subscriptions, and gateway routing; and, in the Flutter mobile application, the repositories, session handling and screens (widget tests).
 * **Levels:** unit tests, controller slice tests, repository and service integration tests, and CI regression runs.
-* **Out of scope:** automated tests of the React and Flutter clients (they are checked with `npm run lint` and by manual use, and are not built by the pipeline) and load tests.
+* **Out of scope:** automated tests of the React web application (it is checked with `npm run lint` and by manual use), running the Flutter tests in the CI pipeline, and load tests.
 
 ### 2. Test Strategy
 
@@ -2474,6 +2474,7 @@ Reading the diagram: the request reserves quota, stores a job and returns at onc
 | Unit test | Validate business rules in isolation (BMI, calorie target, allergen detection, meal-plan validation, quota, signature checks) | JUnit 5 with Mockito and AssertJ | Tests of the module pass |
 | Controller slice test | Check routing, validation, authentication and authorization per endpoint | `@WebMvcTest` with MockMvc and Spring Security Test | Tests of the module pass |
 | Integration test | Check repositories, native queries (`ST_Distance_Sphere`) and concurrency of counters | Spring Boot tests against H2 in MySQL mode or a MySQL 8.4 instance | Tests of the module pass |
+| Flutter unit and widget test | Check mobile repositories, authentication and refresh handling, and screens | `flutter test` with `flutter_test` and fake HTTP responses (`mobile/test`) | All tests pass |
 | CI regression | Detect regressions on each change to `backend/` | `mvn test` for every module in GitHub Actions | All matrix jobs are green |
 
 #### 2.2 Test Levels
@@ -2496,6 +2497,7 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | Tool | Use |
 | :--- | :--- |
 | JUnit 5, Mockito, AssertJ | Test framework, mocks and assertions |
+| `flutter_test` | Unit and widget tests of the Flutter application |
 | Spring Boot Test, Spring Security Test | Application context, MockMvc, JWT test support |
 | H2 (MySQL mode) | In-memory database for ai-service, payment-service and recipe-service |
 | MySQL 8.4 | Database for identity-service, nutrition-service, blog-service and location-service tests |
@@ -2525,6 +2527,7 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | Developer machine | Windows 11 with OpenJDK 21 and the Maven wrapper | Java 21.0.12 |
 | Test run for this report | Maven 3.10.0 from the wrapper, run on 2 November 2026 | H2-based modules only (ai-service re-run after the merge) |
 | CI runner | GitHub-hosted runner with a MySQL 8.4 service container on port 3307 | `ubuntu-latest`, Temurin 21 |
+| Flutter tests | Flutter 3.47.2 (stable) on the developer machine | `flutter test` in `mobile/` |
 | Deployment check | Docker Compose on a self-hosted Windows x64 runner | Compose project `veggiepal-prm` |
 
 #### 3.3 Test Milestones
@@ -2551,7 +2554,8 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | location-service | 3 | 19 | MySQL 8.4 | `./mvnw test` |
 | ai-service | 39 | 241 | H2 | `./mvnw test` |
 | payment-service | 4 | 26 | H2 | `mvn test` |
-| **Total** | **115** | **758** | | |
+| **Backend total** | **115** | **758** | | |
+| Flutter application (`mobile/test`) | 25 files | 307 run | none | `flutter test` |
 
 Test methods are counted from the `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in the source; parameterized tests run more than once, so the runtime count of a module can be higher (ai-service runs 245).
 
@@ -2606,6 +2610,7 @@ The modules that use H2 or no database were run on 2 November 2026 with `mvn tes
 | payment-service | 26 | 0 | 0 | Pass |
 | recipe-service | 38 | 0 | 0 | Pass |
 | ai-service | 245 | 0 | 0 | Pass (`mvn clean test`, after merging the self-hosted AI changes) |
+| Flutter application | 307 | 0 | 0 | Pass (`flutter test`) |
 | identity-service | - | - | - | Not run here (needs MySQL) |
 | nutrition-service | - | - | - | Not run here (needs MySQL) |
 | blog-service | - | - | - | Not run here (needs MySQL) |
@@ -2950,7 +2955,8 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 | Backend modules | 8 (7 business services and 1 API gateway) |
 | Database schemas | 7 isolated MySQL schemas |
 | Database tables | 36 |
-| Test classes / test methods | 115 / 758 |
+| Backend test classes / test methods | 115 / 758 |
+| Flutter test files / tests run | 25 / 307 |
 | Subscription plans | 3 (FREE, PLUS, PRO) |
 | CI jobs | `maven` and `docker` (matrix of 8 modules each), `compose-check`, `deploy` |
 | Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector), 8088 (local inference, loopback only) |
