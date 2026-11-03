@@ -9,7 +9,7 @@ This document defines the benchmark and quality evaluation methodology for Veggi
 3. **AI Recommendations** (`GET /api/ai/recommendations`)
 4. **AI Text Moderation** (`POST /api/ai/moderation/check`)
 
-**Excluded Feature:** Video Processing (`/api/ai/videos/...`) remains configured to use Groq cloud endpoints (`whisper-large-v3-turbo` and `openai/gpt-oss-120b`) and is excluded from this local inference benchmark.
+**Excluded Feature:** Video transcription and recipe extraction endpoints have been removed. The benchmark covers the four retained local Qwen features.
 
 ---
 

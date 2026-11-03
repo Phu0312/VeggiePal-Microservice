@@ -1,6 +1,6 @@
 # Self-hosted AI setup
 
-The four text features use one llama.cpp server. Video transcription and extraction still use Groq and require `GROQ_API_KEY`.
+The four text features use one local llama.cpp server running Qwen. No commercial AI provider is configured.
 
 ## Model
 
@@ -13,7 +13,7 @@ curl.exe -L --fail --output ai-inference/models/qwen2.5-1.5b-instruct-q4_k_m.ggu
 
 Check the downloaded file size and its SHA-256 checksum against the model repository before use. Model weights stay outside Git.
 
-## GPU deployment
+## Local GPU startup
 
 For a fresh deployment, set the usual backend `.env` values, then from `backend`:
 
@@ -25,7 +25,7 @@ docker compose build ai-service
 docker compose up -d
 ```
 
-The first command creates `veggiepal-prm-backend` if it does not exist. The backend Compose project owns this network and the inference Compose project joins it as an external network. Docker resolves `llama` on that network. The main Compose file sets `AI_LOCAL_BASE_URL=http://llama:8080/v1`, pins all four text providers to `local`, and passes the `AI_LOCAL_MODEL` alias used by llama.cpp. A Spring Boot process started directly on Windows uses `http://localhost:8088/v1`. Start ai-service from its directory with `./mvnw.cmd spring-boot:run`. The API gateway remains on host port 9080.
+The first command creates `veggiepal-prm-backend` if it does not exist. The backend Compose project owns this network and the inference Compose project joins it as an external network. Docker resolves `llama` on that network. The main Compose file sets `AI_LOCAL_BASE_URL=http://llama:8080/v1` and passes the `AI_LOCAL_MODEL` alias used by llama.cpp. A Spring Boot process started directly on Windows needs `AI_LOCAL_BASE_URL=http://127.0.0.1:8088/v1`. Start ai-service from its directory with `./mvnw.cmd spring-boot:run`. The API gateway remains on host port 9080.
 
 For an existing stack, inspect the network before restarting only the AI container:
 
@@ -50,11 +50,11 @@ docker compose -f ai-inference/compose.local-ai.yml -f ai-inference/compose.cpu.
 
 The CPU overlay selects the `server` image and zero GPU layers. Check `docker compose -f ai-inference/compose.local-ai.yml -f ai-inference/compose.cpu.yml config` before startup. CPU inference latency is hardware dependent.
 
-## Provider selection
+## Inference configuration
 
-`AI_CHAT_PROVIDER`, `AI_MEAL_PROVIDER`, `AI_RECOMMENDATION_PROVIDER` and `AI_MODERATION_PROVIDER` default to `local`. Setting one explicitly to `groq` routes only that feature to Groq. A local failure never triggers a Groq request. Video always calls `GroqClient`; it does not read these feature switches. The configured timeouts are `AI_LOCAL_CONNECT_TIMEOUT=10s` and `AI_LOCAL_READ_TIMEOUT=120s`.
+`AI_LOCAL_BASE_URL` and `AI_LOCAL_MODEL` configure the single local inference server. The configured timeouts are `AI_LOCAL_CONNECT_TIMEOUT=10s` and `AI_LOCAL_READ_TIMEOUT=120s`. An unavailable server returns a controlled AI service error; moderation queues uncertain or failed classifications for manual review.
 
-The Docker stack pins these four switches to `local`; `.env` cannot override them inside its AI container. Both Compose projects read the same `AI_LOCAL_MODEL` alias. Check effective values with `docker compose exec ai-service printenv AI_LOCAL_BASE_URL AI_LOCAL_MODEL AI_CHAT_PROVIDER AI_MEAL_PROVIDER AI_RECOMMENDATION_PROVIDER AI_MODERATION_PROVIDER`.
+Both Compose projects read the same `AI_LOCAL_MODEL` alias. Check effective values with `docker compose exec ai-service printenv AI_LOCAL_BASE_URL AI_LOCAL_MODEL`.
 
 ## Feature smoke tests
 

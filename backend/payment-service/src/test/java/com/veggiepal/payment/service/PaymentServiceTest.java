@@ -249,7 +249,7 @@ class PaymentServiceTest {
     }
     private SubscriptionPlan plan(Long id, PlanCode code, long price) {
         return SubscriptionPlan.builder().id(id).code(code).price(price).durationDays(code == PlanCode.FREE ? 0 : 30)
-                .chatPerDay(20).mealPlansPerMonth(8).videosPerMonth(3).active(true).build();
+                .chatPerDay(20).mealPlansPerMonth(8).active(true).build();
     }
     private PaymentLinkResult link(String qrCode, Instant expiredAt) {
         return new PaymentLinkResult("link-1", "https://pay.payos.vn/link-1", qrCode,

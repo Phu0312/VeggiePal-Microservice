@@ -19,8 +19,6 @@ class ErrorCodeTest {
         }
         assertEquals(6020, ErrorCode.PROFILE_INCOMPLETE.code);
         assertEquals(6021, ErrorCode.AGE_NOT_SUPPORTED.code);
-        assertEquals(6025, ErrorCode.VIDEO_QUEUE_FULL.code);
-        assertEquals(6026, ErrorCode.VIDEO_SOURCE_UNSUPPORTED.code);
     }
 }
 

@@ -78,7 +78,7 @@ class UsageSummary {
 class UsageLog {
   final int id;
   final int? userId; // null = khách
-  final String feature; // CHAT | MEAL_PLAN | MODERATION | RECOMMENDATION | TRANSCRIPTION | VIDEO
+  final String feature; // CHAT | MEAL_PLAN | MODERATION | RECOMMENDATION (historical log values are preserved)
   final String model;
   final String status; // SUCCESS | FAILED
   final int promptTokens;
@@ -121,8 +121,6 @@ const aiFeatureLabels = {
   'MEAL_PLAN': 'Thực đơn',
   'MODERATION': 'Kiểm duyệt',
   'RECOMMENDATION': 'Gợi ý',
-  'TRANSCRIPTION': 'Chép lời video',
-  'VIDEO': 'Bóc tách video',
 };
 
 String aiFeatureLabel(String f) => aiFeatureLabels[f] ?? f;
@@ -133,8 +131,6 @@ const aiModelLabels = {
   'mealPlan': 'Thực đơn',
   'moderation': 'Kiểm duyệt',
   'recommendation': 'Gợi ý',
-  'videoExtraction': 'Bóc tách video',
-  'transcription': 'Chép lời video',
 };
 
 /// Giới hạn sử dụng đang áp dụng (GET /ai/admin/monitoring/limits).

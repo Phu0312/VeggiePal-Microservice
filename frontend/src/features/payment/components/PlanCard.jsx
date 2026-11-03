@@ -1,4 +1,4 @@
-import { Check, Sparkles, Bot, Utensils, Video, Loader2 } from "lucide-react";
+import { Check, Sparkles, Bot, Utensils, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -73,7 +73,7 @@ export default function PlanCard({
             ? "Trải nghiệm tính năng AI cơ bản và khởi đầu lối sống ăn chay lành mạnh."
             : plan.code === "PLUS"
             ? "Mở rộng giới hạn cho người ăn chay thường xuyên và cần thực đơn đa dạng."
-            : "Tối đa hóa sức mạnh trợ lý AI dinh dưỡng và phân tích video toàn diện."}
+            : "Tối đa hóa sức mạnh trợ lý AI dinh dưỡng."}
         </p>
 
         {/* Danh sách quyền lợi */}
@@ -97,15 +97,6 @@ export default function PlanCard({
               </span>
               <span>
                 <strong className="text-ink">{plan.mealPlansPerMonth}</strong> thực đơn AI 7 ngày / tháng
-              </span>
-            </li>
-
-            <li className="flex items-center gap-2.5">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
-                <Video className="size-3.5" />
-              </span>
-              <span>
-                <strong className="text-ink">{plan.videosPerMonth}</strong> lượt tóm tắt video dinh dưỡng / tháng
               </span>
             </li>
 

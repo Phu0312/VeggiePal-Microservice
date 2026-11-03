@@ -10,8 +10,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
 import com.veggiepal.ai.common.PageResponse;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.groq.ModelProperties;
+import com.veggiepal.ai.provider.LocalAiClient;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.quota.PremiumQuotaService;
 import java.math.BigDecimal;
@@ -35,8 +34,7 @@ class MealPlanUpgradeServiceTest {
     private RestClient http;
     private RestClient.RequestHeadersUriSpec uriSpec;
     private RestClient.ResponseSpec responseSpec;
-    private GroqClient groq;
-    private ModelProperties models;
+    private LocalAiClient ai;
     private ObjectMapper mapper;
     private UsageService usage;
     private MealPlanValidator validator;
@@ -54,8 +52,7 @@ class MealPlanUpgradeServiceTest {
         http = mock(RestClient.class);
         uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
         responseSpec = mock(RestClient.ResponseSpec.class);
-        groq = mock(GroqClient.class);
-        models = new ModelProperties("chat-model", "meal-model", "rec-model", "profile-model", "video-model", "whisper-model");
+        ai = mock(LocalAiClient.class);
         mapper = new ObjectMapper();
         usage = mock(UsageService.class);
         validator = new MealPlanValidator(mapper);
@@ -71,8 +68,7 @@ class MealPlanUpgradeServiceTest {
                 "http://recipe-service",
                 "http://nutrition-service",
                 "http://identity-service",
-                groq,
-                models,
+                ai,
                 mapper,
                 usage,
                 validator,

@@ -70,7 +70,7 @@ We would like to express our deepest gratitude to our project supervisor and the
 | ERD | Entity Relationship Diagram |
 | FR / NFR | Functional Requirement / Non-Functional Requirement |
 | GPS | Global Positioning System |
-| Groq | Cloud provider for video transcription and recipe extraction; text features use local llama.cpp by default |
+| llama.cpp | Local OpenAI-compatible inference for chat, meal planning, recommendations and moderation using Qwen2.5-1.5B-Instruct |
 | JWT | JSON Web Token (RFC 7519) |
 | LLM | Large Language Model |
 | PayOS | Payment gateway integrating Vietnamese banking QR code (VietQR) |
@@ -126,7 +126,7 @@ VeggiePal addresses these challenges through personal health profiling, AI-assis
 
 ### 4. Business Opportunity
 
-The plant-based food market in Southeast Asia is growing steadily. By consolidating allergen-aware meal planning, recipe browsing, community blogging, video recipe extraction and a restaurant locator into one microservices backend with a freemium subscription model (FREE / PLUS / PRO, paid through PayOS), VeggiePal targets a high-retention niche audience.
+The plant-based food market in Southeast Asia is growing steadily. By consolidating allergen-aware meal planning, recipe browsing, community blogging, community videos and a restaurant locator into one microservices backend with a freemium subscription model (FREE / PLUS / PRO, paid through PayOS), VeggiePal targets a high-retention niche audience.
 
 ### 5. Software Product Vision
 
@@ -141,7 +141,6 @@ The plant-based food market in Southeast Asia is growing steadily. By consolidat
 - Social community: blogs, videos, multilevel nested comments and up/down voting on both blogs and videos, and image upload.
 - AI-assisted 7-day meal plan (breakfast, lunch and dinner for each day, 21 meals) based on nutrition targets, declared allergens and optional available ingredients, with version history and restoration.
 - Recipe catalog with per-serving nutrition calculation, image upload and popular/liked ranking; restaurant keyword search and nearby search using MySQL `ST_Distance_Sphere`.
-- AI-driven video recipe extraction: audio extraction with FFmpeg, transcription, and structured recipe extraction.
 - AI-assisted content moderation with an administrator review queue.
 - Domestic payment processing and subscription management through PayOS VietQR.
 
@@ -150,7 +149,7 @@ The plant-based food market in Southeast Asia is growing steadily. By consolidat
 - The system does not sell or deliver groceries; it provides recipe and ingredient information.
 - Barcode scanning is not provided.
 - Message streaming and event brokers (Kafka and similar) are not used; they are earmarked for possible future scaling.
-- Chat, meal planning, recommendations and text moderation use a local Qwen2.5 GGUF model through llama.cpp by default; video transcription and extraction still depend on Groq.
+- Chat, meal planning, recommendations and text moderation use only a local Qwen2.5 GGUF model through llama.cpp. No commercial AI provider is configured.
 
 ---
 
@@ -165,7 +164,7 @@ The project was executed across 15 academic weeks using Scrum-inspired iteration
 | 1 | Requirement engineering, domain modelling, initial SRS / SPMP documentation |
 | 2 | Core backend foundation, database schemas, Docker containerization, API gateway |
 | 3 | Domain services: Identity, Nutrition, Blog, Recipe, Location |
-| 4 | AI service integration, LLM-based meal planning, video processing, PayOS payment service |
+| 4 | AI service integration, LLM-based meal planning, PayOS payment service |
 | 5 | Client applications: React web and Flutter mobile; backend test suites |
 | 6 | GitHub Actions CI/CD automation, Docker Compose deployment, final documentation |
 
@@ -254,9 +253,9 @@ Authorization has two roles (`USER`, `ADMIN`) plus unauthenticated guests. Subsc
 | Actor | Core responsibilities and privileges |
 |---|---|
 | Guest | Browse public blogs, videos, recipes (including popular recipes) and the restaurant map/search; create a guest session to try the AI chatbot (3 chat requests per day per IP) |
-| USER | Maintain health records and allergens; generate, edit and restore meal-plan versions; inspect remaining AI quotas; use the AI chatbot; publish recipes, blogs, comments, votes and likes; process videos; buy a subscription |
+| USER | Maintain health records and allergens; generate, edit and restore meal-plan versions; inspect remaining AI quotas; use the AI chatbot; publish recipes, blogs, comments, votes and likes; buy a subscription |
 | ADMIN | Manage user accounts (search, lock/unlock status, role assignment), moderate flagged content, take down blogs/videos, manage categories and ingredients, view AI monitoring and payment statistics |
-| Subscription plan (FREE / PLUS / PRO) | Defines per-user quotas for AI chat, meal plans and video processing |
+| Subscription plan (FREE / PLUS / PRO) | Defines per-user quotas for AI chat and meal plans |
 
 **Figure III.1. VeggiePal actors and use cases**
 
@@ -276,7 +275,6 @@ flowchart LR
         UC5["Generate and edit 7-day meal plan"]
         UC6["AI nutrition chat (plan quota)"]
         UC7["Write blogs, comment, vote"]
-        UC8["Extract recipe from video"]
         UC9["Buy PLUS / PRO subscription"]
         UC10["Manage users, moderate content and manage categories"]
         UC11["View AI monitoring and payment statistics"]
@@ -290,7 +288,6 @@ flowchart LR
     U --> UC5
     U --> UC6
     U --> UC7
-    U --> UC8
     U --> UC9
     A --> UC10
     A --> UC11
@@ -304,26 +301,25 @@ flowchart LR
 | Req ID | Feature | Responsible service | Description & acceptance criteria |
 |---|---|---|---|
 | FR-01 | Account & Auth | identity-service | Profile extras: saved favorites (`/users/me/favorites`) and green badges (`/users/me/badges`, derived from profile/email state plus unlocked badges; manual unlock requires ADMIN, and blog-service awards VEGGIE_GREEN_HEART after the seven-day challenge). Registration with BCrypt-hashed passwords (cost 10); newly registered accounts start `ACTIVE` (`emailVerified = false`) and receive a 6-digit email verification OTP (`/auth/send-verification`, `/auth/verify-email`); OTP sends are capped at 3 per email and 10 per IP per hour in each identity-service process, and verification is capped at 10 failed attempts per email per hour across issued codes; 6-digit email OTP password recovery (`/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password`); login and Google sign-in verify that the account is `ACTIVE` (rejecting `BLOCKED` or non-active accounts with HTTP 403 / error 1021) and issue an HS256 JWT (claims `userId`, `role`, valid 30 minutes) together with an opaque refresh token (SHA-256 hashed in `refresh_tokens`, rotated via `/auth/refresh` and revoked on `/auth/logout` or password change); login and refresh responses include `emailVerified`; `/auth/send-verification` returns the same response whether an email is unknown, verified or awaiting verification; profile update, password change and avatar upload to Cloudinary; each account carries a status (`PENDING`, `ACTIVE`, `INACTIVE`, `BLOCKED`) and a role (`USER`, `ADMIN`). |
-| FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest chat uses local inference by default and is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
+| FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest chat uses local inference and is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
 | FR-01 | Account & Auth | identity-service | Profile extras: saved favorites (`/users/me/favorites`) and green badges (`/users/me/badges`, derived from profile/email state plus unlocked badges). Registration with BCrypt-hashed passwords (cost 10); newly registered accounts start `ACTIVE` (`emailVerified = false`) and receive a 6-digit email verification OTP (`/auth/send-verification`, `/auth/verify-email`); 6-digit email OTP password recovery (`/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password`); login and Google sign-in verify that the account is `ACTIVE` (rejecting `BLOCKED` or non-active accounts with HTTP 403 / error 1021) and issue an HS256 JWT (claims `userId`, `role`, valid 30 minutes) together with an opaque refresh token (SHA-256 hashed in `refresh_tokens`, rotated via `/auth/refresh` and revoked on `/auth/logout` or password change); profile update, password change and avatar upload to Cloudinary; each account carries a status (`PENDING`, `ACTIVE`, `INACTIVE`, `BLOCKED`) and a role (`USER`, `ADMIN`). The mobile and web clients both renew the access token with the refresh token, offer the email OTP password recovery and email verification, and show favorites and badges on the profile. |
 | FR-02 | Guest trial usage | ai-service, api-gateway | Public blog and map browsing without login. A guest creates a session with `POST /ai/chat/guest-sessions` (valid 24 hours, at most 3 sessions per IP per day) and sends the returned `guestSession` with each guest chat request. Guest chat is limited to 3 requests per day per IP; when the quota is exceeded the API returns error 6003 with HTTP 429. |
 | FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. Community videos follow the same status workflow: a signed-in user posts a video from exactly one source, a YouTube link or an `.mp4` file of at most 30 MB stored on Cloudinary (a category is required); `publish=true` runs moderation immediately, drafts are submitted later, and an edit changes only title, description and category. |
 | FR-04 | Comments & votes | blog-service | Community extras: leaderboard ranked by published posts and likes, author follow/unfollow (`user_follows`), trending topics from category counts, community stats, video channels (`/videos/channels`), a 7-day check-in challenge persisted in `user_challenges`, and per-video nutrition facts (`/videos/{id}/nutrition`). Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` / `-1` / `0`) enforced by a unique constraint on both blogs and videos; `blogs.vote_score` and `videos.vote_score` are updated with atomic SQL increments. |
 | FR-05 | Recipe & restaurant search | recipe-service, location-service | Public browsing of published recipes with keyword search and paging; Cloudinary recipe image upload; per-serving nutrition calculation (`kcal`, `protein`, `carbs`, `fat`, `fiber` converted across weight, volume, spoon and piece units); recipe likes and popular ranking (`/recipes/popular`, `sort=popular`); ingredient catalog (keyword search, `vegan` and `allergen` filters, paging, nutrition per 100 g); restaurant keyword search (`/restaurants`, `/restaurants/search`) and nearby GPS search within a requested radius (with optional `keyword` and `veganOnly` filters), ordered by distance computed by MySQL `ST_Distance_Sphere`. |
-| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If the LLM call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; daily food diary, water and exercise tracking and a combined "today" nutrition summary are served by nutrition-service (`/nutrition/me/food-logs`, `/water`, `/daily-activity`, `/daily-summary`); remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
+| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the LLM proposes the plan from real recipe IDs and the server validates and enriches it. If generated output is invalid, a deterministic planner builds the plan; an unavailable local inference server returns a controlled 503 error. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; daily food diary, water and exercise tracking and a combined "today" nutrition summary are served by nutrition-service (`/nutrition/me/food-logs`, `/water`, `/daily-activity`, `/daily-summary`); remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
 | FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. Each reply returns `remainingRequests`. Signed-in users list, reopen, continue and delete their conversations (`/ai/chat/conversations`); the clients show the reply as formatted text (headings, lists, tables) and keep guest messages only in memory. |
-| FR-08 | Video recipe extraction | ai-service, blog-service | Asynchronous video jobs: FFmpeg/FFprobe extract the audio track, a speech-to-text model transcribes it, and an LLM extracts a recipe title, ingredients (name and quantity) and numbered steps as structured JSON. A user can submit a video file (`POST /ai/videos/process`) or ask for a published uploaded video (`POST /ai/videos/process-existing`; the result is shared and readable without quota through `GET /ai/videos/by-video/{id}`; YouTube videos are not supported). Job history is listed at `GET /ai/videos`; results are kept for 30 days. Default limits: 100 MB and 30 minutes per video. Quota is reserved per job and refunded when a job fails. |
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
 | FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (LLM-based, looking for profanity and animal-derived content); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
 | FR-11 | Admin operations | identity-service, ai-service, payment-service, blog-service, recipe-service | User administration (`/admin/users`: search/filter, lock/unlock status, role assignment); AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
-| FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20, videos per month 0 / 3 / 8. |
+| FR-12 | Payment & subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50 and meal plans per month 2 / 8 / 20. |
 | FR-13 | Daily nutrition diary | nutrition-service (calls ai-service) | A signed-in user logs foods per meal (`/nutrition/me/food-logs`), water (`/nutrition/me/water`) and activity (`/nutrition/me/daily-activity`) and reads a daily summary (`GET /nutrition/me/daily-summary?date=&goalType=`). The calorie target is not computed in nutrition-service: it calls `GET /ai/meal-plans/nutrition-target` with the caller's token and the requested goal (`LOSE`, `MAINTAIN` or `GAIN`, default `MAINTAIN`), then splits the target 50% carbohydrate, 20% protein and 30% fat. Without a complete health record and profile the summary fails with error 2013 (HTTP 400), for a user under 18 with error 2014 (HTTP 400), and when ai-service cannot be reached with error 2012 (HTTP 503); an unknown `goalType` gives error 1018. The diary is available in the mobile app and at `/diary` in the web app. |
 
 ### 4. Non-Functional Requirements (NFR)
 
-1. **Performance & scalability:** Services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status/publish date, comment target). Text inference uses one local llama.cpp instance with configurable context, batch, GPU layers and concurrency; ai-service defaults to 10-second connect and 120-second read timeouts for it. Video uses the separately configured Groq timeouts and retries.
+1. **Performance & scalability:** Services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status/publish date, comment target). Text inference uses one local llama.cpp instance with configurable context, batch, GPU layers and concurrency; ai-service defaults to 10-second connect and 120-second read timeouts for it.
 2. **Security:** Passwords are hashed with BCrypt (cost 10), and OTP codes and opaque refresh tokens are stored as SHA-256 hashes. JWTs are signed with HS256 and validated by every service as an OAuth2 resource server; refresh tokens are rotated on `/auth/refresh` and revoked on `/auth/logout` or password changes. Inter-service calls that must not be public (for example subscription lookup and challenge badge awards) use an internal service token. OTP values are logged only when SMTP is absent and the `dev` profile is active; other profiles fail email delivery without SMTP. PayOS webhooks are accepted only after signature verification. CORS is configured only at the gateway. Uploaded images are validated by content type and magic bytes. Secrets are supplied through environment variables. Gateway and AI accept forwarded client IP headers only from configured trusted proxy IPs or CIDR ranges.
-3. **Availability & resilience:** Each service runs in its own container with an HTTP health check, and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if the payment service cannot be reached, falls back to a deterministic planner if the LLM call fails, and queues moderated content as `REVIEW_REQUIRED` (`PENDING`) when LLM moderation is unavailable.
+3. **Availability & resilience:** Each service runs in its own container with an HTTP health check, and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if the payment service cannot be reached, falls back to a deterministic planner for invalid generated output and returns 503 if local inference is unavailable, and queues moderated content as `REVIEW_REQUIRED` (`PENDING`) when LLM moderation is unavailable.
 4. **Data integrity:** Database-per-service isolation with no cross-database foreign keys; user identifiers are stored as plain IDs. Unique constraints protect votes, recipe likes, refresh-token hashes, allergen selections, plan codes and payment order codes. Payment orders are updated under a row lock, and `vote_score` / `like_count` counters are updated with atomic SQL statements.
 5. **Maintainability:** Layered code per service (controller, service, repository, DTO/mapper), consistent response envelope and error codes, OpenAPI documentation per service aggregated at the gateway.
 6. **Portability:** The entire backend starts with a single Docker Compose command.
@@ -331,11 +327,11 @@ flowchart LR
 ### 5. Requirement Appendix & Business Rules
 
 - **BR-01 (Plant-based catalog):** The ingredient and recipe catalog contains plant-based content; each ingredient carries a `vegan` flag and an `allergen` flag.
-- **BR-02 (Strict allergen exclusion):** A recipe is excluded from the candidate list for meal planning if it contains an ingredient matching the user's declared allergens. Local inference receives only filtered recipe candidates by default, and the generated plan is validated and enriched from recipe data again on the server.
+- **BR-02 (Strict allergen exclusion):** A recipe is excluded from the candidate list for meal planning if it contains an ingredient matching the user's declared allergens. Local inference receives only filtered recipe candidates, and the generated plan is validated and enriched from recipe data again on the server.
 - **BR-03 (Guest limits):** A guest session lasts 24 hours; one IP can create at most 3 sessions per day and send at most 3 guest chat requests per day. Guest replies use the same local text model as member chat by default.
 - **BR-04 (Content ownership):** Only the author or an administrator may edit or remove content.
 - **BR-05 (Idempotent webhook execution):** A payment order that is already `PAID` or `CANCELLED` is not changed or credited again when a duplicate webhook arrives; the amount in the webhook must match the order amount.
-- **BR-06 (Quota by plan):** Chat, meal-plan and video usage are limited by the user's active subscription; an expired or unavailable subscription is treated as FREE. Selecting local inference does not change quota reservation.
+- **BR-06 (Quota by plan):** Chat and meal-plan usage are limited by the user's active subscription; an expired or unavailable subscription is treated as FREE. Selecting local inference does not change quota reservation.
 
 ---
 
@@ -353,7 +349,7 @@ VeggiePal uses a REST-based microservices architecture: seven business services 
 | blog-service | 8083 | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Blogs, videos, categories, comments, votes |
 | recipe-service | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Recipes (per-serving nutrition, image upload, likes & popular), ingredients, steps |
 | location-service | 8085 | `/api/restaurants/**` | Restaurant data, keyword search and nearby search |
-| ai-service | 8086 | `/api/ai/**`, `/ai/**` | Local AI chatbot, meal plans, recommendations (recipe candidates filtered against allergies) and text moderation; Groq video extraction, quotas, monitoring |
+| ai-service | 8086 | `/api/ai/**`, `/ai/**` | Local AI chatbot, meal plans, recommendations (recipe candidates filtered against allergies) and text moderation; quotas and monitoring |
 | payment-service | 8087 | `/api/payments/**`, `/api/subscriptions/**`, `/api/admin/payments/**` | Plans, PayOS orders and webhook, subscriptions, admin payment statistics |
 
 **Figure IV.1. REST-based microservices architecture**
@@ -413,7 +409,6 @@ flowchart TB
     BL -. "moderation check" .-> AI
 
     subgraph EX["External providers"]
-        GQ["Groq (video LLM, speech-to-text)"]
         CD["Cloudinary (images, videos)"]
         GO["Google (ID token verification)"]
         PO["PayOS (VietQR payments)"]
@@ -421,7 +416,6 @@ flowchart TB
 
     LL["llama.cpp :8080 (Qwen2.5 text)"]
     AI --> LL
-    AI --> GQ
     ID --> CD
     BL --> CD
     RE --> CD
@@ -491,7 +485,7 @@ flowchart LR
     B[("blog<br/>categories, blogs, videos, comments,<br/>content_votes, user_follows, user_challenges")]
     R[("recipe<br/>recipes, ingredients, steps,<br/>recipe_ingredients, recipe_likes")]
     L[("location<br/>vegetarian_restaurants")]
-    A[("ai<br/>meal plans, chat, quotas,<br/>usage, moderation, video jobs")]
+    A[("ai<br/>meal plans, chat, quotas,<br/>usage, moderation, historical video jobs")]
     P[("payment<br/>subscription_plans,<br/>user_subscriptions, payment_orders")]
 
     N -. "user_id" .-> U
@@ -870,7 +864,7 @@ erDiagram
     AI_CONVERSATIONS ||--o{ AI_CHAT_MESSAGES : "conversation_id"
 ```
 
-*Figure IV.3d: A meal plan keeps its current JSON and a history of versions, and users can favorite plans (one favorite per user and plan). Conversations own their chat messages. `ai_guest_sessions` stores only a hash of the guest's IP address. `ai_daily_quotas` is unique per (principal, feature, date) and enforces usage limits; `ai_usage_logs` records every AI call with its token counts and latency for admin monitoring. Moderation cases and video jobs reference content by ID only.*
+*Figure IV.3d: A meal plan keeps its current JSON and a history of versions, and users can favorite plans (one favorite per user and plan). Conversations own their chat messages. `ai_guest_sessions` stores only a hash of the guest's IP address. `ai_daily_quotas` is unique per (principal, feature, date) and enforces usage limits; `ai_usage_logs` records every AI call with its token counts and latency for admin monitoring. Moderation cases reference content by ID. The retained `ai_video_jobs` table stores historical records; no active video processing endpoint uses it.*
 
 **Figure IV.3e. ERD of the payment schema**
 
@@ -915,7 +909,7 @@ erDiagram
     SUBSCRIPTION_PLANS ||--o{ PAYMENT_ORDERS : "plan_id"
 ```
 
-*Figure IV.3e: The plan catalog (FREE, PLUS, PRO) holds price, duration and quotas. Each user has at most one current subscription row, and every checkout creates a payment order tied to a plan. The `version` columns provide optimistic locking.*
+*Figure IV.3e: The plan catalog (FREE, PLUS, PRO) holds price, duration, and active chat and meal-plan quotas. The `videos_per_month` column is retained for existing records and is no longer exposed or seeded. Each user has at most one current subscription row, and every checkout creates a payment order tied to a plan. The `version` columns provide optimistic locking.*
 
 ### 3. Detailed Design & Sequence Specifications
 
@@ -957,7 +951,7 @@ sequenceDiagram
 3. If the request has no daily nutrition target, ai-service computes one from the user's profile and health record (BMR/TDEE adjusted by the goal type: lose, maintain or gain weight) and validates it.
 4. ai-service reserves one meal-plan unit from the user's monthly quota (plan limits are read from payment-service; an unavailable lookup is treated as the FREE plan).
 5. The validator removes every recipe that contains a declared allergen and ranks the remaining recipes so that those matching more of the user's available ingredients come first.
-6. ai-service asks local Qwen2.5 through llama.cpp to build a plan from these real recipe IDs by default. If inference fails, a deterministic planner is used instead; Groq is used only when explicitly selected for meal planning.
+6. ai-service asks local Qwen2.5 through llama.cpp to build a plan from these real recipe IDs. Invalid or incomplete generated output can use the deterministic planner; an unavailable local inference server returns a controlled 503 error.
 7. The validator checks and enriches the plan: exactly seven days with breakfast, lunch and dinner, only allowed recipe IDs, allergen safety, and calories scaled toward the daily meal budgets.
 8. The plan is stored in `ai_meal_plans` and returned to the client; later edits create new versions.
 
@@ -972,7 +966,7 @@ sequenceDiagram
     participant NU as nutrition-service
     participant RE as recipe-service
     participant PA as payment-service
-    participant GQ as Local llama.cpp
+    participant LL as Local llama.cpp
     participant DB as veggiepal_ai
 
     C->>GW: POST /api/ai/meal-plans (JWT, goal, preferences, ingredients)
@@ -988,10 +982,10 @@ sequenceDiagram
     PA-->>AI: plan quotas
     AI->>DB: reserve monthly meal-plan quota
     AI->>AI: exclude allergen recipes, rank by available ingredients
-    AI->>GQ: POST /v1/chat/completions with safe recipes and constraints
+    AI->>LL: POST /v1/chat/completions with safe recipes and constraints
     alt LLM answered
-        GQ-->>AI: candidate plan JSON
-    else LLM failed
+        LL-->>AI: candidate plan JSON
+    else invalid or incomplete generated output
         AI->>AI: deterministic planner builds the plan
     end
     AI->>AI: validate 7 days x 3 meals, allergens, calorie budgets
@@ -999,7 +993,7 @@ sequenceDiagram
     AI-->>C: meal plan response
 ```
 
-*Figure IV.5 shows how the plan is produced. ai-service gathers data from three services, reserves quota, filters unsafe recipes before local inference, lets Qwen2.5 choose among real recipe IDs only, and validates the result again on the server. When inference is unavailable the deterministic planner still produces a valid plan.*
+*Figure IV.5 shows how the plan is produced. ai-service gathers data from three services, reserves quota, filters unsafe recipes before local inference, lets Qwen2.5 choose among real recipe IDs only, and validates the result again on the server. Invalid generated output can use the deterministic planner; an unavailable inference server returns a controlled 503 error.*
 
 #### 3.3. PayOS Asynchronous Webhook Payment Processing Flow
 
@@ -1055,7 +1049,6 @@ All clients use the gateway at `http://localhost:9080`; the aggregated Swagger U
 | Restaurants | `/api/restaurants`, `/api/restaurants/search`, `/api/restaurants/nearby` (`keyword`, `veganOnly`, `lat`, `lng`, `radiusKm`) | Public |
 | AI chat | `/api/ai/chat/guest-sessions`, guest chat, member chat, conversations | Guest session or JWT |
 | AI meal plans & quotas | `POST /api/ai/meal-plans`, `GET /api/ai/meal-plans`, `/quota`, `GET /api/ai/quotas/me`, `/nutrition-target`, `/favorites`, `/{id}/versions`, `/{id}/versions/{version}/restore`, `/{id}/preview-edit`, `/{id}/edit`, `/{id}/replace` | JWT |
-| AI video | `POST /api/ai/videos/process` (multipart), job status endpoints | JWT |
 | AI recommendations (recipe candidates filtered against the user's allergies) | `GET /api/ai/recommendations` | JWT |
 | AI moderation and monitoring | `/api/ai/moderation/check`, `/ai/admin/moderation`, `/ai/admin/monitoring/**` | Service call / ADMIN |
 | Payments | `GET /api/payments/plans`, `POST /api/payments/checkout`, `/api/payments/orders/{id}`, `/history`, `GET /api/subscriptions/me`, `POST /api/payments/webhook/payos`, `/api/admin/payments/**` | JWT; ADMIN for `/api/admin/payments/**`; webhook is public but signature-verified |
@@ -1083,19 +1076,19 @@ Request and response schemas, status codes and examples for every endpoint are p
 
 ### 3. Test Inventory
 
-The repository contains 106 test classes with 712 test methods (counted from `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in source).
+The repository contains 105 test classes with 710 test methods (counted from `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in source).
 
 | No. | Service | Test methods | Primary test focus |
 |---|---|---|---|
-| 1 | blog-service | 259 | Blogs, videos, comments, votes, categories, moderation fallback, security |
-| 2 | ai-service | 212 | Meal planning, version restore, validation, quota endpoints, chat, video jobs, moderation |
-| 3 | identity-service | 102 | Registration, login, OTP password reset & email verification, refresh tokens, admin users, profile |
-| 4 | nutrition-service | 47 | Health records, BMI, allergen mapping |
+| 1 | blog-service | 263 | Blogs, videos, comments, votes, categories, moderation fallback, security |
+| 2 | ai-service | 193 | Meal planning, version restore, validation, quota endpoints, chat, moderation and local inference |
+| 3 | identity-service | 108 | Registration, login, OTP password reset & email verification, refresh tokens, admin users, profile |
+| 4 | nutrition-service | 53 | Health records, BMI, allergen mapping |
 | 5 | recipe-service | 38 | Recipe CRUD, per-serving nutrition, image upload, likes & popular, ingredient data and units |
 | 6 | payment-service | 26 | PayOS signature, webhook handling, subscriptions |
 | 7 | location-service | 19 | Restaurant keyword search, vegan filter and nearby distance search |
-| 8 | api-gateway | 9 | Routing rules (including admin routes) and Swagger aggregation |
-| | **Total** | **712** | |
+| 8 | api-gateway | 10 | Routing rules (including admin routes) and Swagger aggregation |
+| | **Total** | **710** | |
 
 The `maven` job in GitHub Actions runs tests for each module (see Figure VI.5).
 
@@ -1106,9 +1099,8 @@ The `maven` job in GitHub Actions runs tests for each module (see Figure VI.5).
 | Concurrent votes corrupting the vote score | Unique constraint per (user, target) and an atomic SQL update of `vote_score` |
 | Duplicate payment webhooks granting a subscription twice | Row lock on the order, early return for `PAID` / `CANCELLED` orders, amount and payment-link checks, optimistic `version` columns |
 | Allergen exposure in AI meal plans | Allergen recipes removed before the LLM call, and the generated plan is validated again on the server |
-| LLM outage or malformed output | Deterministic planner fallback and structural validation of every plan |
+| LLM outage or malformed output | Controlled 503 for unavailable local inference; deterministic planner and structural validation for malformed output |
 | Guest abuse of the free chatbot | Hashed-IP guest sessions, session TTL, per-IP session cap and a daily chat quota |
-| Quota lost when a video job fails | Quota reservation flags on the job and automatic refund |
 | Unsafe image uploads | Content-type and magic-byte validation before uploading to Cloudinary |
 
 ---
@@ -1131,7 +1123,7 @@ The `maven` job in GitHub Actions runs tests for each module (see Figure VI.5).
 #### 2.1. System Requirements
 
 - **Operating system:** Windows 10/11 64-bit, macOS, or Ubuntu 22.04 LTS.
-- **Hardware:** local inference targets a 32 GB RAM Windows 11/WSL2 machine with an NVIDIA Quadro T2000 (4 GB VRAM); CPU fallback is provided. The Q4_K_M model file is about 1.12 GB, with additional memory needed for context and runtime buffers. Video processing still requires internet access and a `GROQ_API_KEY`.
+- **Hardware:** local inference targets a 32 GB RAM Windows 11/WSL2 machine with an NVIDIA Quadro T2000 (4 GB VRAM); CPU fallback is provided. The Q4_K_M model file is about 1.12 GB, with additional memory needed for context and runtime buffers.
 - **Software:** Docker Desktop (Docker Compose v2+), Git, OpenJDK 21 (only for running services outside Docker), Node.js (web frontend), and a Flutter SDK compatible with the Dart constraint `^3.13.2` in `mobile/pubspec.yaml`.
 
 #### 2.2. Installation Instructions
@@ -1149,7 +1141,7 @@ The `maven` job in GitHub Actions runs tests for each module (see Figure VI.5).
    cp backend/.env.example backend/.env
    ```
 
-   Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`. Needed for the related features: `INTERNAL_SERVICE_TOKEN`, `GROQ_API_KEY` (video AI), `CLOUDINARY_*` (images and videos), `GOOGLE_CLIENT_ID` (Google sign-in), `MAIL_*` (SMTP delivery for OTP emails; logs OTPs only with the `dev` profile when `MAIL_HOST` is omitted; other profiles require SMTP) and the `PAYOS_*` credentials (payments). The template also lists `AI_LOCAL_BASE_URL`, `AI_LOCAL_MODEL`, local connect/read timeouts and feature provider switches (all default to local); `AI_GUEST_SESSION_PEPPER`, transcription timeout and video worker, queue, storage, retention and download settings used by ai-service. `TRUSTED_PROXIES` and `AI_TRUSTED_PROXIES` set the trusted proxy IPs or CIDR ranges for forwarded client IP handling.
+   Required for the stack to start: `DB_PASSWORD`, `JWT_SECRET`, `NGROK_AUTHTOKEN`. Needed for the related features: `INTERNAL_SERVICE_TOKEN`, `CLOUDINARY_*` (images and videos), `GOOGLE_CLIENT_ID` (Google sign-in), `MAIL_*` (SMTP delivery for OTP emails; logs OTPs only with the `dev` profile when `MAIL_HOST` is omitted; other profiles require SMTP) and the `PAYOS_*` credentials (payments). The template also lists `AI_LOCAL_BASE_URL`, `AI_LOCAL_MODEL`, local connect/read timeouts, and `AI_GUEST_SESSION_PEPPER`. `TRUSTED_PROXIES` and `AI_TRUSTED_PROXIES` set the trusted proxy IPs or CIDR ranges for forwarded client IP handling.
 
 3. Download the Qwen2.5 Q4_K_M GGUF model as described in `/backend/SELF_HOSTED_AI_SETUP.md`. Start the backend network and local inference container, then the main stack. `docker-compose.infra.yml` is an alternative host-development mode: it shares the Compose project and container names with the full stack and sends Ngrok to a gateway running on the host at port 8080 (the full stack publishes the gateway on host port 9080).
 
@@ -1264,16 +1256,16 @@ sequenceDiagram
 
 #### 3.4. Workflow 4: Upgrading to a PLUS or PRO Subscription via VietQR PayOS
 
-1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan. For a signed-in user it also shows how much of the chat (per day), meal-plan (per month) and video-extraction (per month) quota has been used and when it resets, read from `GET /ai/quotas/me`. The web app shows the same figures on the pricing page, the checkout page and Profile.
+1. Navigate to Profile > Subscription. The screen shows the current plan with its expiry date and the quotas of each plan. For a signed-in user it also shows how much of the chat (per day) and meal-plan (per month) quotas has been used and when it resets, read from `GET /ai/quotas/me`. The web app shows the same figures on the pricing page, the checkout page and Profile.
 2. Select PLUS or PRO. Choosing a different paid plan than the current one asks for confirmation first, because the new plan replaces the current one.
 3. The app creates the order (`POST /payments/checkout`; an unexpired pending order of the same plan is reused) and shows the dynamic VietQR code with the amount, account and transfer content. Scan it with any Vietnamese banking app. The app polls the order every 2.5 seconds, shows a countdown, offers to recreate an expired code and lets the user cancel a pending order.
 4. After PayOS confirms the payment through the webhook, the order becomes PAID and the subscription is activated for 30 days; paying again for the active plan adds 30 days to its expiry. When a quota is used up (error 6003 in ai-service), the app offers a shortcut to this screen. Past orders are listed under Profile > Payment history.
 
-| Plan | Price | Chat per day | Meal plans per month | Videos per month |
-|---|---|---|---|---|
-| FREE | 0 VND | 5 | 2 | 0 |
-| PLUS | 29,000 VND / 30 days | 20 | 8 | 3 |
-| PRO | 59,000 VND / 30 days | 50 | 20 | 8 |
+| Plan | Price | Chat per day | Meal plans per month |
+|---|---|---|---|
+| FREE | 0 VND | 5 | 2 |
+| PLUS | 29,000 VND / 30 days | 20 | 8 |
+| PRO | 59,000 VND / 30 days | 50 | 20 |
 
 **Figure VI.4. PayOS subscription workflow**
 
@@ -1369,7 +1361,7 @@ flowchart LR
 4. MySQL 8.4 Reference Manual - spatial function `ST_Distance_Sphere`.
 5. RFC 7519 - JSON Web Token (JWT), Internet Engineering Task Force (IETF).
 6. PayOS developer documentation - payment link creation and webhook verification.
-7. Groq API documentation - chat completions and speech-to-text.
+7. llama.cpp server documentation - local OpenAI-compatible chat completions.
 
 ### 2. Project Metrics Summary
 
@@ -1378,7 +1370,7 @@ flowchart LR
 | Backend modules | 8 (7 business services + 1 API gateway) |
 | Database schemas | 7 isolated MySQL schemas |
 | Database tables | 36 |
-| Test classes / test methods | 106 / 712 |
+| Test classes / test methods | 105 / 710 |
 | Subscription plans | 3 (FREE, PLUS, PRO) |
 | CI jobs | `maven` and `docker` (matrix of 8 modules each), `compose-check`, `deploy` |
 | Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector), 8088 (local inference, loopback only) |
@@ -1390,7 +1382,7 @@ flowchart LR
 
 - A microservices backend (7 services and a gateway) with a separate local inference Compose project and aggregated Swagger documentation.
 - Secure authentication with BCrypt, HS256 JWT validation in every service, opaque refresh-token rotation and revocation, 6-digit email OTP password recovery and email verification, and Google sign-in.
-- Allergen-aware AI meal planning with server-side validation and a fallback planner; local Qwen2.5 serves chat, meal planning, recommendations and text moderation by default, while Groq remains the video provider.
+- Allergen-aware AI meal planning with server-side validation and a fallback planner; local Qwen2.5 serves chat, meal planning, recommendations and text moderation.
 - A community module with nested comments, voting and administrator moderation.
 - A domestic payment flow with PayOS VietQR, signed and idempotent webhook processing, and plan-based quotas.
 - An automated GitHub Actions pipeline that tests, packages, builds images, validates Compose and deploys to a local runner.
@@ -1399,6 +1391,6 @@ flowchart LR
 
 - **Quality:** archive Surefire reports from CI, add JaCoCo to measure code coverage (target at least 60%), and add reproducible load tests for the gateway and the AI endpoints.
 - **CI/CD:** add build and lint steps for the React and Flutter projects, and publish test reports as workflow artifacts.
-- **Resilience and observability:** add retry and circuit-breaker policies and monitoring for the external Groq, Cloudinary, Google and PayOS dependencies.
-- **Scalability:** introduce asynchronous messaging only if measured throughput requires it, for example for video processing and moderation.
+- **Resilience and observability:** add monitoring for local inference and the external Cloudinary, Google and PayOS dependencies.
+- **Scalability:** introduce asynchronous messaging only if measured throughput requires it, for example for moderation.
 - **Product:** richer nutrition analysis (micronutrient tracking), more recipe and restaurant data, and push notifications.

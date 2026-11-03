@@ -18,6 +18,6 @@ public class PlanService {
     }
     static PlanResponse response(SubscriptionPlan p) {
         return new PlanResponse(p.getId(), p.getCode(), p.getPrice(), p.getDurationDays(), p.getChatPerDay(),
-                p.getMealPlansPerMonth(), p.getVideosPerMonth());
+                p.getMealPlansPerMonth());
     }
 }

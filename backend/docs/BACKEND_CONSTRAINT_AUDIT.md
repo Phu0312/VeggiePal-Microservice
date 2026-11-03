@@ -1,5 +1,7 @@
 # BÁO CÁO AUDIT RÀNG BUỘC, VALIDATION VÀ BUSINESS LOGIC BACKEND VEGGIEPAL
 
+> Historical audit: video transcription, recipe extraction and Groq provider findings below describe removed functionality. The four current AI features use only local Qwen through llama.cpp. Current contracts are documented in `docs/PRM_CAPSTONE.md` and generated OpenAPI.
+
 > **Tài liệu Phân tích Kiến trúc & Logic Nghiệp vụ Chuyên sâu**  
 > **Người thực hiện:** Senior Backend Architect & Business Logic Analyst  
 > **Phạm vi kiểm tra:** 7 Microservices (`api-gateway`, `identity-service`, `nutrition-service`, `blog-service`, `recipe-service`, `location-service`, `ai-service`)  

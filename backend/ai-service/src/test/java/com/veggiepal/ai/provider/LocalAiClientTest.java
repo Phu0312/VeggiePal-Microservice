@@ -6,7 +6,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.dto.GroqRequest;
+import com.veggiepal.ai.provider.AiMessage;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -28,7 +28,7 @@ class LocalAiClientTest {
                          "usage":{"prompt_tokens":8,"completion_tokens":5,"total_tokens":13}}
                         """, MediaType.APPLICATION_JSON));
         var result = new LocalAiClient(builder.build(), "qwen2.5-1.5b-instruct")
-                .complete("groq-model", List.of(new GroqRequest.Message("user", "Xin chào")), 0.2, 50);
+                .complete(List.of(new AiMessage("user", "Xin chào")), 0.2, 50);
         assertEquals("Ăn chay cân đối.", result.content());
         assertEquals(8, result.promptTokens());
         server.verify();
@@ -42,7 +42,7 @@ class LocalAiClientTest {
                 .andRespond(withSuccess("{\"choices\":[{\"message\":{\"content\":\" \"}}]}", MediaType.APPLICATION_JSON));
         var client = new LocalAiClient(builder.build(), "qwen");
         var ex = assertThrows(AppException.class,
-                () -> client.complete("unused", List.of(new GroqRequest.Message("user", "test")), 0, 20));
+                () -> client.complete(List.of(new AiMessage("user", "test")), 0, 20));
         assertEquals(ErrorCode.INVALID_AI_RESPONSE, ex.getErrorCode());
         server.verify();
     }
@@ -55,8 +55,8 @@ class LocalAiClientTest {
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
         var client = new LocalAiClient(builder.build(), "qwen");
         var ex = assertThrows(AppException.class,
-                () -> client.complete("unused", List.of(new GroqRequest.Message("user", "test")), 0, 20));
-        assertEquals(ErrorCode.GROQ_UNAVAILABLE, ex.getErrorCode());
+                () -> client.complete(List.of(new AiMessage("user", "test")), 0, 20));
+        assertEquals(ErrorCode.AI_UNAVAILABLE, ex.getErrorCode());
         server.verify();
     }
 }

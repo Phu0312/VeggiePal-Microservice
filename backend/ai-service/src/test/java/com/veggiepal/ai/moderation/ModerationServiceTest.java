@@ -10,9 +10,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.groq.GroqClient.GroqResult;
-import com.veggiepal.ai.groq.ModelProperties;
+import com.veggiepal.ai.provider.LocalAiClient;
+import com.veggiepal.ai.provider.LocalAiClient.AiResult;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.moderation.ModerationDtos.Decision;
 import com.veggiepal.ai.moderation.ModerationDtos.ReviewRequest;
@@ -28,8 +27,7 @@ class ModerationServiceTest {
         ModerationCase item = new ModerationCase("BLOG", 42L, 7L, "content", "REVIEW_REQUIRED", "spam",
                 "review", new BigDecimal("0.7"));
         when(repository.findForReview(10L)).thenReturn(Optional.of(item));
-        ModerationService service = new ModerationService(repository, mock(GroqClient.class),
-                new ModelProperties("c", "m", "r", "p", "v", "w"), new ObjectMapper(),
+        ModerationService service = new ModerationService(repository, mock(LocalAiClient.class), new ObjectMapper(),
                 mock(UsageService.class), owner);
 
         var response = service.review(1L, 10L, new ReviewRequest(Decision.APPROVED, "ok"), "admin-token");
@@ -48,7 +46,7 @@ class ModerationServiceTest {
                 "review", new BigDecimal("0.7"));
         item.review(2L, Decision.REJECTED.name(), "already handled");
         when(repository.findForReview(10L)).thenReturn(Optional.of(item));
-        ModerationService service = service(repository, mock(GroqClient.class), mock(ModerationOwnerClient.class));
+        ModerationService service = service(repository, mock(LocalAiClient.class), mock(ModerationOwnerClient.class));
 
         AppException exception = assertThrows(AppException.class, () ->
                 service.review(1L, 10L, new ReviewRequest(Decision.APPROVED, "ok"), "admin-token"));
@@ -59,15 +57,15 @@ class ModerationServiceTest {
     @Test
     void repeatedModerationRefreshesOpenCaseInsteadOfCreatingDuplicate() {
         ModerationRepository repository = mock(ModerationRepository.class);
-        GroqClient groq = mock(GroqClient.class);
+        LocalAiClient ai = mock(LocalAiClient.class);
         ModerationCase existing = new ModerationCase("BLOG", 42L, 7L, "old", "REVIEW_REQUIRED", "spam",
                 "old reason", new BigDecimal("0.6"));
         when(repository.findFirstByContentTypeAndExternalContentIdAndAuthorIdAndReviewedAtIsNullOrderByCreatedAtDesc(
                 "BLOG", 42L, 7L)).thenReturn(Optional.of(existing));
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class))).thenReturn(
-                new GroqResult("{\"decision\":\"REVIEW_REQUIRED\",\"categories\":[\"spam\"],\"reason\":\"new reason\",\"confidence\":0.8}", 10, 5));
+        when(ai.complete(any(), any(Double.class), any(Integer.class))).thenReturn(
+                new LocalAiClient.AiResult("{\"decision\":\"REVIEW_REQUIRED\",\"categories\":[\"spam\"],\"reason\":\"new reason\",\"confidence\":0.8}", 10, 5));
         when(repository.save(existing)).thenReturn(existing);
-        ModerationService service = service(repository, groq, mock(ModerationOwnerClient.class));
+        ModerationService service = service(repository, ai, mock(ModerationOwnerClient.class));
 
         var response = service.moderate(9L,
                 new ModerationDtos.ModerationRequest(ModerationDtos.ContentType.BLOG, 42L, 7L, "new content"));
@@ -78,13 +76,13 @@ class ModerationServiceTest {
     }
 
     @Test
-    void groqFailureFallsBackToReviewRequiredAndSavesModerationCase() {
+    void localAiFailureFallsBackToReviewRequiredAndSavesModerationCase() {
         ModerationRepository repository = mock(ModerationRepository.class);
-        GroqClient groq = mock(GroqClient.class);
-        when(groq.complete(any(), any(), any(Double.class), any(Integer.class)))
-                .thenThrow(new AppException(ErrorCode.GROQ_UNAVAILABLE));
+        LocalAiClient ai = mock(LocalAiClient.class);
+        when(ai.complete(any(), any(Double.class), any(Integer.class)))
+                .thenThrow(new AppException(ErrorCode.AI_UNAVAILABLE));
         when(repository.save(any(ModerationCase.class))).thenAnswer(inv -> inv.getArgument(0));
-        ModerationService service = service(repository, groq, mock(ModerationOwnerClient.class));
+        ModerationService service = service(repository, ai, mock(ModerationOwnerClient.class));
 
         var response = service.moderate(9L,
                 new ModerationDtos.ModerationRequest(ModerationDtos.ContentType.BLOG, 42L, 7L, "post text"));
@@ -106,7 +104,7 @@ class ModerationServiceTest {
         org.mockito.Mockito.doThrow(new AppException(ErrorCode.MODERATION_TARGET_NOT_FOUND))
                 .when(owner).apply("BLOG", 42L, 7L, Decision.APPROVED, "admin-token");
 
-        ModerationService service = service(repository, mock(GroqClient.class), owner);
+        ModerationService service = service(repository, mock(LocalAiClient.class), owner);
 
         var response = service.review(1L, 10L, new ReviewRequest(Decision.APPROVED, "approve attempt"), "admin-token");
 
@@ -128,7 +126,7 @@ class ModerationServiceTest {
         org.mockito.Mockito.doThrow(new AppException(ErrorCode.DOWNSTREAM_UNAVAILABLE))
                 .when(owner).apply("BLOG", 42L, 7L, Decision.APPROVED, "admin-token");
 
-        ModerationService service = service(repository, mock(GroqClient.class), owner);
+        ModerationService service = service(repository, mock(LocalAiClient.class), owner);
 
         AppException ex = assertThrows(AppException.class, () ->
                 service.review(1L, 10L, new ReviewRequest(Decision.APPROVED, "approve attempt"), "admin-token"));
@@ -146,7 +144,7 @@ class ModerationServiceTest {
                 "needs review", new BigDecimal("0.7"));
         when(repository.findForReview(10L)).thenReturn(Optional.of(item));
 
-        ModerationService service = service(repository, mock(GroqClient.class), owner);
+        ModerationService service = service(repository, mock(LocalAiClient.class), owner);
 
         var response = service.dismiss(1L, 10L, "Orphan case dismissal");
 
@@ -164,7 +162,7 @@ class ModerationServiceTest {
                 "needs review", new BigDecimal("0.7"));
         when(repository.findForReview(10L)).thenReturn(Optional.of(item));
 
-        ModerationService service = service(repository, mock(GroqClient.class), owner);
+        ModerationService service = service(repository, mock(LocalAiClient.class), owner);
 
         var response = service.review(1L, 10L, new ReviewRequest(Decision.DISMISSED, "Manual dismiss"), "admin-token");
 
@@ -174,9 +172,8 @@ class ModerationServiceTest {
         org.mockito.Mockito.verifyNoInteractions(owner);
     }
 
-    private ModerationService service(ModerationRepository repository, GroqClient groq, ModerationOwnerClient owner) {
-        return new ModerationService(repository, groq,
-                new ModelProperties("c", "m", "r", "p", "v", "w"), new ObjectMapper(),
+    private ModerationService service(ModerationRepository repository, LocalAiClient ai, ModerationOwnerClient owner) {
+        return new ModerationService(repository, ai, new ObjectMapper(),
                 mock(UsageService.class), owner);
     }
 }

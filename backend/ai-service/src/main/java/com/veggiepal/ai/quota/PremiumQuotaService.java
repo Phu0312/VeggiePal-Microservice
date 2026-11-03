@@ -32,21 +32,6 @@ public class PremiumQuotaService {
                 entitlement.mealPlansPerMonth());
     }
 
-    public int reserveVideo(Long userId) {
-        SubscriptionEntitlement entitlement = effective(userId);
-        return quotas.reserveFeature("user:" + userId, "VIDEO", QuotaPeriod.MONTHLY,
-                entitlement.videosPerMonth());
-    }
-
-    public void refundVideo(Long userId) {
-        quotas.refundFeature("user:" + userId, "VIDEO", QuotaPeriod.MONTHLY);
-    }
-
-    public void refundVideo(Long userId, LocalDate quotaPeriodDate) {
-        if (quotaPeriodDate == null) refundVideo(userId);
-        else quotas.refundFeature("user:" + userId, "VIDEO", quotaPeriodDate);
-    }
-
     public MealPlanQuotaStatus getMealPlanQuota(Long userId) {
         SubscriptionEntitlement entitlement = effective(userId);
         LocalDate today = LocalDate.now();
@@ -90,9 +75,6 @@ public class PremiumQuotaService {
         int chatUsed = Math.max(0, quotas.getUsedCount(principalKey,
                 localTest ? quotas.localTestFeature("CHAT") : "CHAT", QuotaPeriod.DAILY));
 
-        int videoLimit = Math.max(0, entitlement.videosPerMonth());
-        int videoUsed = Math.max(0, quotas.getUsedCount(principalKey, "VIDEO", QuotaPeriod.MONTHLY));
-
         return new QuotaOverviewResponse(
                 entitlement.planCode(),
                 entitlement.expiresAt(),
@@ -100,9 +82,7 @@ public class PremiumQuotaService {
                         Math.max(0, mealLimit - mealUsed), localTest ? today : monthStart,
                         localTest ? today.plusDays(1) : nextMonthStart),
                 new FeatureQuotaStatus("CHAT", QuotaPeriod.DAILY.name(), chatLimit, chatUsed,
-                        Math.max(0, chatLimit - chatUsed), today, today.plusDays(1)),
-                new FeatureQuotaStatus("VIDEO", QuotaPeriod.MONTHLY.name(), videoLimit, videoUsed,
-                        Math.max(0, videoLimit - videoUsed), monthStart, nextMonthStart));
+                        Math.max(0, chatLimit - chatUsed), today, today.plusDays(1)));
     }
 
     private SubscriptionEntitlement effective(Long userId) {
