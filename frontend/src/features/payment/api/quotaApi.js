@@ -2,7 +2,7 @@ import apiClient from "@/shared/api/apiClient";
 
 /**
  * GET /ai/quotas/me (ai-service, cần đăng nhập): lượt đã dùng / còn lại của gói hiện tại.
- * -> { planCode, expiresAt, mealPlan, chat, video }, mỗi mục
+ * -> { planCode, expiresAt, mealPlan, chat }, mỗi mục
  *    { feature, period: "DAILY" | "MONTHLY", limit, used, remaining, periodStart, resetsAt }.
  */
 export async function getMyQuotas() {

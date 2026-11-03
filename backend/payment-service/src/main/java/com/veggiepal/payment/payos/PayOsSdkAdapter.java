@@ -1,6 +1,7 @@
 package com.veggiepal.payment.payos;
 
 import com.veggiepal.payment.exception.PayOsOperationException;
+import java.time.Duration;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,9 @@ import vn.payos.model.v2.paymentRequests.PaymentLinkStatus;
 
 @Component
 public class PayOsSdkAdapter implements PayOsGateway {
+    /** A payment link stops accepting payment after this time, so an unpaid order cannot be reused forever. */
+    private static final Duration LINK_TTL = Duration.ofMinutes(15);
+
     private final String clientId;
     private final String apiKey;
     private final String checksumKey;
@@ -38,6 +42,25 @@ public class PayOsSdkAdapter implements PayOsGateway {
     }
 
     @Override
+    public PaymentLinkState getPaymentLinkState(long orderCode) {
+        PayOS payOS = null;
+        try {
+            payOS = client();
+            var status = payOS.paymentRequests().get(orderCode).getStatus();
+            if (status == PaymentLinkStatus.PAID) return PaymentLinkState.PAID;
+            if (status == PaymentLinkStatus.CANCELLED || status == PaymentLinkStatus.EXPIRED
+                    || status == PaymentLinkStatus.FAILED) {
+                return PaymentLinkState.CLOSED;
+            }
+            return PaymentLinkState.PENDING;
+        } catch (PayOSException | IllegalArgumentException exception) {
+            throw new PayOsOperationException(exception);
+        } finally {
+            if (payOS != null) payOS.close();
+        }
+    }
+
+    @Override
     public PaymentLinkResult createPaymentLink(long orderCode, long amount, String description,
                                                String returnUrl, String cancelUrl) {
         PayOS payOS = null;
@@ -45,7 +68,8 @@ public class PayOsSdkAdapter implements PayOsGateway {
             payOS = client();
             var response = payOS.paymentRequests().create(CreatePaymentLinkRequest.builder()
                     .orderCode(orderCode).amount(amount).description(description)
-                    .returnUrl(returnUrl).cancelUrl(cancelUrl).build());
+                    .returnUrl(returnUrl).cancelUrl(cancelUrl)
+                    .expiredAt(Instant.now().plus(LINK_TTL).getEpochSecond()).build());
             Instant expiredAt = response.getExpiredAt() == null ? null
                     : Instant.ofEpochSecond(response.getExpiredAt());
             return new PaymentLinkResult(response.getPaymentLinkId(), response.getCheckoutUrl(), response.getQrCode(),

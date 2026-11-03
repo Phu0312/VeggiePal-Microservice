@@ -17,8 +17,8 @@ import '../data/video_repository.dart';
 import 'video_nutrition_widgets.dart';
 import 'video_player_view.dart';
 
-/// Xem video (GET /videos/{id}, mỗi lần mở tính một lượt xem): trình phát, tác giả, mô tả và thẻ
-/// "Công thức AI" bóc tách từ lời trong video. [initial] hiện ngay trong lúc tải; video chưa đăng
+/// Xem video (GET /videos/{id}, mỗi lần mở tính một lượt xem): trình phát, tác giả, mô tả và
+/// thẻ dinh dưỡng, nguyên liệu do người đăng khai báo. [initial] hiện ngay trong lúc tải; video chưa đăng
 /// (xem từ "Video của tôi") dùng luôn [initial] vì backend chỉ trả video đã đăng.
 class VideoWatchScreen extends StatefulWidget {
   final int videoId;

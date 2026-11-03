@@ -123,7 +123,7 @@ class _PricingScreenState extends State<PricingScreen> {
                   child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 32), children: [
                     if (auth.isLoggedIn) _CurrentPlanCard(sub),
                     const SizedBox(height: 4),
-                    Text('Mở rộng hạn mức hỏi trợ lý AI, lập thực đơn và bóc tách công thức từ video.',
+                    Text('Mở rộng hạn mức hỏi trợ lý AI, lập thực đơn cá nhân hoá theo mục tiêu sức khoẻ.',
                         style: TextStyle(color: context.textMuted)),
                     const SizedBox(height: 12),
                     for (final p in _plans)
