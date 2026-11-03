@@ -5,6 +5,10 @@ import '../constants/endpoints.dart';
 import '../storage/session_store.dart';
 import 'error_messages.dart';
 
+/// Thời gian chờ phản hồi của các yêu cầu sinh văn bản bằng mô hình AI chạy local (chat, thực đơn), thường lâu
+/// hơn 15 giây mặc định; khớp thời gian đọc tối đa 120 giây của ai-service.
+const aiReceiveTimeout = Duration(seconds: 120);
+
 /// Lỗi nghiệp vụ/mạng đã chuẩn hoá để repository và UI xử lý thống nhất.
 class ApiException implements Exception {
   final String message;

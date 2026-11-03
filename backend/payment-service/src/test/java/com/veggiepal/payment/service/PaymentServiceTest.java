@@ -96,7 +96,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void checkout_reusesValidPendingOrderWithoutCallingPayOs() {
+    void checkout_reusesValidPendingOrderWhenPayOsStillPending() {
         SubscriptionPlan plus = plan(1L, PlanCode.PLUS, 29_000);
         PaymentOrder existing = order(PaymentStatus.PENDING);
         existing.setPlan(plus);
@@ -106,13 +106,101 @@ class PaymentServiceTest {
         when(plans.findByCodeAndActiveTrueForUpdate(PlanCode.PLUS)).thenReturn(Optional.of(plus));
         when(orders.findAllByUserIdAndPlanIdAndStatusOrderByCreatedAtDesc(7L, 1L, PaymentStatus.PENDING))
                 .thenReturn(List.of(existing));
+        when(payOs.getPaymentLinkState(123L)).thenReturn(PaymentLinkState.PENDING);
 
         var result = service.checkout(7L, PlanCode.PLUS);
 
         assertThat(result.id()).isEqualTo(existing.getId());
         assertThat(result.qrCode()).isEqualTo("persisted-emv");
         assertThat(result.checkoutUrl()).isEqualTo("https://pay.test/existing");
-        verifyNoInteractions(payOs, codes);
+        verify(payOs, never()).createPaymentLink(anyLong(), anyLong(), anyString(), anyString(), anyString());
+        verifyNoInteractions(codes);
+        verify(orders, never()).save(any());
+    }
+
+    @Test
+    void checkout_paidOnPayOsWithoutWebhook_activatesPlanAndDoesNotCreateNewLink() {
+        SubscriptionPlan plus = plan(1L, PlanCode.PLUS, 29_000);
+        PaymentOrder stuck = order(PaymentStatus.PENDING);
+        stuck.setPlan(plus);
+        stuck.setQrCode("old-emv");
+        stuck.setCheckoutUrl("https://pay.test/old");
+        when(plans.findByCodeAndActiveTrueForUpdate(PlanCode.PLUS)).thenReturn(Optional.of(plus));
+        when(orders.findAllByUserIdAndPlanIdAndStatusOrderByCreatedAtDesc(7L, 1L, PaymentStatus.PENDING))
+                .thenReturn(List.of(stuck));
+        when(payOs.getPaymentLinkState(123L)).thenReturn(PaymentLinkState.PAID);
+
+        var result = service.checkout(7L, PlanCode.PLUS);
+
+        assertThat(result.status()).isEqualTo(PaymentStatus.PAID);
+        assertThat(result.qrCode()).isNull();
+        assertThat(stuck.getPaidAt()).isEqualTo(clock.instant());
+        verify(subscriptions).activate(7L, plus, clock.instant());
+        verify(payOs, never()).createPaymentLink(anyLong(), anyLong(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void checkout_closedPayOsLinkIsCancelledAndReplacedWithNewOrder() {
+        SubscriptionPlan plus = plan(1L, PlanCode.PLUS, 29_000);
+        PaymentOrder dead = order(PaymentStatus.PENDING);
+        dead.setPlan(plus);
+        dead.setQrCode("dead-emv");
+        dead.setCheckoutUrl("https://pay.test/dead");
+        when(plans.findByCodeAndActiveTrueForUpdate(PlanCode.PLUS)).thenReturn(Optional.of(plus));
+        when(orders.findAllByUserIdAndPlanIdAndStatusOrderByCreatedAtDesc(7L, 1L, PaymentStatus.PENDING))
+                .thenReturn(List.of(dead));
+        when(payOs.getPaymentLinkState(123L)).thenReturn(PaymentLinkState.CLOSED);
+        when(codes.next()).thenReturn(456L);
+        when(orders.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(payOs.createPaymentLink(anyLong(), anyLong(), anyString(), anyString(), anyString()))
+                .thenReturn(link("new-emv", clock.instant().plusSeconds(900)));
+
+        var result = service.checkout(7L, PlanCode.PLUS);
+
+        assertThat(dead.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        assertThat(result.orderCode()).isEqualTo(456L);
+        verifyNoInteractions(subscriptions);
+    }
+
+    @Test
+    void checkout_payOsStatusLookupFailureKeepsReusingPendingOrder() {
+        SubscriptionPlan plus = plan(1L, PlanCode.PLUS, 29_000);
+        PaymentOrder existing = order(PaymentStatus.PENDING);
+        existing.setPlan(plus);
+        existing.setQrCode("persisted-emv");
+        existing.setCheckoutUrl("https://pay.test/existing");
+        existing.setExpiredAt(clock.instant().plusSeconds(60));
+        when(plans.findByCodeAndActiveTrueForUpdate(PlanCode.PLUS)).thenReturn(Optional.of(plus));
+        when(orders.findAllByUserIdAndPlanIdAndStatusOrderByCreatedAtDesc(7L, 1L, PaymentStatus.PENDING))
+                .thenReturn(List.of(existing));
+        when(payOs.getPaymentLinkState(123L)).thenThrow(new PayOsOperationException(new RuntimeException("down")));
+
+        var result = service.checkout(7L, PlanCode.PLUS);
+
+        assertThat(result.id()).isEqualTo(existing.getId());
+        verifyNoInteractions(subscriptions);
+    }
+
+    @Test
+    void getOrder_paidOnPayOsWithoutWebhook_marksPaidOnceAndThrottlesLookups() {
+        PaymentOrder stuck = order(PaymentStatus.PENDING);
+        when(orders.findByIdAndUserId(1L, 7L)).thenReturn(Optional.of(stuck));
+        when(payOs.getPaymentLinkState(123L)).thenReturn(PaymentLinkState.PAID);
+
+        assertThat(service.getOrder(7L, 1L).status()).isEqualTo(PaymentStatus.PAID);
+        assertThat(service.getOrder(7L, 1L).status()).isEqualTo(PaymentStatus.PAID);
+
+        verify(subscriptions, times(1)).activate(7L, stuck.getPlan(), clock.instant());
+        verify(payOs, times(1)).getPaymentLinkState(123L);
+    }
+
+    @Test
+    void getOrder_closedPayOsLinkLeavesOrderPendingForTheClientToRenew() {
+        PaymentOrder pending = order(PaymentStatus.PENDING);
+        when(orders.findByIdAndUserId(1L, 7L)).thenReturn(Optional.of(pending));
+        when(payOs.getPaymentLinkState(123L)).thenReturn(PaymentLinkState.CLOSED);
+
+        assertThat(service.getOrder(7L, 1L).status()).isEqualTo(PaymentStatus.PENDING);
         verify(orders, never()).save(any());
     }
 

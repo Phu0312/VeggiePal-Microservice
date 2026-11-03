@@ -29,7 +29,7 @@ class MealPlanRepository {
       'healthGoal': goal.label,
       'preferences': preferences,
       'availableIngredients': ingredients,
-    });
+    }, receiveTimeout: aiReceiveTimeout);
     return _plan(r);
   }
 
@@ -50,7 +50,8 @@ class MealPlanRepository {
   Future<MealPlan> replaceMeal(MealPlan plan, String day, PlanMeal meal) async {
     _requireLogin();
     final r = await _api.post(Endpoints.aiMealPlanReplace(plan.id),
-        body: {'day': day, 'mealType': meal.mealType, 'currentRecipeId': meal.recipeId});
+        body: {'day': day, 'mealType': meal.mealType, 'currentRecipeId': meal.recipeId},
+        receiveTimeout: aiReceiveTimeout);
     return _plan(r);
   }
 

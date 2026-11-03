@@ -23,7 +23,7 @@ export default function AdminAiMonitoringScreen() {
         <div>
           <h1 className="font-heading text-3xl font-bold text-ink">Giám sát AI</h1>
           <p className="mt-1 text-sm text-subtle">
-            Theo dõi lượt dùng, token, độ trễ và lỗi của các tính năng AI (chatbot, thực đơn, kiểm duyệt, gợi ý, video).
+            Theo dõi lượt dùng, token, độ trễ và lỗi của các tính năng AI (chatbot, thực đơn, kiểm duyệt, gợi ý).
           </p>
         </div>
         <Button
