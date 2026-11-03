@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import com.veggiepal.ai.chat.DietaryRestrictionResolver;
 
 @Service
 public class MealPlanService {
@@ -48,6 +49,7 @@ public class MealPlanService {
     private final MealPlanFavoriteRepository favoriteRepository;
     private final MealPlanVersionRepository versionRepository;
     private final PremiumQuotaService premiumQuota;
+    private final DietaryRestrictionResolver dietaryResolver;
 
     @Autowired
     public MealPlanService(MealPlanRepository repository,
@@ -59,7 +61,8 @@ public class MealPlanService {
             MealPlanValidator validator,
             MealPlanFavoriteRepository favoriteRepository,
             MealPlanVersionRepository versionRepository,
-            PremiumQuotaService premiumQuota) {
+            PremiumQuotaService premiumQuota,
+            DietaryRestrictionResolver dietaryResolver) {
         this.repository = repository;
         this.http = http;
         this.recipeUrl = recipeUrl;
@@ -72,6 +75,21 @@ public class MealPlanService {
         this.favoriteRepository = favoriteRepository;
         this.versionRepository = versionRepository;
         this.premiumQuota = premiumQuota;
+        this.dietaryResolver = dietaryResolver != null ? dietaryResolver : new DietaryRestrictionResolver();
+    }
+
+    public MealPlanService(MealPlanRepository repository,
+            RestClient http,
+            String recipeUrl,
+            String nutritionUrl,
+            String identityUrl,
+            LocalAiClient ai, ObjectMapper mapper, UsageService usage,
+            MealPlanValidator validator,
+            MealPlanFavoriteRepository favoriteRepository,
+            MealPlanVersionRepository versionRepository,
+            PremiumQuotaService premiumQuota) {
+        this(repository, http, recipeUrl, nutritionUrl, identityUrl, ai, mapper, usage, validator,
+                favoriteRepository, versionRepository, premiumQuota, new DietaryRestrictionResolver());
     }
 
     public MealPlanService(MealPlanRepository repository,
@@ -80,12 +98,13 @@ public class MealPlanService {
             String nutritionUrl,
             LocalAiClient ai, ObjectMapper mapper, UsageService usage,
             MealPlanValidator validator, PremiumQuotaService premiumQuota) {
-        this(repository, http, recipeUrl, nutritionUrl, "http://identity-service", ai, mapper, usage, validator, null, null, premiumQuota);
+        this(repository, http, recipeUrl, nutritionUrl, "http://identity-service", ai, mapper, usage, validator, null, null, premiumQuota, new DietaryRestrictionResolver());
     }
 
     public MealPlanResponse generate(Long userId, String jwt, GenerateRequest request) {
         JsonNode allRecipes = result(get(recipeUrl + "/recipes?size=200", null)).path("content");
-        JsonNode allergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        JsonNode rawAllergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        ArrayNode allergies = dietaryResolver.mergeAllergies(rawAllergies, request.preferences(), mapper);
         JsonNode health = result(get(nutritionUrl + "/nutrition/me/health-records/latest", jwt));
         NutritionTarget target = request.dailyNutritionTarget() != null
                 ? request.dailyNutritionTarget()
@@ -100,8 +119,8 @@ public class MealPlanService {
         String prompt = """
                 Tạo thực đơn chay đúng 7 ngày từ danh sách recipe thật. Không tự tạo recipe hoặc ID.
                 Mỗi ngày phải có duy nhất BREAKFAST, LUNCH và DINNER. Ưu tiên sở thích và mục tiêu được cung cấp.
-                Trả duy nhất JSON {"days":[{"day":"MONDAY","meals":[{"mealType":"BREAKFAST","recipeId":1,"note":"..."}]}]}.
-                Mỗi note viết bằng tiếng Việt, một câu ngắn.
+                Trả duy nhất JSON gọn trên 1 dòng {"days":[{"day":"MONDAY","meals":[{"mealType":"BREAKFAST","recipeId":1,"note":"..."}]}]}.
+                Mỗi note viết bằng tiếng Việt, ngắn gọn tối đa 5 từ.
                 Mục tiêu: %s; sở thích: %s; nguyên liệu sẵn có: %s; sức khỏe: %s; dị ứng đã lọc: %s;
                 mục tiêu dinh dưỡng/ngày: %s; recipes an toàn: %s
                 """.formatted(request.healthGoal(), request.preferences(), request.availableIngredients(), health,
@@ -110,7 +129,7 @@ public class MealPlanService {
 
         ObjectNode plan;
         try {
-            JsonNode aiNode = call(userId, prompt, 850);
+            JsonNode aiNode = call(userId, prompt, 550);
             plan = (aiNode instanceof ObjectNode on) ? on : mapper.createObjectNode();
         } catch (AppException ex) {
             if (ex.getErrorCode() == ErrorCode.QUOTA_EXCEEDED
@@ -148,6 +167,7 @@ public class MealPlanService {
         MealPlan entity = owned(userId, id);
         ObjectNode root = object(read(entity.getPlanJson()));
         JsonNode constraints = root.path("constraints");
+        List<String> savedPreferences = constraints.path("preferences").isArray() ? mapper.convertValue(constraints.path("preferences"), new TypeReference<>() {}) : List.of();
         List<String> available = constraints.path("availableIngredients").isArray()
                 ? mapper.convertValue(constraints.path("availableIngredients"), new TypeReference<>() {}) : List.of();
         NutritionTarget target = constraints.path("dailyNutritionTarget").isNull()
@@ -156,7 +176,8 @@ public class MealPlanService {
         validator.validateTarget(target);
 
         JsonNode allRecipes = result(get(recipeUrl + "/recipes?size=200", null)).path("content");
-        JsonNode allergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        JsonNode rawAllergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        ArrayNode allergies = dietaryResolver.mergeAllergies(rawAllergies, savedPreferences, mapper);
         ArrayNode safeRecipes = validator.safeCandidates(allRecipes, allergies, List.of());
         ArrayNode candidates = validator.safeCandidates(allRecipes, allergies, available);
         String mealType = request.mealType().trim().toUpperCase(Locale.ROOT);
@@ -306,10 +327,13 @@ public class MealPlanService {
 
         ObjectNode root = object(read(entity.getPlanJson())).deepCopy();
         ObjectNode constraints = root.withObject("constraints");
+        List<String> savedPreferences = constraints.path("preferences").isArray()
+                ? mapper.convertValue(constraints.path("preferences"), new TypeReference<>() {}) : List.of();
         constraints.set("dailyNutritionTarget", mapper.valueToTree(recalculatedTarget));
         constraints.set("healthRecord", health.deepCopy());
 
-        JsonNode allergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        JsonNode rawAllergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        ArrayNode allergies = dietaryResolver.mergeAllergies(rawAllergies, savedPreferences, mapper);
         constraints.set("allergies", allergies.deepCopy());
 
         JsonNode allRecipes = result(get(recipeUrl + "/recipes?size=200", null)).path("content");
@@ -391,7 +415,10 @@ public class MealPlanService {
         }
         MealPlan entity = owned(userId, mealPlanId);
         ObjectNode root = object(read(entity.getPlanJson())).deepCopy();
-        JsonNode allergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        List<String> savedPreferences = root.path("constraints").path("preferences").isArray()
+                ? mapper.convertValue(root.path("constraints").path("preferences"), new TypeReference<>() {}) : List.of();
+        JsonNode rawAllergies = result(get(nutritionUrl + "/nutrition/me/allergies", jwt));
+        ArrayNode allergies = dietaryResolver.mergeAllergies(rawAllergies, savedPreferences, mapper);
         JsonNode allRecipes = result(get(recipeUrl + "/recipes?size=200", null)).path("content");
 
         JsonNode targetNode = root.path("constraints").path("dailyNutritionTarget");
@@ -681,7 +708,7 @@ public class MealPlanService {
     }
 
     private JsonNode call(Long userId, String prompt) {
-        return call(userId, prompt, 850);
+        return call(userId, prompt, 550);
     }
 
     private JsonNode call(Long userId, String prompt, int maxTokens) {
@@ -689,7 +716,7 @@ public class MealPlanService {
         long start = System.nanoTime();
         try {
             var result = ai.complete(List.of(
-                    new AiMessage("system", "Lập thực đơn chay an toàn chỉ từ dữ liệu được cung cấp. Không tự tính dinh dưỡng."),
+                    new AiMessage("system", "Lập thực đơn chay an toàn chỉ từ dữ liệu được cung cấp. Không tự tính dinh dưỡng. Trả về duy nhất JSON gọn trên 1 dòng."),
                     new AiMessage("user", prompt)), 0.2, maxTokens);
             usage.success(userId, "user:" + userId, "MEAL_PLAN", ai.configuredModel(), result, elapsed(start));
             return read(cleanJson(result.content()));
@@ -784,6 +811,15 @@ public class MealPlanService {
     }
 
     private List<String> nullToEmpty(List<String> values) { return values == null ? List.of() : values; }
-    private String cleanJson(String raw) { return raw.replaceFirst("(?s)^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "").trim(); }
+    private String cleanJson(String raw) {
+        if (raw == null) return "";
+        String stripped = raw.replaceFirst("(?s)^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "").trim();
+        int firstBrace = stripped.indexOf('{');
+        int lastBrace = stripped.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            return stripped.substring(firstBrace, lastBrace + 1);
+        }
+        return stripped;
+    }
     private long elapsed(long start) { return (System.nanoTime() - start) / 1_000_000; }
 }

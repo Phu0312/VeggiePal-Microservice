@@ -4,7 +4,7 @@ All four measured AI features use local Qwen through llama.cpp. The benchmark do
 
 ## 1. Automated Benchmark & Quality Evaluation Suite (`ai-inference/benchmark/`)
 
-The repository includes a reproducible end-to-end benchmark and quality evaluation suite under `backend/ai-inference/benchmark/` that authenticates dynamically via environment variables (never hardcoding JWTs), evaluates all four self-hosted AI features (`CHAT`, `MEAL_PLAN`, `RECOMMENDATION`, `MODERATION`), collects direct `llama.cpp` engine timings (`prompt_ms`, `predicted_per_second`), samples Docker and NVIDIA GPU hardware metrics (`docker stats` and `nvidia-smi`), and cleans up temporary test records.
+The repository includes a reproducible end-to-end benchmark and quality evaluation suite under `backend/ai-inference/benchmark/` that authenticates dynamically via environment variables (never hardcoding JWTs), evaluates all four self-hosted AI features (`CHAT`, `MEAL_PLAN`, `RECOMMENDATION`, `MODERATION`) plus an unseen held-out moderation dataset (`moderation_heldout.json`), collects direct `llama.cpp` engine timings (`prompt_ms`, `predicted_per_second`), samples Docker and NVIDIA GPU hardware metrics (`docker stats` and `nvidia-smi`), and cleans up temporary test records.
 
 ### Directory Layout
 
@@ -14,23 +14,27 @@ backend/ai-inference/benchmark/
 │   ├── chatbot.json                      # 20 Vietnamese vegan nutrition & safety prompts
 │   ├── mealplan.json                     # 10 meal planning scenarios (feasible, infeasible, allergies, diversity, invalid)
 │   ├── recommendations.json              # 20 recommendation requests (limits, interests, allergies, clamping)
-│   └── moderation.json                   # 100 labeled Vietnamese samples (APPROVED, REJECTED, REVIEW_REQUIRED)
+│   ├── moderation.json                   # 100 labeled Vietnamese samples (APPROVED, REJECTED, REVIEW_REQUIRED)
+│   └── moderation_heldout.json           # 30 unseen held-out Vietnamese samples for generalization verification
 ├── scripts/
 │   ├── evaluate_quality.mjs              # Quality rubrics, latency percentiles, and confusion matrix calculator
 │   ├── run_benchmark.mjs                 # Main benchmark runner (Gateway + direct llama.cpp + hardware monitoring)
+│   ├── run_heldout_moderation.mjs        # Held-out moderation generalization runner (30 unseen items)
 │   ├── sample_inflight_hardware.mjs      # 300ms in-flight polling of CPU/RAM/GPU during active token generation
 │   └── test_benchmark.mjs                # Unit tests for datasets and evaluation metrics
 ├── results/
+│   ├── baseline/                         # Archived pre-optimization baseline CSV and JSON results (16 GPU layers)
 │   ├── requests.csv                      # Per-request latency, token counts, tok/s, and pass/fail status
 │   ├── hardware.csv                      # Idle, post-request, and in-flight CPU/RAM/GPU/VRAM/power samples
 │   ├── summary.csv                       # Aggregated latency (mean, median, P95, max), throughput, and pass rates
 │   ├── moderation_confusion_matrix.csv   # 3-class confusion matrix, precision, recall, F1, macro F1, unsafe rate
+│   ├── moderation_heldout_evaluation.json# Held-out moderation generalization results (30 unseen samples)
 │   └── detailed_evaluation.json          # Full structured evaluation artifact
 └── reports/
     ├── BENCHMARK_METHODOLOGY.md          # Methodology, dataset design, and WSL2 monitoring constraints
-    ├── PERFORMANCE_REPORT.md             # Latency, throughput, concurrency, and hardware utilization report
-    ├── QUALITY_EVALUATION.md             # Functional quality & moderation classification analysis
-    └── PRM_CAPSTONE_AI_BENCHMARK_SECTION.md # Standalone merge-ready section for docs/PRM_CAPSTONE.md
+    ├── PERFORMANCE_REPORT.md             # Latency, throughput, concurrency, and hardware utilization report (before vs after)
+    ├── QUALITY_EVALUATION.md             # Functional quality & moderation classification analysis (before vs after)
+    └── PRM_CAPSTONE_AI_BENCHMARK_SECTION.md # Standalone summary section for project reports
 ```
 
 ### Running the Suite
@@ -43,6 +47,12 @@ node --test ai-inference/benchmark/scripts/test_benchmark.mjs
 
 # Run full benchmark (162 total requests)
 node ai-inference/benchmark/scripts/run_benchmark.mjs --mode full
+
+# Run unseen held-out moderation benchmark (30 requests)
+node ai-inference/benchmark/scripts/run_heldout_moderation.mjs
+
+# Sample concurrent in-flight GPU/CPU utilization during active token generation
+node ai-inference/benchmark/scripts/sample_inflight_hardware.mjs
 
 # Run fast smoke check
 node ai-inference/benchmark/scripts/run_benchmark.mjs --mode smoke

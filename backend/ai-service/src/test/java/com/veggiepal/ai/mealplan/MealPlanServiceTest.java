@@ -2,6 +2,7 @@ package com.veggiepal.ai.mealplan;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -11,6 +12,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -654,5 +656,72 @@ class MealPlanServiceTest {
 
         var monday = mapper.valueToTree(response.plan()).path("days").get(0).path("meals");
         assertEquals(true, Set.of(1L, 2L).contains(monday.get(0).path("recipeId").asLong()));
+    }
+
+    @Test
+    void generateWithPreferencesAllergyExcludesSoyRecipesAndMergesIntoConstraints() {
+        ObjectNode recipes = mapper.createObjectNode();
+        ArrayNode content = recipes.putObject("result").putArray("content");
+        addRecipe(content, 1, 600);
+        addRecipe(content, 2, 600);
+        addRecipe(content, 3, 600);
+        // Recipe 115 contains tofu / soy
+        content.addObject()
+                .put("id", 115L).put("title", "Đậu hũ sốt cà chua")
+                .putArray("ingredients").addObject()
+                .put("ingredientName", "Đậu hũ").put("normalizedName", "dau hu")
+                .put("quantity", 100).put("unit", "GRAM")
+                .put("caloriesPer100g", 300).put("proteinPer100g", 15)
+                .put("carbsPer100g", 10).put("fatPer100g", 8)
+                .put("vegan", true).put("allergen", true);
+
+        stubGet("http://recipe-service/recipes?size=200", recipes, false);
+        // Profile allergies from nutrition-service are empty
+        ObjectNode allergies = mapper.createObjectNode();
+        allergies.putArray("result");
+        stubGet("http://nutrition-service/nutrition/me/allergies", allergies, true);
+        ObjectNode health = mapper.createObjectNode();
+        health.putObject("result").put("weightKg", 70).put("heightCm", 175);
+        stubGet("http://nutrition-service/nutrition/me/health-records/latest", health, true);
+        stubProfile("2000-01-01", "MALE", "MODERATE");
+
+        when(ai.complete(any(), any(Double.class), any(Integer.class))).thenThrow(new RuntimeException("LocalAi down"));
+        when(repository.save(any(MealPlan.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MealPlanDtos.GenerateRequest request = new MealPlanDtos.GenerateRequest(
+                "Kế hoạch dị ứng",
+                "Giảm mỡ",
+                List.of("Thuần chay", "Dị ứng đậu nành", "Không đậu hũ"),
+                List.of(),
+                new MealPlanDtos.NutritionTarget(
+                        new BigDecimal("1600"), new BigDecimal("2000"),
+                        new BigDecimal("50"), new BigDecimal("100"),
+                        new BigDecimal("150"), new BigDecimal("250"),
+                        new BigDecimal("30"), new BigDecimal("70")),
+                GoalType.LOSE);
+
+        MealPlanDtos.MealPlanResponse response = service.generate(1L, "test-jwt", request);
+
+        JsonNode planNode = mapper.valueToTree(response.plan());
+        // 1. Verify SOY is merged into saved constraints.allergies
+        JsonNode savedAllergies = planNode.path("constraints").path("allergies");
+        assertTrue(savedAllergies.isArray());
+        boolean hasSoy = false;
+        for (JsonNode item : savedAllergies) {
+            if ("SOY".equalsIgnoreCase(item.path("code").asText())) {
+                hasSoy = true;
+                break;
+            }
+        }
+        assertTrue(hasSoy, "Saved constraints must contain SOY allergen from preferences");
+
+        // 2. Verify recipe 115 is NEVER present in any meal of the 7 days
+        for (JsonNode day : planNode.path("days")) {
+            for (JsonNode meal : day.path("meals")) {
+                long recipeId = meal.path("recipeId").asLong();
+                org.junit.jupiter.api.Assertions.assertNotEquals(115L, recipeId,
+                        "Recipe 115 (tofu) must not be included when soy allergy is specified in preferences");
+            }
+        }
     }
 }

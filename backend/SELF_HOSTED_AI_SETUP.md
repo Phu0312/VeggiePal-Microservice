@@ -40,7 +40,7 @@ docker compose ps ai-service
 
 The backend network survives container recreation. After both Compose projects have been removed, `docker network rm veggiepal-prm-backend` removes the unused network.
 
-The default is 2,048 context tokens, one slot, batch size 256 and 16 GPU layers. Adjust `LLAMA_GPU_LAYERS` after checking free VRAM with `nvidia-smi`; lower the layer count if startup or generation runs out of memory. Q4_K_M weights are about 1.12 GB, but the runtime also needs KV cache, compute buffers and driver memory. The default context can be too small for long meal-plan prompts. Increase `LLAMA_CTX_SIZE` only after checking memory, or reduce prompt size.
+The default is 2,048 context tokens, one slot, batch size 256 and 99 GPU layers (`--n-gpu-layers 99`, offloading all 29 transformer tensors of `Qwen2.5-1.5B-Instruct` to the GPU). On an NVIDIA Quadro T2000 (4 GB VRAM), full GPU offload uses about 1,095 MiB of 4,096 MiB VRAM and sustains 57–70 tokens/s. Adjust `LLAMA_GPU_LAYERS` after checking free VRAM with `nvidia-smi`; lower the layer count (e.g., to 16) if startup or generation runs out of memory on smaller GPUs. Q4_K_M weights are about 1.12 GB, and the runtime also needs KV cache, compute buffers and driver memory. Increase `LLAMA_CTX_SIZE` only after checking memory, or keep prompt candidates bounded.
 
 ## CPU fallback
 
