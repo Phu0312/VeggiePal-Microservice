@@ -7,12 +7,9 @@ public enum ErrorCode {
     UNAUTHENTICATED(6001, "Unauthenticated", HttpStatus.UNAUTHORIZED),
     RESOURCE_NOT_FOUND(6002, "Resource not found", HttpStatus.NOT_FOUND),
     QUOTA_EXCEEDED(6003, "AI daily quota exceeded", HttpStatus.TOO_MANY_REQUESTS),
-    GROQ_UNAVAILABLE(6004, "AI provider is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
-    GROQ_NOT_CONFIGURED(6005, "AI provider is not configured", HttpStatus.SERVICE_UNAVAILABLE),
+    AI_UNAVAILABLE(6004, "AI inference is temporarily unavailable", HttpStatus.SERVICE_UNAVAILABLE),
     DOWNSTREAM_UNAVAILABLE(6006, "Required domain service is unavailable", HttpStatus.SERVICE_UNAVAILABLE),
     INVALID_AI_RESPONSE(6007, "AI provider returned an invalid response", HttpStatus.BAD_GATEWAY),
-    VIDEO_PROCESSING_FAILED(6008, "Video processing failed", HttpStatus.UNPROCESSABLE_ENTITY),
-    FILE_TOO_LARGE(6009, "Uploaded file is too large", HttpStatus.PAYLOAD_TOO_LARGE),
     HEALTH_RECORD_REQUIRED(6010, "Vui lòng cập nhật chiều cao và cân nặng trong hồ sơ sức khỏe trước khi lập thực đơn.", HttpStatus.BAD_REQUEST),
     NO_VALID_RECIPES(6011, "Không tìm thấy công thức món ăn phù hợp với yêu cầu dinh dưỡng và dị ứng.", HttpStatus.BAD_REQUEST),
     MODERATION_TARGET_NOT_FOUND(6012, "Moderated content no longer exists", HttpStatus.NOT_FOUND),
@@ -25,11 +22,6 @@ public enum ErrorCode {
     RECIPE_CONTAINS_ALLERGEN(6019, "Món ăn chứa thành phần gây dị ứng của bạn.", HttpStatus.BAD_REQUEST),
     PROFILE_INCOMPLETE(6020, "Vui lòng cập nhật ngày sinh, giới tính và mức độ vận động trong hồ sơ trước khi lập thực đơn.", HttpStatus.BAD_REQUEST),
     AGE_NOT_SUPPORTED(6021, "Thực đơn theo mục tiêu calo hiện chỉ dành cho người từ 18 tuổi trở lên.", HttpStatus.BAD_REQUEST),
-    VIDEO_QUEUE_FULL(6025, "Video processing queue is full", HttpStatus.SERVICE_UNAVAILABLE),
-    VIDEO_SOURCE_UNSUPPORTED(6026, "Video source is not supported", HttpStatus.UNPROCESSABLE_ENTITY),
-    VIDEO_EXTRACTION_IN_PROGRESS(6022, "Video recipe extraction is in progress", HttpStatus.CONFLICT),
-    VIDEO_EXTRACTION_FAILED(6023, "Video recipe extraction failed", HttpStatus.UNPROCESSABLE_ENTITY),
-    INSUFFICIENT_INFORMATION(6024, "Video does not contain sufficient recipe information", HttpStatus.UNPROCESSABLE_ENTITY),
     UNCATEGORIZED(6999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR);
 
     public final int code;

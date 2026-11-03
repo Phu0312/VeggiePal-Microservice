@@ -25,8 +25,7 @@ public class SecurityConfig {
             PathPatternRequestMatcher.withDefaults().matcher("/v3/api-docs/**"),
             PathPatternRequestMatcher.withDefaults().matcher("/actuator/health"),
             PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/ai/chat/guest"),
-            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/ai/chat/guest-sessions"),
-            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.GET, "/ai/videos/by-video/{videoId:[0-9]+}")
+            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/ai/chat/guest-sessions")
     );
 
     @Bean
@@ -37,7 +36,6 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/ai/chat/guest").permitAll()
                         .requestMatchers(HttpMethod.POST, "/ai/chat/guest-sessions").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/ai/videos/by-video/{videoId:[0-9]+}").permitAll()
                         .requestMatchers("/ai/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(errors).accessDeniedHandler(errors))

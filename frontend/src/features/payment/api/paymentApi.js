@@ -55,7 +55,7 @@ function unwrap(res, fallbackMessage) {
 /**
  * GET /payments/plans (Công khai)
  * Danh sách các gói thành viên hiện có:
- * [{ id, code, price, durationDays, chatPerDay, mealPlansPerMonth, videosPerMonth }]
+ * [{ id, code, price, durationDays, chatPerDay, mealPlansPerMonth }]
  */
 export async function getPlans() {
   let res;
@@ -127,7 +127,7 @@ export async function getHistory() {
 /**
  * GET /subscriptions/me (Yêu cầu đăng nhập)
  * Gói thành viên hiện tại:
- * { planCode, startedAt, expiresAt, chatPerDay, mealPlansPerMonth, videosPerMonth }
+ * { planCode, startedAt, expiresAt, chatPerDay, mealPlansPerMonth }
  */
 export async function getMySubscription() {
   let res;

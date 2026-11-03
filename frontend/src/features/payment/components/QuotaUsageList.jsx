@@ -1,4 +1,4 @@
-import { CalendarClock, ChefHat, Loader2, MessageCircle, Video } from "lucide-react";
+import { CalendarClock, ChefHat, Loader2, MessageCircle } from "lucide-react";
 
 import { useMyQuotas } from "@/features/payment/hooks/useMyQuotas";
 import { cn } from "@/lib/utils";
@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 const FEATURES = [
   { key: "mealPlan", label: "Thực đơn AI", icon: ChefHat },
   { key: "chat", label: "Hỏi đáp trợ lý", icon: MessageCircle },
-  { key: "video", label: "Bóc tách video", icon: Video },
 ];
 
 const PERIOD_LABELS = { DAILY: "hôm nay", MONTHLY: "tháng này" };
@@ -37,7 +36,7 @@ export default function QuotaUsageList({ className, compact = false }) {
   }
 
   return (
-    <ul className={cn("grid gap-3", !compact && "sm:grid-cols-3", className)}>
+    <ul className={cn("grid gap-3", !compact && "sm:grid-cols-2", className)}>
       {FEATURES.map(({ key, label, icon: Icon }) => {
         const item = quotas[key];
         if (!item) return null;

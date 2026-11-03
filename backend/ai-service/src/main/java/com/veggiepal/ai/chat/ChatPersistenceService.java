@@ -1,7 +1,7 @@
 package com.veggiepal.ai.chat;
 
+import com.veggiepal.ai.provider.LocalAiClient;
 import com.veggiepal.ai.chat.ChatDtos.ChatReply;
-import com.veggiepal.ai.groq.GroqClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +14,7 @@ public class ChatPersistenceService {
 
     @Transactional
     public ChatReply saveExchange(ChatConversation conversation, String principal, String userText,
-            GroqClient.GroqResult result, int remaining) {
+            LocalAiClient.AiResult result, int remaining) {
         ChatConversation saved = conversations.save(conversation);
         messages.save(new ChatMessage(saved, principal, "user", userText, result.promptTokens(), 0));
         messages.save(new ChatMessage(saved, principal, "assistant", result.content(), 0, result.completionTokens()));

@@ -1,5 +1,6 @@
 package com.veggiepal.ai.moderation;
 
+import com.veggiepal.ai.provider.LocalAiClient;
 import static com.veggiepal.ai.moderation.ModerationDtos.*;
 import java.math.BigDecimal;
 import java.util.List;
@@ -7,30 +8,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.provider.AiProviderClient;
-import com.veggiepal.ai.groq.ModelProperties;
-import com.veggiepal.ai.groq.dto.GroqRequest;
+import com.veggiepal.ai.provider.AiMessage;
 import com.veggiepal.ai.monitoring.UsageService;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ModerationService {
     private final ModerationRepository repository;
-    private final AiProviderClient groq;
-    private final ModelProperties models;
+    private final LocalAiClient ai;
     private final ObjectMapper mapper;
     private final UsageService usage;
     private final ModerationOwnerClient ownerClient;
 
     public ModerationService(ModerationRepository repository,
-            @Qualifier("moderationAiProvider") AiProviderClient groq, ModelProperties models,
+            LocalAiClient ai,
             ObjectMapper mapper, UsageService usage, ModerationOwnerClient ownerClient) {
         this.repository = repository;
-        this.groq = groq;
-        this.models = models;
+        this.ai = ai;
         this.mapper = mapper;
         this.usage = usage;
         this.ownerClient = ownerClient;
@@ -48,8 +43,8 @@ public class ModerationService {
         long start=System.nanoTime();
         try {
             usage.checkTextBudget("user:"+callerId);
-            var result=groq.complete(models.moderation(), List.of(new GroqRequest.Message("system","Bạn là bộ kiểm duyệt an toàn VeggiePal."), new GroqRequest.Message("user",prompt)),0,350);
-            usage.success(callerId,"user:"+callerId,"MODERATION",AiProviderClient.usageModel(groq, models.moderation()),result,elapsed(start));
+            var result=ai.complete(List.of(new AiMessage("system","Bạn là bộ kiểm duyệt an toàn VeggiePal."), new AiMessage("user",prompt)),0,350);
+            usage.success(callerId,"user:"+callerId,"MODERATION",ai.configuredModel(),result,elapsed(start));
             JsonNode json=mapper.readTree(cleanJson(result.content()));
             Decision decision=Decision.valueOf(json.path("decision").asText("REVIEW_REQUIRED"));
             BigDecimal confidence=BigDecimal.valueOf(json.path("confidence").asDouble(0));
@@ -58,7 +53,7 @@ public class ModerationService {
             String reason=json.path("reason").asText(null);
             return saveOrRefreshCase(request, decision, String.join(",", categories), reason, confidence);
         } catch (Exception exception) {
-            usage.failure(callerId,"user:"+callerId,"MODERATION",AiProviderClient.usageModel(groq, models.moderation()),elapsed(start),exception);
+            usage.failure(callerId,"user:"+callerId,"MODERATION",ai.configuredModel(),elapsed(start),exception);
             return saveOrRefreshCase(request, Decision.REVIEW_REQUIRED, "ai_fallback",
                     "AI moderation temporarily unavailable; queued for manual review", BigDecimal.ZERO);
         }

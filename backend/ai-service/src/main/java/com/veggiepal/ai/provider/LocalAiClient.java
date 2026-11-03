@@ -2,9 +2,6 @@ package com.veggiepal.ai.provider;
 
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient.GroqResult;
-import com.veggiepal.ai.groq.dto.GroqRequest;
-import com.veggiepal.ai.groq.dto.GroqResponse;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +10,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 @Component
-public class LocalAiClient implements AiProviderClient {
+public class LocalAiClient {
     private final RestClient http;
     private final String model;
 
@@ -25,14 +22,12 @@ public class LocalAiClient implements AiProviderClient {
 
     public String configuredModel() { return model; }
 
-    @Override
-    public GroqResult complete(String ignoredGroqModel, List<GroqRequest.Message> messages,
-                               double temperature, int maxTokens) {
+    public AiResult complete(List<AiMessage> messages, double temperature, int maxTokens) {
         try {
-            GroqResponse response = http.post().uri("/chat/completions")
+            AiCompletionResponse response = http.post().uri("/chat/completions")
                     .body(java.util.Map.of("model", model, "messages", messages,
                             "temperature", temperature, "max_tokens", maxTokens))
-                    .retrieve().body(GroqResponse.class);
+                    .retrieve().body(AiCompletionResponse.class);
             if (response == null || response.choices() == null || response.choices().isEmpty()
                     || response.choices().getFirst().message() == null
                     || response.choices().getFirst().message().content() == null
@@ -41,11 +36,18 @@ public class LocalAiClient implements AiProviderClient {
             }
             var choice = response.choices().getFirst();
             var usage = response.usage();
-            return new GroqResult(choice.message().content(),
+            return new AiResult(choice.message().content(),
                     usage == null ? 0 : usage.prompt_tokens(),
                     usage == null ? 0 : usage.completion_tokens(), choice.finishReason());
         } catch (RestClientException exception) {
-            throw new AppException(ErrorCode.GROQ_UNAVAILABLE, exception);
+            throw new AppException(ErrorCode.AI_UNAVAILABLE, exception);
         }
+    }
+
+    public record AiResult(String content, int promptTokens, int completionTokens, String finishReason) {
+        public AiResult(String content, int promptTokens, int completionTokens) {
+            this(content, promptTokens, completionTokens, null);
+        }
+        public boolean isLengthTruncated() { return "length".equalsIgnoreCase(finishReason); }
     }
 }

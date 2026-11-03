@@ -61,29 +61,23 @@ spring.config.import=optional:file:.env[.properties],optional:file:../.env[.prop
 
 ---
 
-### 2.4. Dịch vụ Trí tuệ Nhân tạo Groq Cloud & AI Service
-| Tên biến | Mô tả | Giá trị khuyến nghị |
-| :--- | :--- | :--- |
-| `GROQ_BASE_URL` | Base URL của Groq OpenAI-compatible API | `https://api.groq.com/openai/v1` |
-| `GROQ_API_KEY` | API Key Groq cá nhân | `gsk_...` |
-| `GROQ_CONNECT_TIMEOUT` | Timeout kết nối máy chủ Groq | `5s` |
-| `GROQ_READ_TIMEOUT` | Timeout đọc kết quả từ Groq | `45s` |
-| `GROQ_MAX_RETRIES` | Số lần thử lại khi gặp lỗi mạng/rate limit | `2` |
-| `GROQ_CHAT_MODEL` | Mô hình LLM cho Chat tư vấn | `openai/gpt-oss-20b` |
-| `GROQ_MODERATION_MODEL`| Mô hình LLM kiểm duyệt nội dung bài viết | `openai/gpt-oss-20b` |
-| `GROQ_RECOMMENDATION_MODEL`| Mô hình đề xuất công thức/thực đơn | `openai/gpt-oss-20b` |
-| `GROQ_MEAL_PLAN_MODEL` | Mô hình sinh thực đơn tuần | `openai/gpt-oss-20b` |
-| `GROQ_VIDEO_EXTRACTION_MODEL`| Mô hình trích xuất công thức từ video | `openai/gpt-oss-20b` |
-| `GROQ_TRANSCRIPTION_MODEL`| Mô hình Audio-to-Text trích xuất âm thanh | `whisper-large-v3-turbo` |
-| `FFMPEG_PATH` | Đường dẫn file nhị phân ffmpeg | `ffmpeg` |
-| `FFPROBE_PATH` | Đường dẫn file nhị phân ffprobe | `ffprobe` |
-| `AI_GUEST_DAILY_LIMIT` | Hạn ngạch tin nhắn chat cho khách vãng lai | `3` |
-| `AI_MEMBER_DAILY_LIMIT`| Hạn ngạch tin nhắn chat cho thành viên đăng nhập | `50` |
-| `AI_DAILY_TOKEN_LIMIT` | Hạn ngạch token tối đa / ngày | `50000` |
+### 2.4. Local AI Service
 
----
++The four AI features call the local Qwen model through llama.cpp. No commercial AI key is required.
 
-### 2.5. Cổng Dịch vụ & URL Định tuyến Liên dịch vụ (Inter-service & Gateway)
++| Variable | Description | Default |
++| :--- | :--- | :--- |
++| `AI_LOCAL_BASE_URL` | llama.cpp OpenAI-compatible URL | `http://llama:8080/v1` in Docker; `http://127.0.0.1:8088/v1` on the host |
++| `AI_LOCAL_MODEL` | llama.cpp model alias | `qwen2.5-1.5b-instruct` |
++| `AI_LOCAL_CONNECT_TIMEOUT` | Connection timeout | `10s` |
++| `AI_LOCAL_READ_TIMEOUT` | Response timeout | `120s` |
++| `AI_GUEST_DAILY_LIMIT` | Guest chat requests per IP per day | `3` |
++| `AI_MEMBER_DAILY_LIMIT` | Member chat requests per day | `50` |
++| `AI_DAILY_TOKEN_LIMIT` | Daily token budget | `50000` |
++
++---
++
++### 2.5. Cổng Dịch vụ & URL Định tuyến Liên dịch vụ (Inter-service & Gateway)
 | Tên biến | Mặc định | Dịch vụ sử dụng & Mô tả |
 | :--- | :---: | :--- |
 | `GATEWAY_PORT` | `8080` | Cổng tiếp nhận chính của API Gateway |
@@ -155,7 +149,7 @@ Mở file `.env` và kiểm tra:
 1. `DB_PASSWORD`: Đảm bảo trùng khớp với mật khẩu MySQL của bạn.
 2. `DB_PORT`: Đặt `3307` nếu chạy với Docker MySQL `veggiepal-mysql`, hoặc `3306` nếu chạy MySQL cài trực tiếp trên máy.
 3. `JWT_SECRET`: Đảm bảo chuỗi bí mật dài ít nhất 32 ký tự.
-4. `GROQ_API_KEY`: Điền API key từ trang Groq Console nếu cần sử dụng tính năng AI.
+4. `AI_LOCAL_BASE_URL`: Set the host endpoint for a host process, or use `http://llama:8080/v1` inside Docker.
 5. `CLOUDINARY_*`: Điền bộ thông số Cloudinary nếu cần kiểm thử upload ảnh đại diện và ảnh bài viết.
 
 ### Bước 3: Khởi chạy Database

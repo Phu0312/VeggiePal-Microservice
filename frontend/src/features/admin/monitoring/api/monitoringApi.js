@@ -13,8 +13,8 @@ import apiClient from "@/shared/api/apiClient";
  * UsageLog: { id, userId (null = khách), principalKey ("user:7" | "guest:<uuid>"), feature, model,
  *   status ("SUCCESS" | "FAILED"), promptTokens, completionTokens, latencyMs, errorMessage, createdAt }
  * LogPage: { items, page, size, totalElements, totalPages }
- * feature: CHAT | MEAL_PLAN | MODERATION | RECOMMENDATION | TRANSCRIPTION | VIDEO
- * Models: { chat, moderation, recommendation, mealPlan, videoExtraction, transcription }
+ * feature: CHAT | MEAL_PLAN | MODERATION | RECOMMENDATION (historical log values remain readable)
+ * Models: { chat, moderation, recommendation, mealPlan }
  * Limits: { guestChatRequestsPerDay, memberChatRequestsPerDay, dailyTokenLimit, maxHistoryMessages, maxInputCharacters }
  */
 

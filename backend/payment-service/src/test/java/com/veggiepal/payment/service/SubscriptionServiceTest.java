@@ -24,8 +24,8 @@ class SubscriptionServiceTest {
     @BeforeEach
     void setUp() {
         service = new SubscriptionService(subscriptions, plans, Clock.fixed(now, ZoneOffset.UTC));
-        free = plan(PlanCode.FREE, 0, 5, 2, 0);
-        plus = plan(PlanCode.PLUS, 30, 20, 8, 3);
+        free = plan(PlanCode.FREE, 0, 5, 2);
+        plus = plan(PlanCode.PLUS, 30, 20, 8);
     }
 
     @Test
@@ -55,8 +55,8 @@ class SubscriptionServiceTest {
         assertThat(current.getExpiresAt()).isEqualTo(existingExpiry.plus(30, java.time.temporal.ChronoUnit.DAYS));
     }
 
-    private SubscriptionPlan plan(PlanCode code, int days, int chat, int meals, int videos) {
+    private SubscriptionPlan plan(PlanCode code, int days, int chat, int meals) {
         return SubscriptionPlan.builder().code(code).durationDays(days).chatPerDay(chat)
-                .mealPlansPerMonth(meals).videosPerMonth(videos).active(true).build();
+                .mealPlansPerMonth(meals).active(true).build();
     }
 }

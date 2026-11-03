@@ -29,7 +29,6 @@ public final class QuotaDtos {
             String planCode,
             Instant expiresAt,
             FeatureQuotaStatus mealPlan,
-            FeatureQuotaStatus chat,
-            FeatureQuotaStatus video) {}
+            FeatureQuotaStatus chat) {}
 }
 

@@ -19,8 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.veggiepal.ai.common.AppException;
 import com.veggiepal.ai.common.ErrorCode;
-import com.veggiepal.ai.groq.GroqClient;
-import com.veggiepal.ai.groq.ModelProperties;
+import com.veggiepal.ai.provider.LocalAiClient;
 import com.veggiepal.ai.monitoring.UsageService;
 import com.veggiepal.ai.mealplan.MealPlanValidator;
 import java.util.List;
@@ -33,8 +32,7 @@ class RecommendationServiceTest {
     private RestClient http;
     private RestClient.RequestHeadersUriSpec uriSpec;
     private RestClient.ResponseSpec responseSpec;
-    private GroqClient groq;
-    private ModelProperties models;
+    private LocalAiClient ai;
     private ObjectMapper mapper;
     private UsageService usage;
     private RecommendationService service;
@@ -44,8 +42,7 @@ class RecommendationServiceTest {
         http = mock(RestClient.class);
         uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
         responseSpec = mock(RestClient.ResponseSpec.class);
-        groq = mock(GroqClient.class);
-        models = new ModelProperties("chat-model", "meal-model", "rec-model", "profile-model", "video-model", "whisper-model");
+        ai = mock(LocalAiClient.class);
         mapper = new ObjectMapper();
         usage = mock(UsageService.class);
 
@@ -57,8 +54,7 @@ class RecommendationServiceTest {
                 http,
                 "http://blog-service",
                 "http://recipe-service",
-                groq,
-                models,
+                ai,
                 mapper,
                 usage
         );
@@ -77,7 +73,7 @@ class RecommendationServiceTest {
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verifyNoInteractions(groq);
+        verifyNoInteractions(ai);
     }
 
     @Test
@@ -91,10 +87,10 @@ class RecommendationServiceTest {
         when(validator.isVegan(any())).thenReturn(true);
         when(validator.isAllergySafe(any(), any())).thenReturn(false);
         var secured = new RecommendationService(http, "http://blog-service", "http://recipe-service",
-                groq, models, mapper, usage, validator, "http://nutrition-service");
+                ai, mapper, usage, validator, "http://nutrition-service");
 
         assertTrue(secured.recommend(1L, "token", "peanut", 5).isEmpty());
-        verifyNoInteractions(groq);
+        verifyNoInteractions(ai);
     }
 
     @Test
@@ -104,9 +100,9 @@ class RecommendationServiceTest {
 
         when(responseSpec.body(JsonNode.class)).thenReturn(blogData, recipeData);
 
-        String groqOutput = "[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"Great salad tips\"},{\"type\":\"RECIPE\",\"id\":20,\"reason\":\"Fresh salad recipe\"}]";
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult(groqOutput, 100, 50));
+        String aiOutput = "[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"Great salad tips\"},{\"type\":\"RECIPE\",\"id\":20,\"reason\":\"Fresh salad recipe\"}]";
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult(aiOutput, 100, 50));
 
         List<RecommendationDtos.Recommendation> result = service.recommend(1L, "salad", 5);
 
@@ -126,8 +122,8 @@ class RecommendationServiceTest {
         JsonNode blogData = mapper.readTree("{\"result\":{\"items\":[{\"id\":10,\"title\":\"Vegan Salad Guide\"}]}}");
         JsonNode recipeData = mapper.readTree("{\"result\":{\"content\":[]}}");
         when(responseSpec.body(JsonNode.class)).thenReturn(blogData, recipeData);
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult("[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"tips\"}]", 100, 50));
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult("[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"tips\"}]", 100, 50));
 
         // Spring MVC writes responses with Jackson 3, not this service's Jackson 2 mapper.
         var json = tools.jackson.databind.json.JsonMapper.builder().build();
@@ -137,15 +133,15 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void recommendThrowsInvalidAiResponseWhenGroqReturnsNonArray() throws Exception {
+    void recommendThrowsInvalidAiResponseWhenLocalAiReturnsNonArray() throws Exception {
         JsonNode blogData = mapper.readTree("{\"result\":{\"items\":[{\"id\":10,\"title\":\"Vegan Salad Guide\"}]}}");
         JsonNode recipeData = mapper.readTree("{\"result\":{\"content\":[]}}");
 
         when(responseSpec.body(JsonNode.class)).thenReturn(blogData, recipeData);
 
-        String groqOutput = "{\"message\":\"not an array\"}";
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult(groqOutput, 100, 50));
+        String aiOutput = "{\"message\":\"not an array\"}";
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult(aiOutput, 100, 50));
 
         AppException ex = assertThrows(AppException.class, () -> service.recommend(1L, "salad", 5));
         assertEquals(ErrorCode.INVALID_AI_RESPONSE, ex.getErrorCode());
@@ -155,8 +151,8 @@ class RecommendationServiceTest {
     void recommendStillUsesRecipesWhenBlogServiceIsDown() throws Exception {
         JsonNode recipeData = mapper.readTree("{\"result\":{\"content\":[{\"id\":20,\"title\":\"Avocado Salad\"}]}}");
         when(responseSpec.body(JsonNode.class)).thenThrow(new RuntimeException("Connection refused")).thenReturn(recipeData);
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult("[{\"type\":\"RECIPE\",\"id\":20,\"reason\":\"fresh\"}]", 100, 50));
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult("[{\"type\":\"RECIPE\",\"id\":20,\"reason\":\"fresh\"}]", 100, 50));
 
         List<RecommendationDtos.Recommendation> result = service.recommend(1L, null, 5);
 
@@ -170,8 +166,8 @@ class RecommendationServiceTest {
         JsonNode emptyRecipe = mapper.readTree("{\"result\":{\"content\":[]}}");
         JsonNode latestBlogs = mapper.readTree("{\"result\":{\"items\":[{\"id\":10,\"title\":\"Rau củ ít calo\"}]}}");
         when(responseSpec.body(JsonNode.class)).thenReturn(emptyBlog, emptyRecipe, latestBlogs, emptyRecipe);
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult("[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"ít calo\"}]", 100, 50));
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult("[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"ít calo\"}]", 100, 50));
 
         List<RecommendationDtos.Recommendation> result = service.recommend(1L, "giảm cân", 5);
 
@@ -185,9 +181,9 @@ class RecommendationServiceTest {
         JsonNode blogData = mapper.readTree("{\"result\":{\"items\":[{\"id\":10,\"title\":\"Vegan Salad Guide\"}]}}");
         JsonNode recipeData = mapper.readTree("{\"result\":{\"content\":[]}}");
         when(responseSpec.body(JsonNode.class)).thenReturn(blogData, recipeData);
-        String groqOutput = "Dưới đây là gợi ý cho bạn:\n```json\n[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"tips\"}]\n```";
-        when(groq.complete(anyString(), anyList(), anyDouble(), anyInt()))
-                .thenReturn(new GroqClient.GroqResult(groqOutput, 100, 50));
+        String aiOutput = "Dưới đây là gợi ý cho bạn:\n```json\n[{\"type\":\"BLOG\",\"id\":10,\"reason\":\"tips\"}]\n```";
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
+                .thenReturn(new LocalAiClient.AiResult(aiOutput, 100, 50));
 
         List<RecommendationDtos.Recommendation> result = service.recommend(1L, "salad", 5);
 

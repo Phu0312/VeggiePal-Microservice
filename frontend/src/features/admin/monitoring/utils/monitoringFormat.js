@@ -11,7 +11,6 @@ export const FEATURE_LABELS = {
   MEAL_PLAN: "Thực đơn",
   MODERATION: "Kiểm duyệt",
   RECOMMENDATION: "Gợi ý nội dung",
-  TRANSCRIPTION: "Chuyển giọng nói",
   VIDEO: "Xử lý video",
 };
 
@@ -26,8 +25,6 @@ export const MODEL_LABELS = {
   moderation: "Kiểm duyệt",
   recommendation: "Gợi ý nội dung",
   mealPlan: "Thực đơn",
-  videoExtraction: "Bóc tách công thức từ video",
-  transcription: "Chuyển giọng nói",
 };
 
 // Giới hạn: khóa của GET /limits -> [tên hiển thị, đơn vị].

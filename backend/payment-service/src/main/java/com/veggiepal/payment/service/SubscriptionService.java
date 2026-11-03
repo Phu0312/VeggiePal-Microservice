@@ -73,6 +73,6 @@ public class SubscriptionService {
     private SubscriptionResponse response(UserSubscription s) {
         SubscriptionPlan p = s.getPlan();
         return new SubscriptionResponse(p.getCode(), s.getStartedAt(), s.getExpiresAt(), p.getChatPerDay(),
-                p.getMealPlansPerMonth(), p.getVideosPerMonth());
+                p.getMealPlansPerMonth());
     }
 }

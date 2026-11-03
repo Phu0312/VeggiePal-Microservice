@@ -1,4 +1,4 @@
-// Video của cộng đồng (blog-service: `/videos`) và bóc tách công thức từ video bằng AI (ai-service: `/ai/videos`).
+// Video của cộng đồng (blog-service: `/videos`).
 
 import '../../../core/utils/moderation.dart';
 
@@ -8,7 +8,6 @@ class VideoLimits {
   static const maxFileBytes = 30 * 1024 * 1024; // video.max-file-size của blog-service
   static const titleMax = 150;
   static const descriptionMax = 5000;
-  static const jobMaxBytes = 100 * 1024 * 1024; // ai.video.max-file-bytes của ai-service
   static const jobMaxMinutes = 30; // ai.video.max-duration-seconds = 1800
 }
 
@@ -211,13 +210,6 @@ String? validateVideoFile({required String name, required int bytes}) {
   return null;
 }
 
-/// Kiểm tra tệp gửi để AI bóc tách: là video và ≤ 100MB (backend kiểm lại thời lượng ≤ 30 phút). Trả lỗi hoặc null.
-String? validateJobFile({required int bytes}) {
-  if (bytes <= 0) return 'Tệp video rỗng';
-  if (bytes > VideoLimits.jobMaxBytes) return 'Tệp video vượt quá dung lượng cho phép (tối đa 100MB)';
-  return null;
-}
-
 /// "12.3 MB"
 String formatFileSize(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
@@ -249,132 +241,5 @@ String formatFileSize(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1
       );
     default:
       return (title: 'Đã lưu', message: 'Đã lưu bản nháp video.', needsDialog: false);
-  }
-}
-
-// ---------------- Bóc tách công thức bằng AI ----------------
-
-class ExtractedIngredient {
-  final String name;
-  final String quantity;
-  const ExtractedIngredient(this.name, this.quantity);
-}
-
-class ExtractedStep {
-  final int number;
-  final String instruction;
-  const ExtractedStep(this.number, this.instruction);
-}
-
-/// Công thức AI bóc tách từ lời trong video: {title, ingredients[{name, quantity}], steps[{number, instruction}]}.
-class VideoExtraction {
-  final String title;
-  final List<ExtractedIngredient> ingredients;
-  final List<ExtractedStep> steps;
-  const VideoExtraction(this.title, this.ingredients, this.steps);
-
-  /// Null nếu không đúng dạng công thức (vd job cũ đã hết hạn lưu).
-  static VideoExtraction? tryParse(Object? raw) {
-    if (raw is! Map) return null;
-    final title = '${raw['title'] ?? ''}'.trim();
-    if (title.isEmpty) return null;
-    final steps = [
-      for (final s in (raw['steps'] as List? ?? const []))
-        if (s is Map) ExtractedStep((s['number'] as num?)?.toInt() ?? 0, '${s['instruction'] ?? ''}'),
-    ]..sort((a, b) => a.number.compareTo(b.number));
-    return VideoExtraction(
-      title,
-      [
-        for (final i in (raw['ingredients'] as List? ?? const []))
-          if (i is Map) ExtractedIngredient('${i['name'] ?? ''}', '${i['quantity'] ?? ''}'),
-      ],
-      steps,
-    );
-  }
-}
-
-/// Một lượt bóc tách (ai-service: VideoJobResponse).
-class VideoJob {
-  final int id;
-  final int? sourceVideoId; // có khi bóc tách từ video đã đăng
-  final String status; // PROCESSING | COMPLETED | FAILED
-  final String filename;
-  final String? transcript;
-  final VideoExtraction? extraction;
-  final String? error;
-  final DateTime? createdAt;
-
-  const VideoJob({
-    required this.id,
-    this.sourceVideoId,
-    required this.status,
-    this.filename = '',
-    this.transcript,
-    this.extraction,
-    this.error,
-    this.createdAt,
-  });
-
-  factory VideoJob.fromJson(Map<String, dynamic> j) => VideoJob(
-        id: (j['id'] as num).toInt(),
-        sourceVideoId: (j['sourceVideoId'] as num?)?.toInt(),
-        status: '${j['status'] ?? 'PROCESSING'}',
-        filename: '${j['filename'] ?? ''}',
-        transcript: j['transcript'] as String?,
-        extraction: VideoExtraction.tryParse(j['extraction']),
-        error: j['error'] as String?,
-        createdAt: j['createdAt'] == null ? null : DateTime.tryParse('${j['createdAt']}')?.toLocal(),
-      );
-
-  bool get processing => status == 'PROCESSING';
-
-  /// COMPLETED nhưng không còn nội dung: backend xoá kết quả sau 30 ngày.
-  bool get resultExpired => status == 'COMPLETED' && extraction == null;
-
-  /// Job tạo từ video đã đăng có filename do backend tự đặt nên hiển thị số video thay cho tên tệp.
-  String get sourceLabel => sourceVideoId != null ? 'Video đã đăng #$sourceVideoId' : filename;
-}
-
-String jobStatusLabel(String status) => switch (status) {
-      'PROCESSING' => 'Đang xử lý',
-      'COMPLETED' => 'Hoàn tất',
-      'FAILED' => 'Thất bại',
-      _ => status,
-    };
-
-// Lý do thất bại do backend ghi vào job (tiếng Anh) -> tiếng Việt.
-const _jobErrors = {
-  'Video processing failed': 'Không xử lý được video: tệp bị lỗi hoặc dài hơn 30 phút',
-  'AI provider returned an invalid response': 'AI chưa trả về kết quả hợp lệ, bạn thử lại sau nhé',
-  'Video does not contain sufficient recipe information':
-      'Video không có đủ thông tin công thức (nguyên liệu kèm số lượng và các bước) để AI bóc tách',
-  'AI provider is temporarily unavailable': 'AI đang tạm thời quá tải, bạn thử lại sau ít phút',
-  'AI provider is not configured': 'Tính năng AI chưa được cấu hình trên máy chủ',
-  'AI daily quota exceeded': 'AI đã hết hạn mức sử dụng, bạn thử lại sau',
-  'Video processing queue is full': 'Hệ thống đang bận, bạn thử lại sau ít phút',
-  'Video processing interrupted or timed out':
-      'Quá trình xử lý bị gián đoạn hoặc quá lâu, bạn thử gửi lại nhé',
-};
-
-/// Lý do job thất bại bằng tiếng Việt; lý do lạ rơi về câu chung.
-String describeJobError(String? error) =>
-    _jobErrors[error] ?? 'Xử lý video thất bại, bạn thử lại sau nhé';
-
-/// Công thức AI của một video đã đăng (suy ra từ GET /ai/videos/by-video/{id} hoặc job vừa tạo).
-enum RecipeState { ready, processing, failed, unsupported, none }
-
-class VideoRecipe {
-  final RecipeState state;
-  final VideoExtraction? extraction;
-  const VideoRecipe(this.state, [this.extraction]);
-
-  /// Từ job do POST /ai/videos/process-existing trả về.
-  factory VideoRecipe.fromJob(VideoJob job) {
-    if (job.processing) return const VideoRecipe(RecipeState.processing);
-    if (job.status == 'COMPLETED' && job.extraction != null) {
-      return VideoRecipe(RecipeState.ready, job.extraction);
-    }
-    if (job.status == 'FAILED') return const VideoRecipe(RecipeState.failed);
-    return const VideoRecipe(RecipeState.none);
   }
 }

@@ -45,7 +45,7 @@ class _Api extends ApiClient {
   Future<dynamic> delete(String path) async => _hit('DELETE', path);
 }
 
-Map<String, dynamic> _quota({int chatUsed = 17, int videoLimit = 0}) => {
+Map<String, dynamic> _quota({int chatUsed = 17}) => {
       'planCode': 'PLUS',
       'mealPlan': {
         'feature': 'MEAL_PLAN',
@@ -62,14 +62,6 @@ Map<String, dynamic> _quota({int chatUsed = 17, int videoLimit = 0}) => {
         'used': chatUsed,
         'remaining': 20 - chatUsed,
         'resetsAt': '2026-10-31'
-      },
-      'video': {
-        'feature': 'VIDEO',
-        'period': 'MONTHLY',
-        'limit': videoLimit,
-        'used': 0,
-        'remaining': videoLimit,
-        'resetsAt': '2026-11-01'
       },
     };
 
@@ -106,7 +98,7 @@ class _PayRepo extends PaymentRepository {
 
   @override
   Future<Subscription> mySubscription() async => Subscription.fromJson(
-      {'planCode': 'PLUS', 'chatPerDay': 20, 'mealPlansPerMonth': 8, 'videosPerMonth': 0});
+      {'planCode': 'PLUS', 'chatPerDay': 20, 'mealPlansPerMonth': 8});
 
   @override
   Future<QuotaOverview> myQuotas() async {
@@ -128,8 +120,6 @@ void main() {
       expect(q.chat.label, 'Còn 0/20 lượt hôm nay');
       expect(q.chat.exhausted, isTrue);
       expect(q.mealPlan.exhausted, isFalse);
-      expect(q.video.label, 'Gói hiện tại chưa có lượt');
-      expect(q.video.usedRatio, 1);
       expect(q.mealPlan.usedRatio, 3 / 8);
       expect(q.mealPlan.resetsAt, DateTime(2026, 11, 1));
     });

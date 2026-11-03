@@ -1,22 +1,14 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useRequireLogin } from "@/features/auth/hooks/useRequireLogin";
 import { formatCompactNumber, formatTimeAgo, getInitials } from "@/features/blog/utils/blogFormat";
 import AuthorFollowButton from "@/features/community/components/AuthorFollowButton";
 import FavoriteButton from "@/features/profile/components/FavoriteButton";
-import { useVideoRecipe } from "@/features/video/hooks/useVideoRecipe";
 import FallbackImage from "@/shared/components/FallbackImage";
-
-const scrollToAiCard = () => {
-  document.getElementById("ai-summary-card")?.scrollIntoView({ behavior: "smooth" });
-};
 
 export default function VideoMetaHeader({ video, author }) {
   const [descExpanded, setDescExpanded] = useState(false);
-  const recipe = useVideoRecipe(video);
-  const { requireLogin } = useRequireLogin();
 
   if (!video) {
     return (
@@ -34,22 +26,6 @@ export default function VideoMetaHeader({ video, author }) {
   }
 
   const authorName = author?.fullName ?? "Thành viên VeggiePal";
-
-  // Nút AI theo trạng thái công thức của video (xem useVideoRecipe): đã có kết quả thì cuộn tới thẻ AI (khách và thành viên đều xem được), chưa có thì bóc tách (trừ 1 lượt của thành viên), YouTube thì khóa, khách thì mời đăng nhập để bóc tách.
-  const aiStatus = recipe.status;
-  const aiBusy = aiStatus === "processing";
-  const aiDisabled = aiBusy || aiStatus === "loading" || aiStatus === "unsupported";
-  const aiLabel =
-    aiStatus === "ready" ? "Xem công thức AI" : aiBusy ? "Đang bóc tách…" : "Bóc tách công thức AI";
-
-  const handleAiClick = () => {
-    if (aiStatus === "login") {
-      requireLogin();
-      return;
-    }
-    if ((aiStatus === "none" || aiStatus === "failed") && !recipe.noQuota) recipe.run();
-    scrollToAiCard();
-  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,17 +59,6 @@ export default function VideoMetaHeader({ video, author }) {
 
           {video.status === "PUBLISHED" && <AuthorFollowButton authorId={video.authorId} />}
 
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleAiClick}
-            disabled={aiDisabled}
-            title={aiStatus === "unsupported" ? "Chưa hỗ trợ bóc tách video YouTube" : undefined}
-            className="ml-2 gap-1.5 shadow-sm"
-          >
-            {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-            {aiLabel}
-          </Button>
         </div>
 
         {video.status === "PUBLISHED" && (
