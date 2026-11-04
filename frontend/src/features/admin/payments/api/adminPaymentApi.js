@@ -4,7 +4,6 @@ import apiClient from "@/shared/api/apiClient";
  * Admin payment APIs (payment-service qua api-gateway). Chỉ ADMIN.
  *   GET /admin/payments/summary?from&to&planCode        thẻ tổng quan
  *   GET /admin/payments/statistics?from&to&planCode     phân bố trạng thái / gói
- *   GET /admin/payments/revenue?from&to&planCode&groupBy=DAY|MONTH   doanh thu theo kỳ
  *   GET /admin/payments/orders?status&planCode&from&to&page&size     danh sách đơn có phân trang
  *   GET /admin/payments/orders/{id}                      chi tiết đơn
  * from / to: Instant ISO-8601 (Date.toISOString()).
@@ -12,7 +11,6 @@ import apiClient from "@/shared/api/apiClient";
  * Summary: { totalRevenue, totalTransactions, paidTransactions, pendingTransactions,
  *   cancelledTransactions, failedTransactions, averagePaidAmount, statusDistribution }
  * Statistics: { statusDistribution: [{ key, count, amount }], planDistribution: [...], transactionTrend: [Point] }
- * Revenue: { totalRevenue, paidTransactions, groupBy, points: [{ period, transactionCount, revenue }] }
  * OrderPage: { items: [Order], page, size, totalElements, totalPages }
  */
 
@@ -45,13 +43,6 @@ export async function getPaymentSummary(filters) {
 export async function getPaymentStatistics(filters) {
   const res = await apiClient.get("/admin/payments/statistics", { params: rangeParams(filters) });
   return unwrap(res, "Không lấy được thống kê thanh toán");
-}
-
-export async function getPaymentRevenue({ groupBy = "DAY", ...filters } = {}) {
-  const res = await apiClient.get("/admin/payments/revenue", {
-    params: { ...rangeParams(filters), groupBy },
-  });
-  return unwrap(res, "Không lấy được doanh thu");
 }
 
 export async function getAdminOrders({ status, page = 0, size = 20, ...filters } = {}) {
