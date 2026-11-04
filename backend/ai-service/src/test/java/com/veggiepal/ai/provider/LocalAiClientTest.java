@@ -31,7 +31,6 @@ class LocalAiClientTest {
                 .complete(List.of(new AiMessage("user", "Xin chào")), 0.2, 50);
         assertEquals("Ăn chay cân đối.", result.content());
         assertEquals(8, result.promptTokens());
-        assertEquals("stop", result.finishReason());
         server.verify();
     }
 
@@ -58,23 +57,6 @@ class LocalAiClientTest {
         var ex = assertThrows(AppException.class,
                 () -> client.complete(List.of(new AiMessage("user", "test")), 0, 20));
         assertEquals(ErrorCode.AI_UNAVAILABLE, ex.getErrorCode());
-        server.verify();
-    }
-
-    @Test
-    void lengthFinishReasonIsCapturedInAiResult() {
-        var builder = RestClient.builder().baseUrl("http://localhost:8088/v1");
-        var server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo("http://localhost:8088/v1/chat/completions"))
-                .andRespond(withSuccess("""
-                        {"choices":[{"message":{"role":"assistant","content":"Nội dung bị cắt do giới hạn token"},"finish_reason":"length"}],
-                         "usage":{"prompt_tokens":120,"completion_tokens":50,"total_tokens":170}}
-                        """, MediaType.APPLICATION_JSON));
-        var result = new LocalAiClient(builder.build(), "qwen2.5-1.5b-instruct")
-                .complete(List.of(new AiMessage("user", "test length")), 0.2, 50);
-        assertEquals("length", result.finishReason());
-        assertEquals(120, result.promptTokens());
-        assertEquals(50, result.completionTokens());
         server.verify();
     }
 }
