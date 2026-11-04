@@ -41,6 +41,8 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
   final _name = TextEditingController(text: _defaultName());
   final _ingredient = TextEditingController();
   final _ingredients = <String>[];
+  final _exclusion = TextEditingController();
+  final _exclusions = <String>[];
   PlanGoal _goal = PlanGoal.maintain;
   HealthInfo? _health;
   MealPlan? _plan;
@@ -71,6 +73,7 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
     _weight.dispose();
     _name.dispose();
     _ingredient.dispose();
+    _exclusion.dispose();
     super.dispose();
   }
 
@@ -183,7 +186,7 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
       try {
         final plan = await context
             .read<MealPlanRepository>()
-            .generate(name: name, goal: _goal, ingredients: List.of(_ingredients));
+            .generate(name: name, goal: _goal, ingredients: List.of(_ingredients), exclusions: List.of(_exclusions));
         if (!mounted) return;
         _show(plan);
         setState(() => _name.text = _defaultName());
@@ -446,6 +449,27 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
             for (final i in _ingredients)
               InputChip(label: Text(i), onDeleted: () => setState(() => _ingredients.remove(i))),
           ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+                child: TextField(
+                    controller: _exclusion,
+                    decoration: const InputDecoration(
+                        labelText: 'Dị ứng / thực phẩm không ăn',
+                        hintText: 'Ví dụ: đậu nành, mè, nấm...',
+                        helperText: 'Các món chứa thực phẩm này sẽ bị loại, thêm vào dị ứng trong hồ sơ.',
+                        helperMaxLines: 2,
+                        prefixIcon: Icon(LucideIcons.shieldAlert)),
+                    onSubmitted: (_) => _addExclusion())),
+            IconButton(onPressed: _addExclusion, icon: Icon(Icons.add_circle, color: context.cs.primary)),
+          ]),
+          Wrap(spacing: 8, children: [
+            for (final e in _exclusions)
+              InputChip(
+                  label: Text(e),
+                  avatar: Icon(LucideIcons.ban, size: 16, color: context.cs.error),
+                  onDeleted: () => setState(() => _exclusions.remove(e))),
+          ]),
           if (loggedIn && context.watch<PantryController>().items.isNotEmpty)
             Align(
               alignment: Alignment.centerLeft,
@@ -533,6 +557,28 @@ class _PlanTabState extends State<PlanTab> with AutomaticKeepAliveClientMixin {
     setState(() {
       _ingredients.add(t);
       _ingredient.clear();
+    });
+  }
+
+  /// Thêm thực phẩm không ăn gõ tay (gửi qua `preferences`, xem [MealPlanRepository.exclusionPreference]).
+  void _addExclusion() {
+    final t = _exclusion.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (t.isEmpty) return;
+    if (t.length > MealPlanRepository.maxExclusionLength) {
+      showSnack(context, 'Mỗi mục tối đa ${MealPlanRepository.maxExclusionLength} ký tự');
+      return;
+    }
+    if (_exclusions.any((e) => e.toLowerCase() == t.toLowerCase())) {
+      _exclusion.clear();
+      return;
+    }
+    if (_exclusions.length >= MealPlanRepository.maxExclusions) {
+      showSnack(context, 'Tối đa ${MealPlanRepository.maxExclusions} thực phẩm không ăn');
+      return;
+    }
+    setState(() {
+      _exclusions.add(t);
+      _exclusion.clear();
     });
   }
 

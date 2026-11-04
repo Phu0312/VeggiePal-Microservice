@@ -22,9 +22,17 @@ void main() {
       expect(moderationReasonVi('   '), '');
     });
 
-    test('nhóm ai_fallback có nhãn tiếng Việt, nhóm khác giữ nguyên', () {
-      expect(moderationCategoryVi('ai_fallback'), isNot('ai_fallback'));
-      expect(moderationCategoryVi('spam'), 'spam');
+    test('mọi nhóm vi phạm của BE có nhãn tiếng Việt, nhóm lạ giữ nguyên', () {
+      const known = [
+        'hate', 'harassment', 'sexual', 'violence', 'self_harm', 'illegal', 'spam', 'misinformation_dangerous',
+        'prompt_injection', 'unverified_health_claim', 'sensitive_health_question', 'community_dispute',
+        'unverified_content', 'ai_fallback',
+      ];
+      for (final c in known) {
+        expect(moderationCategoryVi(c), isNot(c), reason: c);
+      }
+      expect(moderationCategoryVi('SPAM'), moderationCategoryVi('spam'));
+      expect(moderationCategoryVi('nhom_la'), 'nhom_la');
     });
   });
 

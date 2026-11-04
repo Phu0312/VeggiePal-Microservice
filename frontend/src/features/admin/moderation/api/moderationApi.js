@@ -13,7 +13,8 @@ import apiClient from "@/shared/api/apiClient";
  * @property {number|null} authorId - ID tài khoản tạo nội dung
  * @property {string|null} content - Nội dung văn bản thực tế bị AI gắn cờ
  * @property {Decision} decision - Trạng thái/quyết định kiểm duyệt
- * @property {string[]} categories - Danh mục vi phạm (hate, spam, violence, harassment, ...)
+ * @property {string[]} categories - Danh mục vi phạm (hate, harassment, sexual, violence, self_harm, illegal, spam, misinformation_dangerous, prompt_injection,
+ *   unverified_health_claim, sensitive_health_question, community_dispute; máy chủ tự gán unverified_content, ai_fallback)
  * @property {string|null} reason - Lý do giải thích từ AI hoặc ghi chú của Admin
  * @property {number} confidence - Độ tin cậy nhận diện của AI (0.0000 -> 1.0000)
  * @property {number|null} reviewedBy - ID của Admin xử lý case (null nếu chưa duyệt)

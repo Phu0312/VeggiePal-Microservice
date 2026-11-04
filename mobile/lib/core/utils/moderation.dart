@@ -17,6 +17,24 @@ String moderationReasonVi(String reason) {
   return _aiUnavailableReasons.contains(r.toLowerCase()) ? aiUnavailableReasonVi : r;
 }
 
-/// Nhãn nhóm vi phạm ở hàng đợi kiểm duyệt: `ai_fallback` là nhóm máy chủ gán khi AI không phân loại được.
-String moderationCategoryVi(String category) =>
-    category == 'ai_fallback' ? 'AI chưa phân loại được' : category;
+/// Nhãn tiếng Việt của các nhóm vi phạm do ai-service gắn cho case kiểm duyệt. `unverified_content` và `ai_fallback`
+/// là hai nhóm máy chủ tự gán (AI từ chối nhưng thiếu căn cứ; AI không phân loại được).
+const _categoryLabelsVi = {
+  'hate': 'Thù ghét',
+  'harassment': 'Quấy rối, xúc phạm',
+  'sexual': 'Nội dung tình dục',
+  'violence': 'Bạo lực',
+  'self_harm': 'Tự gây hại',
+  'illegal': 'Vi phạm pháp luật',
+  'spam': 'Spam, quảng cáo rác',
+  'misinformation_dangerous': 'Thông tin y tế sai lệch nguy hiểm',
+  'prompt_injection': 'Thao túng bộ kiểm duyệt',
+  'unverified_health_claim': 'Tuyên bố sức khỏe chưa kiểm chứng',
+  'sensitive_health_question': 'Câu hỏi sức khỏe nhạy cảm',
+  'community_dispute': 'Tranh cãi cộng đồng',
+  'unverified_content': 'Nội dung chưa xác minh',
+  'ai_fallback': 'AI chưa phân loại được',
+};
+
+/// Nhãn nhóm vi phạm ở hàng đợi kiểm duyệt; nhóm lạ giữ nguyên mã gốc.
+String moderationCategoryVi(String category) => _categoryLabelsVi[category.trim().toLowerCase()] ?? category;

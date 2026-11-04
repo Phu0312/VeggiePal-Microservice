@@ -29,6 +29,7 @@ import {
   buildNutritionTarget,
   countMissedDays,
   defaultPlanName,
+  exclusionPreference,
   GOAL_OPTIONS,
   missingProfileFields,
   profileFixState,
@@ -66,6 +67,8 @@ const AUTO_TARGET_BLOCKING_CODES = new Set([6020, 6021]);
  * - Nguyên liệu có sẵn: chọn từ danh mục nguyên liệu; BE chỉ ưu tiên các món dùng chúng (không loại món khác).
  * - Cần có chỉ số sức khỏe (chiều cao, cân nặng) mới tạo được thực đơn: thiếu thì khóa nút và dẫn tới hồ sơ.
  * - Khẩu vị: gửi nhãn các lựa chọn đang bật qua `preferences`.
+ * - Thực phẩm không ăn / dị ứng: gõ tay, gửi qua `preferences` dạng "Không ăn <tên>"; BE gộp vào danh sách dị ứng của
+ *   hồ sơ và loại mọi món chứa chúng (kể cả khi hồ sơ chưa khai báo).
  * - Tên, mục tiêu, mô tả, mục tiêu dinh dưỡng: react-hook-form + zod.
  * `onCreated(plan)` được gọi khi tạo xong để trang chuyển sang xem thực đơn mới.
  */
@@ -94,6 +97,8 @@ export default function AiMealSuggestion({ onCreated }) {
   const [ingredients, setIngredients] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activePrefs, setActivePrefs] = useState(() => new Set());
+  const [exclusions, setExclusions] = useState([]);
+  const [exclusionInput, setExclusionInput] = useState("");
 
   const {
     register,
@@ -141,6 +146,29 @@ export default function AiMealSuggestion({ onCreated }) {
     });
   };
 
+  const addExclusion = () => {
+    const item = exclusionInput.trim().replace(/\s+/g, " ");
+    if (!item) return;
+    if (item.length > MEAL_PLAN_LIMITS.exclusionLength) {
+      toast.error(`Mỗi mục tối đa ${MEAL_PLAN_LIMITS.exclusionLength} ký tự`);
+      return;
+    }
+    if (exclusions.some((e) => e.toLowerCase() === item.toLowerCase())) {
+      setExclusionInput("");
+      return;
+    }
+    if (exclusions.length >= MEAL_PLAN_LIMITS.exclusions) {
+      toast.error(`Tối đa ${MEAL_PLAN_LIMITS.exclusions} thực phẩm không ăn`);
+      return;
+    }
+    setExclusions((prev) => [...prev, item]);
+    setExclusionInput("");
+  };
+
+  const removeExclusion = (item) => {
+    setExclusions((prev) => prev.filter((e) => e !== item));
+  };
+
   const addIngredient = (ingredient) => {
     setIngredients((prev) =>
       prev.length >= MEAL_PLAN_LIMITS.ingredients || prev.some((item) => item.id === ingredient.id)
@@ -158,7 +186,10 @@ export default function AiMealSuggestion({ onCreated }) {
     const payload = buildGeneratePayload({
       name,
       goalType,
-      preferences: flavorPreferences.filter((pref) => activePrefs.has(pref.id)).map((pref) => pref.label),
+      preferences: [
+        ...flavorPreferences.filter((pref) => activePrefs.has(pref.id)).map((pref) => pref.label),
+        ...exclusions.map(exclusionPreference),
+      ],
       ingredients: ingredients.map((item) => item.name),
       target,
     });
@@ -285,6 +316,53 @@ export default function AiMealSuggestion({ onCreated }) {
                   </button>
                 );
               })}
+            </div>
+
+            <h3 className="mt-3 text-base font-semibold text-ink">Dị ứng / thực phẩm không ăn:</h3>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="text"
+                value={exclusionInput}
+                onChange={(event) => setExclusionInput(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter chỉ thêm mục, không gửi cả form (sẽ kích hoạt tạo thực đơn ngoài ý muốn).
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addExclusion();
+                  }
+                }}
+                maxLength={MEAL_PLAN_LIMITS.exclusionLength}
+                placeholder="Ví dụ: đậu nành, mè, nấm..."
+                aria-label="Thực phẩm không ăn hoặc gây dị ứng"
+                className={cn(fieldClass, "h-10")}
+              />
+              <Button type="button" variant="outline" onClick={addExclusion} disabled={!exclusionInput.trim()}>
+                <Plus className="h-4 w-4" />
+                Thêm
+              </Button>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {exclusions.map((item) => (
+                <span
+                  key={item}
+                  className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive"
+                >
+                  {item}
+                  <button
+                    type="button"
+                    onClick={() => removeExclusion(item)}
+                    aria-label={`Bỏ ${item}`}
+                    className="grid size-4 shrink-0 place-items-center rounded-full transition hover:bg-destructive/15"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              {exclusions.length === 0 && (
+                <span className="text-xs text-subtle">
+                  Các món chứa thực phẩm này sẽ bị loại khỏi thực đơn, thêm vào dị ứng đã khai báo trong hồ sơ.
+                </span>
+              )}
             </div>
 
             <div className="mt-4">
