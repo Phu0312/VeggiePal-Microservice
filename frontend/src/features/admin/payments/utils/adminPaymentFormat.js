@@ -27,11 +27,6 @@ export const PLAN_BAR_CLASS = {
   PRO: "bg-chart-4",
 };
 
-export const GROUP_OPTIONS = [
-  { value: "DAY", label: "Theo ngày" },
-  { value: "MONTH", label: "Theo tháng" },
-];
-
 export const toOptions = (labels, allLabel) => [
   { value: "", label: allLabel },
   ...Object.entries(labels).map(([value, label]) => ({ value, label })),
@@ -50,13 +45,4 @@ export function toInstant(dateValue, endOfDay = false) {
 
 export function formatNumber(value) {
   return Number(value ?? 0).toLocaleString("vi-VN");
-}
-
-/** "2026-10-22" -> "22/10", "2026-10" -> "10/2026" (nhãn trục cho biểu đồ doanh thu). */
-export function formatPeriod(period) {
-  if (!period) return "";
-  const parts = String(period).split("-");
-  if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
-  if (parts.length === 2) return `${parts[1]}/${parts[0]}`;
-  return period;
 }

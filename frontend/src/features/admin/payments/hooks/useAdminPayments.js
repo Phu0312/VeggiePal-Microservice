@@ -3,7 +3,6 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   getAdminOrder,
   getAdminOrders,
-  getPaymentRevenue,
   getPaymentStatistics,
   getPaymentSummary,
 } from "@/features/admin/payments/api/adminPaymentApi";
@@ -26,16 +25,6 @@ export function usePaymentStatistics(filters, { enabled = true } = {}) {
   return useQuery({
     queryKey: adminPaymentKeys.statistics(filters),
     queryFn: () => getPaymentStatistics(filters),
-    staleTime: STALE_MS,
-    placeholderData: keepPreviousData,
-    enabled,
-  });
-}
-
-export function usePaymentRevenue(filters, groupBy, { enabled = true } = {}) {
-  return useQuery({
-    queryKey: adminPaymentKeys.revenue(filters, groupBy),
-    queryFn: () => getPaymentRevenue({ ...filters, groupBy }),
     staleTime: STALE_MS,
     placeholderData: keepPreviousData,
     enabled,

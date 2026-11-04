@@ -840,7 +840,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 | 17 | Admin | `/admin/categories`, `/admin/ingredients` | Catalog management | Category tree and ingredient catalog management. |
 | 18 | Admin | `/admin/moderation` | Moderation queue | Review flagged content, approve, reject or dismiss with a reason; violation categories are shown with Vietnamese labels. |
 | 19 | Admin | `/admin/ai-monitoring` | AI monitoring | Usage summary, searchable logs, models and limits. |
-| 20 | Admin | `/admin/payments` | Payment statistics | Summary, status and plan distribution, revenue by day or month, order list. |
+| 20 | Admin | `/admin/payments` | Payment statistics | Summary cards (including total revenue), status and plan distribution, order list. |
 | 21 | Admin | `/admin/users` | User administration | Search, filter, change role and status with confirmation. |
 
 ##### Table 19: Screen descriptions - Flutter mobile application (user)
