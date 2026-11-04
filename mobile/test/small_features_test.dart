@@ -248,6 +248,33 @@ void main() {
     });
   });
 
+  group('thực đơn: thực phẩm không ăn', () {
+    test('exclusionPreference thêm tiền tố "Không ăn " để BE nhận ra ràng buộc, rỗng thì bỏ qua', () {
+      expect(MealPlanRepository.exclusionPreference('  đậu   nành '), 'Không ăn đậu nành');
+      expect(MealPlanRepository.exclusionPreference('   '), '');
+    });
+
+    test('generate gộp thực phẩm không ăn vào preferences sau khẩu vị', () async {
+      final api = _Api()
+        ..token = 't'
+        ..results[Endpoints.aiMealPlans] = {
+          'id': 1,
+          'name': 'Tuần mới',
+          'goal': 'LOSE',
+          'version': 1,
+          'isFavorite': false,
+          'plan': {'days': []},
+        };
+      await MealPlanRepository(api).generate(
+          name: 'Tuần mới',
+          goal: PlanGoal.lose,
+          preferences: const ['Ít dầu mỡ'],
+          exclusions: const ['đậu nành', ' ', 'mè']);
+      final body = api.bodies[Endpoints.aiMealPlans] as Map;
+      expect(body['preferences'], ['Ít dầu mỡ', 'Không ăn đậu nành', 'Không ăn mè']);
+    });
+  });
+
   group('thực đơn: khôi phục phiên bản', () {
     test('restoreVersion gọi POST .../versions/{n}/restore và trả thực đơn hiện tại mới', () async {
       final api = _Api()
