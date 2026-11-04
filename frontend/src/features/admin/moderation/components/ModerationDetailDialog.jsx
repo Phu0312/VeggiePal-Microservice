@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { moderationReasonVi } from "@/shared/utils/moderation";
+import { moderationCategoryVi, moderationReasonVi } from "@/shared/utils/moderation";
 
 const CONTENT_TYPE_MAP = {
   BLOG: { label: "Bài viết", icon: FileText, className: "bg-blue-500/10 text-blue-600 dark:text-blue-400" },
@@ -160,9 +160,10 @@ export default function ModerationDetailDialog({
                 item.categories.map((cat) => (
                   <span
                     key={cat}
+                    title={cat}
                     className="inline-block rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive"
                   >
-                    {cat}
+                    {moderationCategoryVi(cat)}
                   </span>
                 ))
               ) : (

@@ -32,6 +32,7 @@ import {
 } from "@/features/admin/moderation/hooks/useModeration";
 import { moderationKeys } from "@/features/admin/moderation/queryKeys";
 import { cn } from "@/lib/utils";
+import { moderationCategoryVi, moderationReasonVi } from "@/shared/utils/moderation";
 
 // Nhãn và badge tương ứng cho loại nội dung (BLOG, VIDEO, COMMENT)
 const CONTENT_TYPE_MAP = {
@@ -134,7 +135,9 @@ export default function AdminModerationScreen() {
         const matchAuthorId = c.authorId != null && String(c.authorId).includes(query);
         const matchContent = c.content && c.content.toLowerCase().includes(query);
         const matchReason = c.reason && c.reason.toLowerCase().includes(query);
-        const matchCategories = c.categories && c.categories.some((cat) => cat.toLowerCase().includes(query));
+        const matchCategories = c.categories && c.categories.some(
+          (cat) => cat.toLowerCase().includes(query) || String(moderationCategoryVi(cat)).toLowerCase().includes(query),
+        );
         const matchType = c.contentType && c.contentType.toLowerCase().includes(query);
 
         return (
@@ -370,9 +373,10 @@ export default function AdminModerationScreen() {
                             {c.categories.map((cat) => (
                               <span
                                 key={cat}
+                                title={cat}
                                 className="inline-block rounded-md bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
                               >
-                                {cat}
+                                {moderationCategoryVi(cat)}
                               </span>
                             ))}
                           </div>
@@ -383,8 +387,8 @@ export default function AdminModerationScreen() {
 
                       {/* Reason */}
                       <td className="max-w-xs px-4 py-4">
-                        <p className="line-clamp-2 text-xs text-body" title={c.reason}>
-                          {c.reason || "Cần quản trị viên kiểm tra và đưa ra quyết định."}
+                        <p className="line-clamp-2 text-xs text-body" title={moderationReasonVi(c.reason)}>
+                          {moderationReasonVi(c.reason) || "Cần quản trị viên kiểm tra và đưa ra quyết định."}
                         </p>
                       </td>
 

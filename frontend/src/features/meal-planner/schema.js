@@ -6,6 +6,10 @@ import { GOAL_OPTIONS, TARGET_FIELDS, parseTargetNumber } from "@/features/meal-
 export const MEAL_PLAN_LIMITS = {
   name: 160,
   ingredients: 30,
+  // Thực phẩm không ăn / dị ứng gõ tay: gửi qua `preferences` (BE cho tối đa 20 mục, mỗi mục 100 ký tự; 5 mục đầu
+  // dành cho khẩu vị, và mỗi mục được thêm tiền tố "Không ăn ").
+  exclusions: 10,
+  exclusionLength: 80,
 };
 
 // Mục tiêu dinh dưỡng là tùy chọn: ô trống hợp lệ; có nhập thì phải là số không âm.
