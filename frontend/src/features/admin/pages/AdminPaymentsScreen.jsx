@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import OrdersTableSection from "@/features/admin/payments/components/OrdersTableSection";
 import PaymentDistributionSection from "@/features/admin/payments/components/PaymentDistributionSection";
 import PaymentSummarySection from "@/features/admin/payments/components/PaymentSummarySection";
-import RevenueChartSection from "@/features/admin/payments/components/RevenueChartSection";
 import { adminPaymentKeys } from "@/features/admin/payments/queryKeys";
 import { PLAN_LABELS, toInstant, toOptions } from "@/features/admin/payments/utils/adminPaymentFormat";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,7 @@ const PLAN_OPTIONS = toOptions(PLAN_LABELS, "Mọi gói");
 const fieldClass =
   "h-10 rounded-full border border-border bg-surface px-3.5 text-sm text-ink outline-none transition focus:border-brand/40 focus:ring-2 focus:ring-brand/15";
 
-// Trang thanh toán (/admin/payments): doanh thu, phân bố trạng thái/gói và danh sách đơn hàng.
+// Trang thanh toán (/admin/payments): thẻ tổng quan, phân bố trạng thái/gói và danh sách đơn hàng.
 export default function AdminPaymentsScreen() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -110,7 +109,6 @@ export default function AdminPaymentsScreen() {
 
       <PaymentSummarySection filters={filters} enabled={enabled} />
       <PaymentDistributionSection filters={filters} enabled={enabled} />
-      <RevenueChartSection filters={filters} enabled={enabled} />
       <OrdersTableSection filters={filters} enabled={enabled} />
     </div>
   );
