@@ -384,6 +384,15 @@ export function buildHealthGoalText(goalType) {
 }
 
 /**
+ * Câu gửi trong `preferences` cho một thực phẩm không ăn. ai-service (DietaryRestrictionResolver) chỉ coi là ràng buộc
+ * khi câu có từ khóa loại trừ như "dị ứng", "không ăn", "tránh", nên tiền tố này là bắt buộc. Món bị loại khỏi thực đơn.
+ */
+export function exclusionPreference(text) {
+  const item = String(text ?? "").trim().replace(/\s+/g, " ");
+  return item ? `Không ăn ${item}` : "";
+}
+
+/**
  * Payload cho POST /ai/meal-plans từ giá trị form + nguyên liệu/khẩu vị đã chọn.
  * Không có ô mục tiêu nào được điền thì không gửi dailyNutritionTarget,
  * BE sẽ tự tính theo hồ sơ + goalType.

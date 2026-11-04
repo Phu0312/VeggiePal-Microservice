@@ -735,11 +735,11 @@ The functional requirements are listed in Table 17 with the service that impleme
 | FR-03 | Blog publishing | blog-service | Markdown blog creation with Cloudinary thumbnail, update, submit for review, and status workflow `DRAFT`, `PENDING`, `PUBLISHED`, `REJECTED`, `BANNED` (admin takedown). Category binding is required. Community videos follow the same status workflow: a signed-in user posts a video from exactly one source, a YouTube link or an `.mp4` file of at most 30 MB stored on Cloudinary (a category is required); `publish=true` runs moderation immediately, drafts are submitted later, and an edit changes only title, description and category. |
 | FR-04 | Comments, votes and community | blog-service | Multilevel comments (parent/child) with pagination on blogs and videos; one vote per user per target (`+1` or `-1`, removable) enforced by a unique constraint on both blogs and videos; `blogs.vote_score` and `videos.vote_score` are updated with atomic SQL increments. Community extras: leaderboard ranked by published posts and likes, author follow and unfollow (`user_follows`), trending topics from category counts, community stats, video channels (`/videos/channels`), a 7-day check-in challenge persisted in `user_challenges`, and per-video nutrition facts (`/videos/{id}/nutrition`). |
 | FR-05 | Recipe and restaurant search | recipe-service, location-service | Public browsing of published recipes with keyword search and paging; Cloudinary recipe image upload; per-serving nutrition calculation (`kcal`, `protein`, `carbs`, `fat`, `fiber` converted across weight, volume, spoon and piece units); recipe likes and popular ranking (`/recipes/popular`, `sort=popular`); ingredient catalog (keyword search, `vegan` and `allergen` filters, paging, nutrition per 100 g); restaurant keyword search (`/restaurants`, `/restaurants/search`) and nearby GPS search within a requested radius (with optional `keyword` and `veganOnly` filters), ordered by distance computed by MySQL `ST_Distance_Sphere`. |
-| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Recipes containing a declared allergen are excluded before generation; recipes matching more available ingredients are ranked first; the language model (local Qwen2.5 by default) proposes the plan from real recipe IDs and the server validates and enriches it. If the model call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
+| FR-06 | 7-day meal planner | ai-service (uses nutrition, recipe, identity) | Generates a 7-day plan with exactly breakfast, lunch and dinner each day. Inputs: the user's allergens and latest health record, a nutrition target (supplied or computed from BMR/TDEE and goal type; the computation needs the profile's date of birth, gender and activity level and an age of at least 18), preferences, and optional available ingredients. Preferences that declare a food exclusion (for example "Không ăn đậu nành") are merged with the allergens of the profile. Recipes containing a declared allergen or exclusion are excluded before generation; recipes matching more available ingredients are ranked first; the language model (local Qwen2.5 by default) proposes the plan from real recipe IDs and the server validates and enriches it. If the model call fails, a deterministic planner builds the plan instead. Plans can be edited, replaced per meal, versioned, restored from any historical version (`POST /ai/meal-plans/{id}/versions/{version}/restore`) and favorited; remaining monthly meal-plan and AI quotas are exposed via `GET /ai/meal-plans/quota` and `GET /ai/quotas/me`. |
 | FR-07 | AI nutrition chatbot | ai-service | Conversational assistant for plant-based nutrition, with stored conversations and message history for signed-in users and a daily chat quota set by the subscription plan. Each reply returns `remainingRequests`. Signed-in users list, reopen, continue and delete their conversations (`/ai/chat/conversations`); guest messages are kept only in memory in the clients. |
 | FR-08 | (Retired) Video recipe extraction | - | Removed in the migration to the local Qwen model. ai-service has no video endpoints, worker or Groq client. A video author enters the nutrition facts and ingredients of the video by hand (`/videos/{id}/nutrition` in blog-service). The identifier is kept so that other FR numbers stay stable. |
 | FR-09 | Category management | blog-service | Two-level category tree (parent/child) of types `FOOD_TYPE` and `RECIPE_TYPE`, managed by administrators. |
-| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (language-model based, local Qwen2.5 by default, looking for profanity and animal-derived content; uncertain or failed classifications go to review); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
+| FR-10 | Content moderation | ai-service, blog-service | Content is checked through `POST /ai/moderation/check` (language-model based, local Qwen2.5 by default, looking for harassment, hate, violence, sexual content, self-harm, illegal content, spam, dangerous health misinformation and prompt injection; a rule-based calibration step overrides clear cases, and uncertain or failed classifications go to review); results are stored as moderation cases and flagged items appear in an admin review queue (`/ai/admin/moderation`). If the LLM provider or moderation service is temporarily unavailable, submissions fall back to `REVIEW_REQUIRED` (`PENDING`) for manual review instead of failing with 503. |
 | FR-11 | Admin operations | identity-service, ai-service, payment-service, blog-service, recipe-service | User administration (`/admin/users`: search/filter, lock/unlock status, role assignment); AI monitoring (usage logs, token consumption, latency, model information); payment summary, statistics, revenue and order listing; moderation queue; category and ingredient management. |
 | FR-12 | Payment and subscription quotas | payment-service | PayOS VietQR checkout creates an order and payment link; a signed PayOS webhook marks the order paid and activates the subscription; when the webhook is missing, the order status is read from PayOS at checkout and while the client polls the order. Payment links expire after 15 minutes. Plans: FREE (0 VND), PLUS (29,000 VND / 30 days), PRO (59,000 VND / 30 days). Quotas: chat per day 5 / 20 / 50, meal plans per month 2 / 8 / 20. |
 | FR-13 | Daily nutrition diary | nutrition-service (calls ai-service) | A signed-in user logs foods per meal (`/nutrition/me/food-logs`), water (`/nutrition/me/water`) and activity (`/nutrition/me/daily-activity`) and reads a daily summary (`GET /nutrition/me/daily-summary?date=&goalType=`). The calorie target is not computed in nutrition-service: it calls `GET /ai/meal-plans/nutrition-target` with the caller's token and the requested goal (`LOSE`, `MAINTAIN` or `GAIN`, default `MAINTAIN`), then splits the target 50% carbohydrate, 20% protein and 30% fat. Without a complete health record and profile the summary fails with error 2013 (HTTP 400), for a user under 18 with error 2014 (HTTP 400), and when ai-service cannot be reached with error 2012 (HTTP 503); an unknown `goalType` gives error 1018. |
@@ -826,7 +826,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 | 3 | Community | `/blog` | Blog feed | Search, sort and category filter; left column with the 7-day challenge and trending topics; right column with the AI card and the leaderboard. |
 | 4 | Community | `/blog/:blogId` | Blog detail | Article, related posts, nested comments, votes, follow author and save. |
 | 5 | Recipes | `/recipes`, `/recipes/:recipeId` | Recipe list and detail | Public list with search and popularity; detail with ingredient safety labels, per-serving nutrition, like and save. |
-| 6 | Planner | `/meal-planner` | Meal planner | Generate, view by day, replace or edit meals, versions and restore, favorites, quota. |
+| 6 | Planner | `/meal-planner` | Meal planner | Generate (goal, ingredients, flavour preferences, allergies or foods to avoid, custom target), view by day, replace or edit meals, versions and restore, favorites, quota. |
 | 7 | Map | `/map` | Restaurant map | Mapbox map with nearby restaurants, radius selector and keyword search. |
 | 8 | Video | `/videos`, `/videos/:videoId` | Video list and watch | Approved videos with category filter, player, nutrition card entered by the author, channels. |
 | 9 | Profile | `/profile`, `/profile/edit` | Profile and edit | Account card, BMI and health history, allergens, badges, favorites, quota usage; edit personal data and health record. |
@@ -838,7 +838,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 | 15 | Payment | `/payment/success`, `/payment/cancel`, `/payment/history` | Payment result and history | Confirmation after the webhook, cancel page, list of past orders. |
 | 16 | Admin | `/admin` | Dashboard | Entry page of the admin area. |
 | 17 | Admin | `/admin/categories`, `/admin/ingredients` | Catalog management | Category tree and ingredient catalog management. |
-| 18 | Admin | `/admin/moderation` | Moderation queue | Review flagged content, approve, reject or dismiss with a reason. |
+| 18 | Admin | `/admin/moderation` | Moderation queue | Review flagged content, approve, reject or dismiss with a reason; violation categories are shown with Vietnamese labels. |
 | 19 | Admin | `/admin/ai-monitoring` | AI monitoring | Usage summary, searchable logs, models and limits. |
 | 20 | Admin | `/admin/payments` | Payment statistics | Summary, status and plan distribution, revenue by day or month, order list. |
 | 21 | Admin | `/admin/users` | User administration | Search, filter, change role and status with confirmation. |
@@ -859,7 +859,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 | 10 | Video | Video watch, Video form, My videos | Playback, like and dislike, nutrition card, posting. |
 | 11 | Map | Places | Map and list of restaurants sorted by distance, radius chips, keyword search. |
 | 12 | AI | Chatbot, Conversation history | Chat with formatted replies, quota and history sheet. |
-| 13 | Planner | Menu planner | Generate a plan, weekly schedule, meal detail, replace a meal, versions, favorites, monthly quota. |
+| 13 | Planner | Menu planner | Generate a plan (goal, ingredients on hand, allergies or foods to avoid), weekly schedule, meal detail, replace a meal, versions, favorites, monthly quota. |
 | 14 | Nutrition | Nutrition diary, Add food | Daily summary against targets, goal selection, food, water and exercise entries. |
 | 15 | Profile | Profile | Account summary, current plan, BMI chart, reminders for missing profile data. |
 | 16 | Profile | Health history, Allergies | Height and weight records with weight change; allergen selection. |
@@ -871,7 +871,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 
 | # | Tab | Description |
 | :-: | :--- | :--- |
-| 1 | Moderation | Queue of flagged content with approve and reject. |
+| 1 | Moderation | Queue of flagged content with approve and reject; violation categories are shown with Vietnamese labels. |
 | 2 | Categories | Two-level category management. |
 | 3 | Ingredients | Ingredient catalog management. |
 | 4 | Members | Account list with search and filters; details; lock, unlock, activate; grant or remove the administrator role. |
@@ -1031,8 +1031,8 @@ Reading the diagram: it shows the main business entities independent of the serv
 ##### 3.5.1 Generate a 7-Day Meal Plan (UC5, FR-06)
 
 * **Trigger:** Menu Planner, Generate Plan (mobile); `/meal-planner` (web).
-* **Description:** `POST /ai/meal-plans` with a plan name, goal (`LOSE`, `MAINTAIN`, `GAIN`), optional preferences, optional available ingredients (at most 30) and an optional custom nutrition target. `GET /ai/meal-plans/nutrition-target?goalType=` previews the computed target.
-* **Function details:** Steps: read recipes, allergens and the latest health record; resolve the daily target (BMR/TDEE and goal); reserve one unit of the monthly quota; remove allergen recipes; rank by available ingredients; ask the language model (local Qwen2.5 through llama.cpp by default) for a plan built from real recipe IDs, or use the deterministic planner if the call fails; validate seven days of breakfast, lunch and dinner, allowed recipe IDs, allergen safety and calorie budgets; store the plan. The design is detailed in Section IV.4.2. Abnormal: error 6010 without a health record, 6020 without date of birth, gender or activity level, 6021 under 18 (these do not consume quota), 6003 when the quota is exhausted.
+* **Description:** `POST /ai/meal-plans` with a plan name, goal (`LOSE`, `MAINTAIN`, `GAIN`), optional preferences (at most 20 entries of 100 characters), optional available ingredients (at most 30) and an optional custom nutrition target. Both clients let the user type foods to avoid (at most 10 entries of 80 characters) and send each as a preference with the prefix "Không ăn "; the web client also sends the flavour preferences the user selects. `GET /ai/meal-plans/nutrition-target?goalType=` previews the computed target.
+* **Function details:** Steps: read recipes, allergens and the latest health record; add the allergies and food exclusions declared in the preferences (`DietaryRestrictionResolver.mergeAllergies`; the same merge runs again when a meal is replaced, the plan is edited or updated from a health record, using the preferences stored with the plan); resolve the daily target (BMR/TDEE and goal); reserve one unit of the monthly quota; remove allergen recipes; rank by available ingredients; ask the language model (local Qwen2.5 through llama.cpp by default) for a plan built from real recipe IDs, or use the deterministic planner if the call fails; validate seven days of breakfast, lunch and dinner, allowed recipe IDs, allergen safety and calorie budgets; store the plan. The design is detailed in Section IV.4.2. Abnormal: error 6010 without a health record, 6020 without date of birth, gender or activity level, 6021 under 18 (these do not consume quota), 6003 when the quota is exhausted.
 
 ##### 3.5.2 Edit, Replace, Version and Favorite a Plan (UC5)
 
@@ -1118,7 +1118,7 @@ Reading the diagram: only a `PENDING` order can change. A valid webhook, or a Pa
 
 * **Trigger:** `/admin/moderation` or the Moderation tab.
 * **Description:** `GET /ai/admin/moderation` lists cases that need review; `PUT /ai/admin/moderation/{id}` approves or rejects with a reason and synchronises the result to blog-service; `DELETE /ai/admin/moderation/{id}` dismisses a case from the queue without changing the content.
-* **Function details:** A case already decided gives error 6013 and the client reloads the queue. The category `ai_fallback` marks items held because the AI could not classify them.
+* **Function details:** A case already decided gives error 6013 and the client reloads the queue. The category `ai_fallback` marks items held because the AI could not classify them and `unverified_content` marks items the AI wanted to reject but with low confidence or without a valid violation category, so they go to manual review. Other categories are `hate`, `harassment`, `sexual`, `violence`, `self_harm`, `illegal`, `spam`, `misinformation_dangerous`, `prompt_injection`, `unverified_health_claim`, `sensitive_health_question` and `community_dispute`; both clients show them with Vietnamese labels and keep the raw code for unknown values.
 
 ##### 3.8.3 Manage Categories and Ingredients (UC10, FR-09)
 
@@ -2193,7 +2193,7 @@ The numbered steps of the flow are:
 2. ai-service calls recipe-service for the recipe list and calls nutrition-service with the user's token to read the allergens and the latest health record.
 3. If the request has no daily nutrition target, ai-service computes one from the profile and health record (BMR/TDEE adjusted by the goal type) and validates it.
 4. ai-service reserves one meal-plan unit from the monthly quota (plan limits are read from payment-service; an unavailable lookup is treated as FREE).
-5. The validator removes every recipe that contains a declared allergen and ranks the remaining recipes by matching available ingredients.
+5. The validator removes every recipe that contains a declared allergen (profile allergens plus the food exclusions found in the request preferences) and ranks the remaining recipes by matching available ingredients.
 6. ai-service asks the local Qwen2.5 model through llama.cpp (`AI_LOCAL_MODEL`, default `qwen2.5-1.5b-instruct`) to build a plan from these real recipe IDs. If inference fails, a deterministic planner is used.
 7. The validator checks and enriches the plan: exactly seven days with breakfast, lunch and dinner, only allowed recipe IDs, allergen safety, and calories scaled toward the daily meal budgets.
 8. The plan is stored in `ai_meal_plans` and returned; later edits create new versions.
@@ -2216,6 +2216,7 @@ sequenceDiagram
     RE-->>AI: recipes with ingredients
     AI->>NU: GET /nutrition/me/allergies
     NU-->>AI: allergens
+    AI->>AI: merge food exclusions declared in preferences
     AI->>NU: GET /nutrition/me/health-records/latest
     NU-->>AI: latest height, weight, BMI
     AI->>AI: resolve daily nutrition target (BMR / TDEE and goal)
@@ -2348,7 +2349,7 @@ sequenceDiagram
     U->>GW: POST /api/blogs (publish)
     GW->>BL: forward request
     BL->>AI: POST /ai/moderation/check (title, content)
-    AI->>GQ: classify profanity and animal-derived content (local model by default)
+    AI->>GQ: classify the text against the violation categories (local model by default)
     alt LLM answered
         GQ-->>AI: decision
         AI->>DB: save moderation case
@@ -2479,8 +2480,8 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | location-service | 3 | 19 | MySQL 8.4 | `./mvnw test` |
 | ai-service | 29 | 193 | H2 | `./mvnw test` |
 | payment-service | 4 | 31 | H2 | `mvn test` |
-| **Backend total** | **105** | **715** | | |
-| Flutter application (`mobile/test`) | 25 files | 297 run | none | `flutter test` |
+| **Backend total** | **108** | **770** | | |
+| Flutter application (`mobile/test`) | 25 files | 299 run | none | `flutter test` |
 
 Test methods are counted from the `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in the source; parameterized tests run more than once, so the runtime count of a module can be higher (ai-service runs 197).
 
@@ -2534,8 +2535,8 @@ The modules that use H2 or no database were run on 2 and 3 November 2026 with `m
 | api-gateway | 10 | 0 | 0 | Pass (re-run on 3 November 2026) |
 | payment-service | 31 | 0 | 0 | Pass (re-run on 3 November 2026 after the PayOS status check was added) |
 | recipe-service | 38 | 0 | 0 | Pass |
-| ai-service | 197 | 0 | 0 | Pass (`mvn clean test`, 3 November 2026, after the migration to the Qwen-only inference) |
-| Flutter application | 297 | 0 | 0 | Pass (`flutter test`, 3 November 2026) |
+| ai-service | 252 | 0 | 0 | Pass (`mvn test`, 3 November 2026, after self-hosted AI optimizations, food allergy safety, and AI integration defect fixes) |
+| Flutter application | 299 | 0 | 0 | Pass (`flutter test`, 4 November 2026) |
 | identity-service | - | - | - | Not run here (needs MySQL) |
 | nutrition-service | - | - | - | Not run here (needs MySQL) |
 | blog-service | - | - | - | Not run here (needs MySQL) |
@@ -2724,14 +2725,14 @@ Reading the diagram: the first-use workflow is to authenticate, store the tokens
 ##### 3.3.2 Generate a 7-day personalized meal plan
 
 1. Open Menu Planner, Generate Plan.
-2. Name the plan, select a goal (lose, maintain or gain weight) and optionally list the ingredients you have on hand (the mobile app can copy non-expired pantry items, up to the 30 ingredients the server accepts). The web app also accepts preferences and a custom nutrition target.
+2. Name the plan, select a goal (lose, maintain or gain weight) and optionally list the ingredients you have on hand (the mobile app can copy non-expired pantry items, up to the 30 ingredients the server accepts). Both apps also accept allergies or foods you do not eat (up to 10 entries, for example "đậu nành"); the server adds them to the allergens saved in your profile and drops every recipe that contains them. The web app also accepts flavour preferences and a custom nutrition target.
 3. The system computes the nutrition target, excludes recipes containing your allergens, saves the plan and shows breakfast, lunch and dinner for seven days with the totals of each day and a warning on days that miss the calorie target.
 4. Open any meal to see its quantities, per-serving nutrition and steps. Replace a single meal, restore historical versions, favorite plans. Under the Create button the app shows how many meal plans remain this month.
 
 ```mermaid
 flowchart TD
     A["Menu Planner > Generate Plan"] --> B["Name the plan, choose goal<br/>lose / maintain / gain weight"]
-    B --> C["Optional: ingredients on hand<br/>(web also: preferences, target)"]
+    B --> C["Optional: ingredients on hand, foods to avoid<br/>(web also: flavour preferences, target)"]
     C --> D["Submit"]
     D --> E{"Monthly plan quota left?"}
     E -- "No" --> F["Show quota exceeded<br/>offer PLUS / PRO upgrade"]
@@ -2877,8 +2878,8 @@ Reading the diagram: the paying workflow runs from plan selection to activation.
 | Backend modules | 8 (7 business services and 1 API gateway) |
 | Database schemas | 7 isolated MySQL schemas |
 | Database tables | 36 |
-| Backend test classes / test methods | 105 / 715 |
-| Flutter test files / tests run | 25 / 297 |
+| Backend test classes / test methods | 108 / 770 |
+| Flutter test files / tests run | 25 / 299 |
 | Subscription plans | 3 (FREE, PLUS, PRO) |
 | CI jobs | `maven` and `docker` (matrix of 8 modules each), `compose-check`, `deploy` |
 | Published host ports | 9080 (gateway), 4307 (MySQL), 5041 (Ngrok inspector), 8088 (local inference, loopback only) |
