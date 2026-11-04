@@ -19,4 +19,4 @@ Quota exhaustion is error 6003 (HTTP 429). Unavailable local inference is error 
 
 Video transcription and video recipe extraction quotas and endpoints have been removed; historical database records and migrations remain intact.
 
-See `ai-service/src/main/resources/application.properties`, `SELF_HOSTED_AI_SETUP.md`, and `docs/REPORT7_FINAL_PROJECT_REPORT.md` for current settings and workflows.
+See `ai-service/src/main/resources/application.properties`, `SELF_HOSTED_AI_SETUP.md`, and `docs/PRM_CAPSTONE.md` for current settings and workflows.

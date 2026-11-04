@@ -27,7 +27,7 @@ class ChatPersistenceIntegrationTest {
     @Test
     void memberConversationPersistsAndContinues() {
         when(ai.configuredModel()).thenReturn("qwen2.5-1.5b-instruct");
-        when(ai.complete(anyList(), anyDouble(), anyInt(), any()))
+        when(ai.complete(anyList(), anyDouble(), anyInt()))
                 .thenReturn(new LocalAiClient.AiResult("Câu trả lời 1", 12, 5))
                 .thenReturn(new LocalAiClient.AiResult("Câu trả lời 2", 20, 6));
 
@@ -39,6 +39,6 @@ class ChatPersistenceIntegrationTest {
         assertEquals(4,detail.messages().size());
         assertEquals("user",detail.messages().getFirst().role());
         assertEquals("Câu trả lời 2",detail.messages().getLast().content());
-        verify(ai,times(2)).complete(anyList(),anyDouble(),anyInt(),any());
+        verify(ai,times(2)).complete(anyList(),anyDouble(),anyInt());
     }
 }

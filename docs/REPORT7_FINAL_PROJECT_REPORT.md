@@ -424,7 +424,7 @@ The objective is a working platform in which a vegan practitioner can build a he
 | Functional scope | Deliver the functional requirements FR-01 to FR-13 (FR-08 is retired) | Each requirement has a responsible service in Table 17 |
 | Architecture | Independent services with one database each behind one gateway | 8 Maven modules (7 services and the gateway) and 7 MySQL schemas |
 | Deployment | Start the whole backend with Docker Compose | `docker compose up -d --build --wait` for the services plus `docker compose -f ai-inference/compose.local-ai.yml up -d` for the local model (Section VI.2) |
-| Automated testing | Unit and slice tests for every module, executed on each push | 770 test methods in 108 test classes cover all 8 backend modules and the `maven` job runs `mvn test` for each module; 25 Flutter test files (299 tests) cover the mobile application but are not run by CI (Section V) |
+| Automated testing | Unit and slice tests for every module, executed on each push | 715 test methods in 105 test classes cover all 8 backend modules and the `maven` job runs `mvn test` for each module; 25 Flutter test files (297 tests) cover the mobile application but are not run by CI (Section V) |
 | Code coverage | Measure the share of code exercised by tests | Not measured: no coverage tool is configured (Section V.5.2) |
 | Client builds in CI | Build the web and mobile clients automatically | Not covered: the pipeline runs for backend changes only (Section V.5.3) |
 
@@ -1045,7 +1045,6 @@ Reading the diagram: it shows the main business entities independent of the serv
 * **Trigger:** AI button (mobile) or `/chatbot` (web).
 * **Description:** Guests call `POST /ai/chat/guest-sessions` and then `POST /ai/chat/guest`; members call `POST /ai/chat` and manage conversations with `GET /ai/chat/conversations` and `DELETE`.
 * **Function details:** A guest session lasts 24 hours; one IP creates at most 3 sessions and sends at most 3 guest requests per day (BR-03). Members are limited by the plan: 5, 20 or 50 requests per day. Each reply returns `remainingRequests`. Quota exhaustion gives error 6003 (HTTP 429) and the clients offer the pricing page.
-* **Food allergy and safety enforcement:** The chatbot enforces multi-tier deterministic allergy protection. `DietaryRestrictionResolver` scans current messages, multi-turn history user messages, and saved health records (`/nutrition/me/allergies` via JWT) to extract declared food allergies (soy, peanuts, tree nuts, sesame, gluten/celiac, mushrooms, corn, etc.) in both accented and unaccented Vietnamese while distinguishing personal restrictions from educational questions. Model system prompts are injected with explicit allergy prohibition rules; `ChatOutputGuard` inspects generated output and flags affirmative allergen recommendations (`ALLERGEN_VIOLATION`); retries include an allergy reminder hint; and degraded fallbacks serve curated allergen-safe plant meals (`VeganMealFallback`) or provide a controlled medical refusal if no verified safe meals exist. Vegan compliance sanitization and protein guidance suppress soy-containing advice whenever soy is restricted.
 
 ---
 
@@ -1153,7 +1152,7 @@ Reading the diagram: only a `PENDING` order can change. A valid webhook, or a Pa
 
 #### 4.2 Quality Attributes
 
-* **Performance and scalability:** services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status and publish date, comment target). AI response time depends on the local llama.cpp server (context size, batch size, GPU layers and concurrency are configurable; ai-service uses 10-second connect and 120-second read timeouts for it). With full GPU layer offloading (`--n-gpu-layers 99`) and bounded token budgets, the benchmark in `backend/ai-inference/benchmark` measured p95 API latencies of 6.62 seconds for chat, 3.09 seconds for meal plans, 1.24 seconds for recommendations and 1.76 seconds for moderation (down from 24.34 seconds for chat and 31.43 seconds for meal plans with partial 16-layer offloading); the web client waits up to 120 seconds for a meal plan and the mobile client up to 120 seconds for chat and meal-plan replies.
+* **Performance and scalability:** services are stateless (JWT), so they can be replicated behind the gateway. List endpoints are paginated and frequent queries are covered by database indexes (for example blog status and publish date, comment target). AI response time depends on the local llama.cpp server (context size, batch size, GPU layers and concurrency are configurable; ai-service uses 10-second connect and 120-second read timeouts for it). The benchmark in `backend/ai-inference/benchmark` measured p95 API latencies of about 24 seconds for chat and 31 seconds for meal plans, so the web client waits up to 120 seconds for a meal plan and the mobile client up to 120 seconds for chat and meal-plan replies.
 * **Security:** passwords are hashed with BCrypt (cost 10); OTP codes and refresh tokens are stored as SHA-256 hashes. JWTs are signed with HS256 and validated by every service as an OAuth2 resource server; refresh tokens are rotated and revoked. Non-public inter-service calls use an internal service token. PayOS webhooks are accepted only after signature verification. CORS is configured only at the gateway. Uploaded images are validated by content type and magic bytes. Secrets are supplied through environment variables.
 * **Availability and resilience:** each service runs in its own container with an HTTP health check and Docker Compose starts them in dependency order. ai-service falls back to FREE-plan quotas if payment-service cannot be reached, falls back to a deterministic planner if the model call fails (there is no cloud fallback), and queues content as `REVIEW_REQUIRED` (`PENDING`) when LLM moderation is unavailable.
 * **Data integrity:** database-per-service isolation with no cross-database foreign keys. Unique constraints protect votes, recipe likes, refresh-token hashes, allergen selections, plan codes and payment order codes. Payment orders are updated under a row lock, and `vote_score` and `like_count` counters are updated with atomic SQL statements.
@@ -2373,12 +2372,11 @@ Reading the diagram: a publish request is checked by ai-service. Approved conten
 
 | Concern | Mechanism | Location |
 | :--- | :--- | :--- |
-| Allergen exposure | Allergen recipes removed before the LLM call; the generated plan is validated again, including hidden allergens and missing allergen data. In the AI Chatbot, `DietaryRestrictionResolver` extracts declared food exclusions from messages, history, and health records; `ChatOutputGuard` rejects affirmative allergen recommendations (`ALLERGEN_VIOLATION`); retries inject allergy reminder hints; and `VeganMealFallback` guarantees allergen-free fallback meals. In meal planning, user preferences declaring allergies are extracted and merged into effective constraints, excluding allergen recipes before optimization. | `MealPlanValidator`, `AllergenDetector`, `DietaryRestrictionResolver`, `ChatOutputGuard`, `VeganMealFallback`, `MealPlanService` |
-| Medical misinformation and health safety | Severe violation gate deterministically rejects dangerous disease cure and hospital treatment abandonment claims (`misinformation_dangerous`); benign vegan auto-approval is guarded against disease/medical terms; malformed moderation outputs default to manual review (`REVIEW_REQUIRED`). | `ModerationService` |
-| Model outage or malformed output | Timeouts (10 s connect, 120 s read for the local model), deterministic planner fallback, structural validation of every plan; multi-meal chat output guard against duplicate dishes; recommendation JSON truncation recovery and grounded candidate fallbacks; no cloud fallback is configured. | `MealPlanService`, `LocalAiClient`, `ChatOutputGuard`, `RecommendationService` |
+| Allergen exposure | Allergen recipes removed before the LLM call; the generated plan is validated again, including hidden allergens and missing allergen data. | `MealPlanValidator`, `AllergenDetector` |
+| Model outage or malformed output | Timeouts (10 s connect, 120 s read for the local model), deterministic planner fallback, structural validation of every plan; no cloud fallback is configured. | `MealPlanService`, `LocalAiClient` |
 | Quota abuse | Atomic per-principal counters for chat and meal plans; guest sessions limited by hashed IP. An optional local-testing quota policy (profile `local-testing`, off by default) applies daily request and token limits per feature. | `QuotaService`, `GuestSessionService`, `LocalTestQuotaPolicy` |
 | Moderation unavailable or uncertain | Content held as `PENDING` / `REVIEW_REQUIRED` for manual review; uncertain or failed classifications of the small local model also go to review. | `ModerationService`, `BlogService` |
-| Invalid calorie target & meal imbalance | Target computed only for adults with a complete profile; floors and ceilings applied to the result. Per-meal substantive calorie threshold (>= 120 kcal) and distribution scoring prevent tiny meal anomalies across breakfast, lunch, and dinner. | `NutritionTargetCalculator`, `MealPlanValidator` |
+| Invalid calorie target | Target computed only for adults with a complete profile; floors and ceilings applied to the result. | `NutritionTargetCalculator` |
 
 
 ---
@@ -2480,12 +2478,12 @@ System and acceptance checks run against the Docker Compose deployment and the t
 | blog-service | 26 | 263 | MySQL 8.4 | `./mvnw test` |
 | recipe-service | 6 | 38 | H2 | `./mvnw test` |
 | location-service | 3 | 19 | MySQL 8.4 | `./mvnw test` |
-| ai-service | 32 | 248 | H2 | `./mvnw test` |
+| ai-service | 29 | 193 | H2 | `./mvnw test` |
 | payment-service | 4 | 31 | H2 | `mvn test` |
 | **Backend total** | **108** | **770** | | |
 | Flutter application (`mobile/test`) | 25 files | 299 run | none | `flutter test` |
 
-Test methods are counted from the `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in the source; parameterized tests run more than once, so the runtime count of a module can be higher (ai-service runs 252).
+Test methods are counted from the `@Test`, `@ParameterizedTest` and `@RepeatedTest` annotations in the source; parameterized tests run more than once, so the runtime count of a module can be higher (ai-service runs 197).
 
 The tables below list selected test cases that exist in the source. The result column states whether the test was executed for this report.
 
@@ -2544,7 +2542,7 @@ The modules that use H2 or no database were run on 2 and 3 November 2026 with `m
 | blog-service | - | - | - | Not run here (needs MySQL) |
 | location-service | - | - | - | Not run here (needs MySQL) |
 
-A first run of ai-service, before the self-hosted AI merge, reported 27 errors, "Unresolved compilation problem", in two test classes. They came from class files in `target/` that an IDE had compiled with errors; after `mvn clean test` all tests passed. Use `mvn clean test` when the IDE has compiled the project. The ai-service unit tests mock `LocalAiClient`; end-to-end quality, latency and hardware utilization against the live `llama.cpp` CUDA container (`Qwen2.5-1.5B-Instruct`) are measured by the reproducible benchmark suite in `backend/ai-inference/benchmark` (documented in `backend/SELF_HOSTED_AI_BENCHMARK.md`).
+A first run of ai-service, before the self-hosted AI merge, reported 27 errors, "Unresolved compilation problem", in two test classes. They came from class files in `target/` that an IDE had compiled with errors; after `mvn clean test` all tests passed. Use `mvn clean test` when the IDE has compiled the project. The ai-service tests do not call a real llama.cpp server, so the quality and latency of the local model are not measured by this report.
 
 #### 5.2 Code Coverage
 
