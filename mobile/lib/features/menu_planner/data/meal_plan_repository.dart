@@ -8,6 +8,19 @@ class MealPlanRepository {
   final ApiClient _api;
   MealPlanRepository(this._api);
 
+  /// Backend nhận tối đa 20 mục `preferences`, mỗi mục 100 ký tự; mỗi thực phẩm không ăn được thêm tiền tố
+  /// [exclusionPrefix], nên giới hạn ở đây chừa chỗ cho tiền tố.
+  static const maxExclusions = 10;
+  static const maxExclusionLength = 80;
+  static const exclusionPrefix = 'Không ăn ';
+
+  /// Câu gửi trong `preferences` cho một thực phẩm không ăn. ai-service (DietaryRestrictionResolver) chỉ coi là ràng
+  /// buộc khi câu có từ khóa loại trừ như "dị ứng", "không ăn", "tránh" nên tiền tố là bắt buộc. Rỗng nếu [item] rỗng.
+  static String exclusionPreference(String item) {
+    final t = item.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return t.isEmpty ? '' : '$exclusionPrefix$t';
+  }
+
   void _requireLogin() {
     if (_api.token == null) throw ApiException('Vui lòng đăng nhập để sử dụng chức năng này.');
   }
@@ -16,18 +29,23 @@ class MealPlanRepository {
 
   // POST /ai/meal-plans. Backend tạo và lưu luôn thực đơn (trừ 1 lượt thực đơn của gói).
   // Không gửi dailyNutritionTarget thì backend tự tính theo hồ sơ + goalType.
+  // [exclusions]: thực phẩm không ăn / dị ứng gõ tay; backend gộp vào dị ứng của hồ sơ và loại mọi món chứa chúng.
   Future<MealPlan> generate({
     required String name,
     required PlanGoal goal,
     List<String> ingredients = const [],
     List<String> preferences = const [],
+    List<String> exclusions = const [],
   }) async {
     _requireLogin();
     final r = await _api.post(Endpoints.aiMealPlans, body: {
       'name': name,
       'goalType': goal.value,
       'healthGoal': goal.label,
-      'preferences': preferences,
+      'preferences': [
+        ...preferences,
+        ...exclusions.map(exclusionPreference).where((e) => e.isNotEmpty),
+      ],
       'availableIngredients': ingredients,
     }, receiveTimeout: aiReceiveTimeout);
     return _plan(r);
