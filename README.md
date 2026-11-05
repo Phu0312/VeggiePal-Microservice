@@ -81,7 +81,7 @@ Swagger UI tổng hợp của gateway gom tài liệu API của các service (xe
 | Gói thành viên | FREE / PLUS (29.000 VND) / PRO (59.000 VND), thanh toán PayOS VietQR, hạn mức chat, thực đơn và video theo gói | ✓ | ✓ |
 | Quản trị (ADMIN) | Hàng đợi kiểm duyệt, giám sát AI, thống kê thanh toán | ✓ | ✓ |
 | Cộng đồng | Bảng xếp hạng tác giả, chủ đề nổi bật, theo dõi tác giả, thử thách 7 ngày | ✓ | ✓ |
-| Yêu thích, huy hiệu | Lưu công thức / bài viết / video, huy hiệu xanh, dinh dưỡng của video; mobile có thêm vote video | ✓ | ✓ |
+| Yêu thích, huy hiệu | Lưu công thức / bài viết / video, huy hiệu xanh; mobile có thêm vote video và dinh dưỡng của video | ✓ | ✓ |
 | Hạn mức AI | Xem lượt chat, thực đơn, bóc tách video đã dùng và còn lại; khôi phục phiên bản thực đơn | ✓ | ✓ |
 | Quản lý tài khoản (ADMIN) | Tìm và lọc tài khoản, khóa / mở khóa, cấp hoặc gỡ quyền quản trị | ✓ | ✓ |
 

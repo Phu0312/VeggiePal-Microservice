@@ -828,7 +828,7 @@ Reading the diagrams: the mobile application opens Login and then a main navigat
 | 5 | Recipes | `/recipes`, `/recipes/:recipeId` | Recipe list and detail | Public list with search and popularity; detail with ingredient safety labels, per-serving nutrition, like and save. |
 | 6 | Planner | `/meal-planner` | Meal planner | Generate (goal, ingredients, flavour preferences, allergies or foods to avoid, custom target), view by day, replace or edit meals, versions and restore, favorites, quota. |
 | 7 | Map | `/map` | Restaurant map | Mapbox map with nearby restaurants, radius selector and keyword search. |
-| 8 | Video | `/videos`, `/videos/:videoId` | Video list and watch | Approved videos with category filter, player, nutrition card entered by the author, channels. |
+| 8 | Video | `/videos`, `/videos/:videoId` | Video list and watch | Approved videos with category filter, player, suggested videos, channels. |
 | 9 | Profile | `/profile`, `/profile/edit` | Profile and edit | Account card, BMI and health history, allergens, badges, favorites, quota usage; edit personal data and health record. |
 | 10 | Nutrition | `/diary` | Nutrition diary | Daily summary with calorie and macro targets, meals, water and activity. |
 | 11 | Content | `/my-content` | My content | The user's blogs, recipes and videos. |

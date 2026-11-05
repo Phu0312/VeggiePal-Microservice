@@ -36,9 +36,9 @@ const LLAMA_URL = process.env.BENCHMARK_LLAMA_URL || "http://127.0.0.1:8088";
 const LLAMA_MODEL = process.env.BENCHMARK_LLAMA_MODEL || "qwen2.5-1.5b-instruct";
 
 // Test accounts configured via environment variables with safe local seed defaults
-const USER_EMAIL = process.env.BENCHMARK_USER_EMAIL || "user@veggiepal.com";
-const USER2_EMAIL = process.env.BENCHMARK_USER2_EMAIL || "user2@veggiepal.com";
-const ADMIN_EMAIL = process.env.BENCHMARK_ADMIN_EMAIL || "admin@veggiepal.com";
+const USER_EMAIL = process.env.BENCHMARK_USER_EMAIL || "phudepzai@gmail.com";
+const USER2_EMAIL = process.env.BENCHMARK_USER2_EMAIL || "hoangphulk2005@gmail.com";
+const ADMIN_EMAIL = process.env.BENCHMARK_ADMIN_EMAIL || "huy@gmail.com";
 const TEST_PASSWORD = process.env.BENCHMARK_PASSWORD || "password";
 
 const args = process.argv.slice(2);

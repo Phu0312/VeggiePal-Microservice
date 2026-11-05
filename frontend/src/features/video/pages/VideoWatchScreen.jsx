@@ -4,7 +4,6 @@ import { ArrowLeft, PlaySquare } from "lucide-react";
 import { buttonVariants } from "@/components/ui/variants/button-variants";
 import SuggestedVideoList from "@/features/video/components/SuggestedVideoList";
 import VideoMetaHeader from "@/features/video/components/VideoMetaHeader";
-import VideoNutritionCard from "@/features/video/components/VideoNutritionCard";
 import VideoPlayerFrame from "@/features/video/components/VideoPlayerFrame";
 import { useVideo } from "@/features/video/hooks/useVideos";
 import AppHeader from "@/shared/components/AppHeader";
@@ -61,7 +60,6 @@ export default function VideoWatchScreen() {
           </div>
 
           <div className="flex flex-col gap-6">
-            <VideoNutritionCard video={video} />
             <Reveal>
               {/* key theo video để chuyển sang video khác thì danh sách gợi ý về lại 5 mục đầu */}
               <SuggestedVideoList
