@@ -5,11 +5,15 @@ on:
     branches: [dev, main]
     paths:
       - "backend/**"
+      - "frontend/**"
+      - "mobile/**"
       - ".github/workflows/ci-cd.yml"
   pull_request:
     branches: [dev, main]
     paths:
       - "backend/**"
+      - "frontend/**"
+      - "mobile/**"
       - ".github/workflows/ci-cd.yml"
 
 permissions:
@@ -116,10 +120,92 @@ jobs:
       - name: Validate resolved Compose configuration
         run: docker compose --project-name veggiepal-prm config --quiet
 
+  frontend:
+    name: Frontend CI (Lint, Test, Build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Code quality check (ESLint)
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build web application (Vite)
+        run: npm run build
+        env:
+          VITE_VEGGIEPAL_API_BASE_URL: http://localhost:9080/api
+
+      - name: Upload web build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: veggiepal-frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  mobile:
+    name: Mobile CI (Flutter)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare environment file
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze code (flutter analyze)
+        run: flutter analyze
+
+      - name: Run unit and widget tests
+        run: flutter test
+
+      - name: Build Android APK
+        run: flutter build apk --debug
+
+      - name: Upload mobile APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: veggiepal-mobile-apk
+          path: mobile/build/app/outputs/flutter-apk/*.apk
+          retention-days: 7
+
   deploy:
     name: Deploy to local Windows runner
     if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
-    needs: [docker, compose-check]
+    needs: [docker, compose-check, frontend, mobile]
     runs-on: [self-hosted, Windows, X64]
     concurrency:
       group: veggiepal-local-deploy

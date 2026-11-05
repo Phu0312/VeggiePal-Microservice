@@ -1,284 +1,624 @@
-# VeggiePal
+# VeggiePal - Hệ Sinh Thái Dinh Dưỡng & Ẩm Thực Chay Toàn Diện
 
-Hệ sinh thái số hỗ trợ lối sống ăn chay: theo dõi sức khỏe và dị ứng, lên thực đơn 7 ngày bằng AI, trò chuyện với trợ lý AI, cộng đồng blog/video, tìm quán chay gần bạn và đăng ký gói thành viên qua PayOS VietQR.
+> **Đồ án môn PRM393 - Đại học FPT**  
+> Nền tảng microservices toàn diện hỗ trợ lối sống ăn chay khoa học: Lập thực đơn AI 7 ngày, Trợ lý Chatbot AI, Bóc tách dinh dưỡng video AI, Kiểm duyệt nội dung tự động, Bản đồ quán chay thông minh, Mạng xã hội ẩm thực và Cổng thanh toán thành viên PayOS VietQR.
 
-Đồ án môn PRM393 (FPT University). Báo cáo đầy đủ: [docs/REPORT7_FINAL_PROJECT_REPORT.md](docs/REPORT7_FINAL_PROJECT_REPORT.md).
+---
 
 ## Mục lục
 
-- [Cấu trúc repository](#cấu-trúc-repository)
-- [Kiến trúc](#kiến-trúc)
-- [Chức năng chính](#chức-năng-chính)
-- [Công nghệ](#công-nghệ)
-- [Yêu cầu môi trường](#yêu-cầu-môi-trường)
-- [Chạy nhanh](#chạy-nhanh)
-- [Port và địa chỉ](#port-và-địa-chỉ)
-- [Cấu hình `.env`](#cấu-hình-env)
-- [Kiểm thử và kiểm tra code](#kiểm-thử-và-kiểm-tra-code)
-- [Cấu trúc mã nguồn web và mobile](#cấu-trúc-mã-nguồn-web-và-mobile)
-- [CI/CD](#cicd)
-- [Self-hosted runner trên Windows](#self-hosted-runner-trên-windows)
-- [Tài liệu liên quan](#tài-liệu-liên-quan)
+1. [Tổng quan dự án](#1-tổng-quan-dự-án)
+2. [Kiến trúc hệ thống (Architecture)](#2-kiến-trúc-hệ-thống-architecture)
+3. [Cấu trúc mã nguồn (Monorepo)](#3-cấu-trúc-mã-nguồn-monorepo)
+4. [Yêu cầu môi trường (Prerequisites)](#4-yêu-cầu-môi-trường-prerequisites)
+5. [Cơ sở dữ liệu & File Script SQL Khởi tạo](#5-cơ-sở-dữ-liệu--file-script-sql-khởi-tạo)
+6. [Cấu hình biến môi trường (`.env`)](#6-cấu-hình-biến-môi-trường-env)
+7. [Hướng dẫn cài đặt & Khởi chạy hệ thống](#7-hướng-dẫn-cài-đặt--khởi-chạy-hệ-thống)
+   - [Cách 1: Khởi chạy nhanh toàn bộ Backend qua Docker Compose](#cách-1-khởi-chạy-nhanh-toàn-bộ-backend-qua-docker-compose-khuyến-nghị)
+   - [Cách 2: Khởi chạy Backend thủ công (Local Development)](#cách-2-khởi-chạy-backend-thủ-công-local-development)
+   - [Cách 3: Khởi chạy Web Client (React 19 + Vite)](#cách-3-khởi-chạy-web-client-react-19--vite)
+   - [Cách 4: Khởi chạy Mobile App (Flutter)](#cách-4-khởi-chạy-mobile-app-flutter)
+   - [Cách 5: Thiết lập Local AI Runner (Tùy chọn)](#cách-5-thiết-lập-local-ai-runner-tùy-chọn)
+8. [Tài khoản kiểm thử & Phân quyền](#8-tài-khoản-kiểm-thử--phân-quyền)
+9. [Hướng dẫn sử dụng các luồng nghiệp vụ chính](#9-hướng-dẫn-sử-dụng-các-luồng-nghiệp-vụ-chính)
+10. [Tài liệu API & Swagger UI](#10-tài-liệu-api--swagger-ui)
+11. [Xử lý sự cố thường gặp (Troubleshooting)](#11-xử-lý-sự-cố-thường-gặp-troubleshooting)
+12. [Quy trình CI/CD Tự động hóa](#12-quy-trình-cicd-tự-động-hóa)
 
-## Cấu trúc repository
+---
 
-Monorepo gồm ba ứng dụng:
+## 1. Tổng quan dự án
 
-| Thư mục | Nội dung | Công nghệ |
-|---|---|---|
-| [backend/](backend) | 7 service nghiệp vụ + 1 API gateway, mỗi service là một Maven project độc lập (không có parent POM) | Java 21, Spring Boot 4.1.1, MySQL 8.4 |
-| [frontend/](frontend) | Ứng dụng web | React 19, Vite 8, Tailwind CSS v4 |
-| [mobile/](mobile) | Ứng dụng di động | Flutter (Dart `^3.13.2`), Dio, Provider |
-| [docs/](docs) | Báo cáo capstone và tài liệu yêu cầu | Markdown |
-| [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) | Pipeline CI/CD | GitHub Actions |
+**VeggiePal** là giải pháp công nghệ số nhằm giải quyết triệt để các rào cản của người bắt đầu và duy trì lối sống ăn chay: thiếu hụt vi chất, khó lên thực đơn đủ chất, dị ứng thực phẩm, thiếu ý tưởng nấu nướng và khó tìm quán chay phù hợp.
 
-## Kiến trúc
+### Các phân hệ cốt lõi:
+- **Quản lý Định danh & Tài khoản (Identity Service):** Xác thực JWT HS256, làm mới phiên tự động (Refresh Token), đăng nhập Google OAuth2, xác minh email và đặt lại mật khẩu qua mã OTP 6 số.
+- **Sức khỏe & Dinh dưỡng Cá nhân hóa (Nutrition Service):** Theo dõi chiều cao, cân nặng, lịch sử BMI, quản lý danh mục dị ứng cá nhân, ghi nhật ký ăn uống (Food Log) và nhật ký thể chất/nước uống (Daily Wellness Log).
+- **Trí tuệ nhân tạo (AI Service):**
+  - **Lập thực đơn 7 ngày (Meal Planner):** Tạo kế hoạch 21 bữa ăn tự động từ kho công thức chuẩn, bám sát nhu cầu calo/macro (BMR/TDEE), tuyệt đối loại trừ các chất gây dị ứng đã khai báo.
+  - **Trợ lý Chatbot AI:** Tư vấn dinh dưỡng chay chuyên sâu, hỗ trợ lưu lịch sử hội thoại, quản lý hạn mức theo gói hội viên.
+  - **Kiểm duyệt tự động (AI Moderation):** Quét nội dung bài viết và video để ngăn chặn spam, ngôn từ độc hại và nội dung không phù hợp với tiêu chuẩn ăn chay.
+- **Cộng đồng & Truyền thông (Blog & Video Service):** Đăng tải bài viết, video nấu ăn (YouTube/Cloudinary), hệ thống bình luận đa cấp, bình chọn (Upvote/Downvote), theo dõi tác giả và thử thách 7 ngày ăn chay.
+- **Bách khoa Công thức & Nguyên liệu (Recipe Service):** Tra cứu công thức, tự động tính toán tổng năng lượng và dinh dưỡng (Protein, Carbs, Fat, Fiber) trên từng khẩu phần.
+- **Bản đồ Quán ăn chay (Location Service):** Định vị quán chay gần người dùng dựa trên tọa độ GPS thực tế (`ST_Distance_Sphere`), tìm kiếm theo từ khóa và phân loại thuần chay (Vegan Only).
+- **Thanh toán & Gói thành viên (Payment Service):** Tích hợp cổng thanh toán VietQR tự động qua **PayOS**, quản lý các gói **FREE**, **PLUS** (29.000 VNĐ), **PRO** (59.000 VNĐ) và tự động đồng bộ hạn mức AI.
 
-Client (web, mobile) chỉ gọi **API Gateway**; gateway định tuyến tới từng service. Mỗi service có schema MySQL riêng (database-per-service), không có khóa ngoại giữa các schema. Các service gọi nhau qua REST đồng bộ khi cần, không dùng message broker.
+---
+
+## 2. Kiến trúc hệ thống (Architecture)
+
+Hệ thống được thiết kế theo kiến trúc **Microservices** hiện đại, áp dụng mẫu **Database-per-Service**:
+- Mọi truy vấn từ Web và Mobile Client đều đi qua **API Gateway** duy nhất.
+- Các service độc lập về cơ sở dữ liệu (7 database schemas riêng biệt trên MySQL 8.4), giao tiếp nội bộ qua REST đồng bộ với token bảo mật `INTERNAL_SERVICE_TOKEN`.
+- Webhook từ PayOS được chuyển tiếp an toàn vào Gateway thông qua **Ngrok Tunnel**.
 
 ```text
-Web (React)  ─┐
-              ├─►  api-gateway :8080 (host 9080) ─┬─► identity-service  :8081
-Mobile (Flutter) ─┘                               ├─► nutrition-service :8082
-                                                  ├─► blog-service      :8083
-PayOS ──► Ngrok ──► api-gateway                   ├─► recipe-service    :8084
-                                                  ├─► location-service  :8085
-                                                  ├─► ai-service        :8086
-                                                  └─► payment-service   :8087
-                                                          │
-                                                  MySQL 8.4 (mỗi service một schema)
+  ┌────────────────────────────────────────────────────────┐
+  │                 CLIENT APPLICATIONS                    │
+  │   - Web App (React 19, Vite, Tailwind CSS v4)          │
+  │   - Mobile App (Flutter / Dart, Dio, Provider)         │
+  └───────────────────────────┬────────────────────────────┘
+                              │
+                    HTTP REST Requests (Port 9080)
+                              │
+  ┌───────────────────────────▼────────────────────────────┐
+  │              API GATEWAY (Spring Cloud Gateway)        │
+  │     Routing, CORS, Centralized Swagger UI (:8080)      │
+  └─────┬───────┬────────┬────────┬────────┬───────┬───────┘
+        │       │        │        │        │       │
+  ┌─────▼─┐ ┌───▼──┐ ┌───▼──┐ ┌───▼──┐ ┌───▼──┐ ┌─▼────┐ ┌──▼─────┐
+  │Identity│ │Nutri-│ │Blog  │ │Recipe│ │Loca- │ │AI   │ │Payment │
+  │Service │ │tion  │ │Service│ │Service│ │tion  │ │Ser- │ │Service │
+  │ :8081  │ │ :8082│ │ :8083│ │ :8084│ │ :8085│ │vice │ │ :8087  │
+  └───┬────┘ └───┬──┘ └───┬──┘ └───┬──┘ └───┬──┘ │:8086│ └───┬────┘
+      │          │        │        │        │    └──┬──┘      │
+      │          │        │        │        │       │         │
+  ┌───▼──────────▼────────▼────────▼────────▼───────▼─────────▼────┐
+  │                       MySQL 8.4 DATABASE                       │
+  │  7 Schemas: veggiepal_identity, veggiepal_nutrition,           │
+  │             veggiepal_blog,     veggiepal_recipe,              │
+  │             veggiepal_location, veggiepal_ai,                  │
+  │             veggiepal_payment                                  │
+  └────────────────────────────────────────────────────────────────┘
 ```
 
-| Service | Port trong container | Route qua gateway | Trách nhiệm |
-|---|---:|---|---|
-| `api-gateway` | 8080 | — | Routing, CORS, Swagger UI tổng hợp |
-| `identity-service` | 8081 | `/api/auth/**`, `/api/users/**` | Tài khoản, đăng nhập (JWT, Google), hồ sơ, quản trị người dùng |
-| `nutrition-service` | 8082 | `/api/nutrition/**` | Chiều cao/cân nặng/BMI, danh mục và dị ứng của người dùng |
-| `blog-service` | 8083 | `/api/blogs/**`, `/api/categories/**`, `/api/comments/**`, `/api/videos/**` | Blog, video, danh mục, bình luận, vote |
-| `recipe-service` | 8084 | `/api/recipes/**`, `/api/ingredients/**` | Công thức, nguyên liệu |
-| `location-service` | 8085 | `/api/restaurants/**` | Quán chay và tìm quán gần vị trí |
-| `ai-service` | 8086 | `/api/ai/**`, `/ai/**` | Chatbot, thực đơn 7 ngày, gợi ý công thức, kiểm duyệt, hạn mức, giám sát |
-| `payment-service` | 8087 | `/api/payments/**`, `/api/subscriptions/**`, `/api/admin/payments/**` | Gói thành viên, đơn PayOS, webhook, hạn mức theo gói, thống kê cho admin |
+### Danh mục Service & Cổng truy cập:
 
-Hạ tầng đi kèm: MySQL 8.4, Ngrok (đưa webhook PayOS vào gateway), Cloudinary (ảnh/video) và local llama.cpp (Qwen text inference). Sơ đồ chi tiết ở mục IV của báo cáo.
+| Thành phần | Port Container | Port Host (Máy thật) | Cơ sở dữ liệu (Schema) | Trách nhiệm chính |
+|---|:---:|:---:|---|---|
+| **API Gateway** | `8080` | `9080` | — | Định tuyến, CORS, xác thực tập trung, gộp Swagger UI |
+| **Identity Service** | `8081` | *Nội bộ* | `veggiepal_identity` | Tài khoản, JWT, Google OAuth, hồ sơ, OTP |
+| **Nutrition Service** | `8082` | *Nội bộ* | `veggiepal_nutrition` | Chỉ số BMI, dị ứng, nhật ký ăn uống & thể chất |
+| **Blog Service** | `8083` | *Nội bộ* | `veggiepal_blog` | Bài viết, video nấu ăn, bình luận, vote, challenge |
+| **Recipe Service** | `8084` | *Nội bộ* | `veggiepal_recipe` | Kho công thức, nguyên liệu, tính toán dinh dưỡng |
+| **Location Service** | `8085` | *Nội bộ* | `veggiepal_location` | Định vị GPS nhà hàng chay, tìm kiếm quán gần bạn |
+| **AI Service** | `8086` | *Nội bộ* | `veggiepal_ai` | Thực đơn AI 7 ngày, Chatbot, AI Moderation |
+| **Payment Service** | `8087` | *Nội bộ* | `veggiepal_payment` | Gói thành viên, đơn hàng PayOS VietQR, Webhook |
+| **MySQL DBMS** | `3306` | `4307` | *7 schemas* | Lưu trữ toàn bộ dữ liệu hệ sinh thái |
+| **Ngrok Inspector** | `4040` | `5041` | — | Kiểm tra lưu lượng Webhook từ PayOS |
 
-Swagger UI tổng hợp của gateway gom tài liệu API của các service (xem [Port và địa chỉ](#port-và-địa-chỉ)). Mọi response dùng envelope `{ code, message, result }`; các endpoint cần đăng nhập nhận `Authorization: Bearer <JWT>`.
+*(Ghi chú: Khi chạy Docker, các service backend được cô lập trong mạng `veggiepal-prm-backend`, chỉ Gateway `9080`, MySQL `4307` và Ngrok `5041` được mở ra ngoài host).*
 
-## Chức năng chính
+---
 
-| Nhóm | Mô tả | Web | Mobile |
-|---|---|:---:|:---:|
-| Tài khoản | Đăng ký, đăng nhập, đăng nhập Google, hồ sơ, ảnh đại diện, đổi mật khẩu | ✓ | ✓ |
-| Quên mật khẩu, xác minh email, giữ phiên | Đặt lại mật khẩu bằng mã OTP 6 số, xác minh email, tự làm mới phiên bằng refresh token | ✓ | ✓ |
-| Sức khỏe | Ghi chiều cao/cân nặng, lịch sử BMI, khai báo dị ứng | ✓ | ✓ |
-| Nhật ký dinh dưỡng | Ghi món ăn theo bữa, nước uống, vận động; calo và macro so với mục tiêu theo ngày | ✓ | ✓ |
-| Thực đơn AI | Thực đơn 7 ngày × 3 bữa từ công thức thật, loại món chứa chất dị ứng đã khai báo, mục tiêu calo/macro do BE tính, đổi món, thực đơn yêu thích, lịch sử phiên bản | ✓ | ✓ |
-| Chatbot | Hỏi đáp dinh dưỡng chay, nhiều đoạn chat; khách được dùng thử có giới hạn theo ngày | ✓ | ✓ |
-| Video | Đăng video (.mp4 hoặc liên kết YouTube), bóc tách nguyên liệu và các bước nấu bằng AI | ✓ | ✓ |
-| Blog | Blog, bình luận nhiều cấp, vote, danh mục, kiểm duyệt tự động | ✓ | ✓ |
-| Công thức, nguyên liệu | Tra cứu, tạo và đăng công thức, danh mục nguyên liệu, thích công thức, tải ảnh lên; mobile có thêm sắp xếp phổ biến | ✓ | ✓ |
-| Bản đồ | Tìm quán chay gần vị trí của bạn và tìm theo từ khoá trên toàn bộ quán | ✓ (Mapbox) | ✓ (flutter_map) |
-| Gói thành viên | FREE / PLUS (29.000 VND) / PRO (59.000 VND), thanh toán PayOS VietQR, hạn mức chat, thực đơn và video theo gói | ✓ | ✓ |
-| Quản trị (ADMIN) | Hàng đợi kiểm duyệt, giám sát AI, thống kê thanh toán | ✓ | ✓ |
-| Cộng đồng | Bảng xếp hạng tác giả, chủ đề nổi bật, theo dõi tác giả, thử thách 7 ngày | ✓ | ✓ |
-| Yêu thích, huy hiệu | Lưu công thức / bài viết / video, huy hiệu xanh, dinh dưỡng của video; mobile có thêm vote video | ✓ | ✓ |
-| Hạn mức AI | Xem lượt chat, thực đơn, bóc tách video đã dùng và còn lại; khôi phục phiên bản thực đơn | ✓ | ✓ |
-| Quản lý tài khoản (ADMIN) | Tìm và lọc tài khoản, khóa / mở khóa, cấp hoặc gỡ quyền quản trị | ✓ | ✓ |
+## 3. Cấu trúc mã nguồn (Monorepo)
 
-## Công nghệ
+```text
+VeggiePal-Microservice/
+├── init_database.sql             # Script SQL tổng hợp khởi tạo 7 database & 36 bảng + seed data
+├── README.md                     # Hướng dẫn chi tiết cài đặt và sử dụng hệ thống
+├── backend/                      # Chứa mã nguồn 8 microservices (Spring Boot 4.1.1, Java 21)
+│   ├── .env.example              # Mẫu cấu hình môi trường cho Backend
+│   ├── docker-compose.yml        # Docker Compose chạy toàn bộ backend stack
+│   ├── docker-compose.infra.yml  # Docker Compose chỉ chạy MySQL + Ngrok (cho local dev)
+│   ├── api-gateway/              # API Gateway (Spring Cloud Gateway Server WebMVC)
+│   ├── identity-service/         # Quản lý người dùng, phân quyền, bảo mật
+│   ├── nutrition-service/        # Quản lý dị ứng, sức khỏe, nhật ký dinh dưỡng
+│   ├── blog-service/             # Mạng xã hội bài viết, video, bình luận, thử thách
+│   ├── recipe-service/           # Quản lý món ăn, nguyên liệu, công thức chế biến
+│   ├── location-service/         # Định vị và tìm kiếm quán ăn chay
+│   ├── ai-service/               # Lập thực đơn, chatbot AI, kiểm duyệt nội dung
+│   ├── payment-service/          # Thanh toán VietQR qua cổng PayOS
+│   └── ai-inference/             # Cấu hình & script chạy local model AI (Qwen/llama.cpp)
+├── frontend/                     # Ứng dụng Web Client (React 19, Vite, Tailwind CSS v4)
+│   ├── .env.example              # Mẫu cấu hình môi trường cho Web
+│   ├── src/                      # Toàn bộ mã nguồn React (App, Features, Components)
+│   └── package.json              # Quản lý thư viện npm
+└── mobile/                       # Ứng dụng Di động (Flutter 3.x, Dart)
+    ├── .env.example              # Mẫu cấu hình môi trường cho Mobile
+    ├── lib/                      # Toàn bộ mã nguồn Flutter (Core, Features, Navigation)
+    └── pubspec.yaml              # Quản lý dependencies Flutter
+```
 
-| Phần | Công nghệ |
-|---|---|
-| Backend | Java 21, Spring Boot 4.1.1, Spring Cloud Gateway Server WebMVC 2025.1.3, Spring Data JPA, Spring Security OAuth2 Resource Server (JWT HS256), MySQL 8.4, MapStruct, Lombok, springdoc OpenAPI, JUnit 5 + Mockito |
-| Web | React 19, Vite 8, Tailwind CSS v4, shadcn/ui (`@base-ui/react`), React Router v7, TanStack Query v5, Zustand v5, React Hook Form + Zod, Axios, Mapbox GL, `qrcode.react`, ESLint 10 |
-| Mobile | Flutter (Dart `^3.13.2`), Dio, Provider, `flutter_secure_storage`, `google_sign_in`, `flutter_map` + `geolocator`, `video_player` + `youtube_player_iframe`, `qr_flutter`, `image_picker` |
-| Hạ tầng | Docker Compose, GitHub Actions, Ngrok, Cloudinary, local llama.cpp, PayOS |
+---
 
-## Yêu cầu môi trường
+## 4. Yêu cầu môi trường (Prerequisites)
 
-- Docker Desktop (Docker Compose v2+).
-- Git.
-- JDK 21: chỉ cần khi chạy service ngoài Docker hoặc chạy test cục bộ.
-- Node.js `^20.19.0` hoặc `>=22.12.0`: cho web.
-- Flutter SDK tương thích Dart `^3.13.2`: cho mobile.
-- Local llama.cpp running Qwen2.5-1.5B-Instruct for the four AI features.
+Để cài đặt và vận hành hệ thống thuận lợi, máy tính của bạn cần cài đặt:
 
-## Chạy nhanh
+| Công cụ | Phiên bản khuyến nghị | Mục đích sử dụng |
+|---|---|---|
+| **Git** | Mới nhất | Clone và quản lý mã nguồn |
+| **Docker & Docker Compose** | Docker Desktop v24+, Compose v2+ | Khởi chạy toàn bộ backend và cơ sở dữ liệu |
+| **Node.js** | `>= 20.19.0` hoặc `>= 22.12.0` | Chạy ứng dụng Web Frontend |
+| **JDK (Java Development Kit)** | `OpenJDK 21` | Chỉ cần nếu muốn chạy backend thủ công hoặc build Maven cục bộ |
+| **Maven** | `3.9+` (hoặc dùng `mvnw`) | Build các module backend |
+| **Flutter SDK** | `>= 3.13.2` | Biên dịch và chạy ứng dụng Mobile |
+| **Android Studio / Xcode** | Mới nhất | Chạy máy ảo Android Emulator hoặc iOS Simulator |
 
-### 1. Backend (Docker Compose)
+---
 
+## 5. Cơ sở dữ liệu & File Script SQL Khởi tạo
+
+Hệ thống sử dụng **7 schemas riêng biệt** trên cùng một máy chủ MySQL:
+1. `veggiepal_identity`: 5 bảng (`users`, `user_otps`, `refresh_tokens`, `user_favorites`, `user_badges`).
+2. `veggiepal_nutrition`: 5 bảng (`allergens`, `user_allergies`, `health_records`, `food_logs`, `daily_wellness_logs`).
+3. `veggiepal_blog`: 7 bảng (`categories`, `blogs`, `videos`, `comments`, `content_votes`, `user_follows`, `user_challenges`).
+4. `veggiepal_recipe`: 5 bảng (`recipes`, `ingredients`, `recipe_ingredients`, `recipe_steps`, `recipe_likes`).
+5. `veggiepal_location`: 1 bảng (`vegetarian_restaurants`).
+6. `veggiepal_ai`: 10 bảng (`ai_conversations`, `ai_chat_messages`, `ai_daily_quotas`, `ai_usage_logs`, `ai_moderation_cases`, `ai_meal_plans`, `ai_meal_plan_favorites`, `ai_meal_plan_versions`, `ai_video_jobs`, `ai_guest_sessions` + bảng lịch sử `flyway_schema_history`).
+7. `veggiepal_payment`: 3 bảng (`subscription_plans`, `user_subscriptions`, `payment_orders`).
+
+Tổng cộng: **36 bảng**.
+
+### File `init_database.sql` ở thư mục gốc:
+Để giúp việc cài đặt nhanh chóng và không phụ thuộc vào thứ tự khởi động dịch vụ, file **`init_database.sql`** đã được tạo sẵn ở thư mục ngoài cùng cấp với `frontend`, `backend`, `mobile`. File này chứa toàn bộ DDL (CREATE DATABASE, CREATE TABLE, INDEXES, CONSTRAINTS) và toàn bộ dữ liệu mẫu (Seed Data) chuẩn:
+- 3 tài khoản mặc định (Admin, User 1, User 2).
+- 32 danh mục dị ứng phổ biến chuẩn y khoa.
+- Cây danh mục ẩm thực, bài viết blog mẫu, bình luận và lượt vote.
+- 87 nguyên liệu thực vật chi tiết vi chất, 115 công thức món chay kèm 508 định lượng và 363 bước nấu.
+- 100 nhà hàng chay thực tế có tọa độ địa lý GPS tại Việt Nam.
+- 3 gói dịch vụ thành viên PayOS (FREE, PLUS, PRO).
+- Bảng lịch sử Flyway để `ai-service` đồng bộ ngay lập tức.
+
+### Cách nạp dữ liệu thủ công bằng file `init_database.sql`:
+
+Nếu bạn muốn tạo mới hoặc khôi phục toàn bộ database:
+
+**Trường hợp 1: Sử dụng Docker MySQL của dự án (Port 4307):**
 ```powershell
-Copy-Item backend/.env.example backend/.env   # rồi điền giá trị thật
+# Chạy từ thư mục gốc của project
+Get-Content init_database.sql | docker exec -i veggiepal-prm-mysql mysql -u root -p"VeggiePal@2026_SecureKey"
+```
+
+**Trường hợp 2: Sử dụng MySQL trên máy host cục bộ (Port 3306):**
+```powershell
+mysql -h 127.0.0.1 -P 3306 -u root -p < init_database.sql
+```
+
+---
+
+## 6. Cấu hình biến môi trường (`.env`)
+
+Trước khi khởi chạy, cần tạo các file `.env` từ các file `.env.example`.
+
+### 6.1. Cấu hình Backend (`backend/.env`)
+
+Tại thư mục `backend/`:
+```powershell
+Copy-Item .env.example .env
+```
+
+Nội dung quan trọng trong `backend/.env`:
+
+```dotenv
+# --- CẤU HÌNH CƠ SỞ DỮ LIỆU ---
+DB_USERNAME=root
+DB_PASSWORD=VeggiePal@2026_SecureKey
+PRM_MYSQL_HOST_PORT=4307
+
+# --- BẢO MẬT & GATEWAY ---
+PRM_GATEWAY_HOST_PORT=9080
+JWT_SECRET=veggiepal-super-secret-key-must-be-at-least-32-characters-long
+INTERNAL_SERVICE_TOKEN=internal-veggiepal-secret-token-for-inter-service-calls-2026
+
+# --- NGROK (Bắt buộc cho Webhook PayOS) ---
+NGROK_AUTHTOKEN=your_ngrok_token_here
+PRM_NGROK_INSPECTOR_HOST_PORT=5041
+
+# --- CLOUDINARY (Lưu trữ ảnh & video) ---
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# --- PAYOS (Cổng thanh toán) ---
+PAYOS_CLIENT_ID=your_payos_client_id
+PAYOS_API_KEY=your_payos_api_key
+PAYOS_CHECKSUM_KEY=your_payos_checksum_key
+
+# --- GOOGLE OAUTH (Tùy chọn) ---
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+```
+
+### 6.2. Cấu hình Web (`frontend/.env`)
+
+Tại thư mục `frontend/`:
+```powershell
+Copy-Item .env.example .env
+```
+
+Nội dung trong `frontend/.env`:
+```dotenv
+VITE_VEGGIEPAL_API_BASE_URL=http://localhost:9080/api
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
+VITE_MAPBOX_STYLE=mapbox://styles/mapbox/streets-v12
+```
+
+### 6.3. Cấu hình Mobile (`mobile/.env`)
+
+Tại thư mục `mobile/`:
+```powershell
+Copy-Item .env.example .env
+```
+
+Nội dung trong `mobile/.env`:
+```dotenv
+# Với máy ảo Android Emulator: dùng 10.0.2.2 thay cho localhost
+API_BASE_URL=http://10.0.2.2:9080/api
+
+# Với iOS Simulator hoặc máy thật cùng mạng LAN:
+# API_BASE_URL=http://localhost:9080/api
+# API_BASE_URL=http://192.168.1.xxx:9080/api
+```
+
+---
+
+## 7. Hướng dẫn cài đặt & Khởi chạy hệ thống
+
+### Cách 1: Khởi chạy nhanh toàn bộ Backend qua Docker Compose (Khuyến nghị)
+
+Đây là cách nhanh nhất và ổn định nhất để dựng toàn bộ 8 services backend + MySQL 8.4 + Ngrok.
+
+**Bước 1:** Chuẩn bị file `.env` tại thư mục `backend/` như hướng dẫn ở mục 6.1.
+
+**Bước 2:** Khởi chạy toàn bộ stack Docker:
+```powershell
 Set-Location backend
 docker compose --project-name veggiepal-prm up -d --build --wait --wait-timeout 300
+```
+
+**Bước 3:** Kiểm tra trạng thái các container:
+```powershell
 docker compose --project-name veggiepal-prm ps
 ```
+Tất cả 10 containers (`mysql`, `ngrok`, `identity-service`, `nutrition-service`, `blog-service`, `recipe-service`, `location-service`, `ai-service`, `payment-service`, `api-gateway`) phải ở trạng thái `running` (healthy).
 
-Kiểm tra: mở <http://localhost:9080/swagger-ui.html>.
+**Bước 4:** Kiểm tra Swagger UI tập trung:
+Mở trình duyệt truy cập: <http://localhost:9080/swagger-ui.html>
 
-Dừng stack: `docker compose --project-name veggiepal-prm down`. Không dùng `down -v` hoặc lệnh dọn toàn bộ Docker vì sẽ xóa dữ liệu MySQL hoặc ảnh hưởng project khác.
+**Lệnh quản lý Docker hữu ích:**
+- Xem log: `docker compose --project-name veggiepal-prm logs -f --tail 50`
+- Dừng hệ thống: `docker compose --project-name veggiepal-prm down` *(Lưu ý: Không dùng `-v` để tránh mất dữ liệu MySQL)*.
 
-Xem log: `docker compose --project-name veggiepal-prm logs --tail 100`.
+---
 
-### 2. Web
+### Cách 2: Khởi chạy Backend thủ công (Local Development)
 
+Dành cho nhà phát triển muốn debug từng service bằng IDE (IntelliJ IDEA / Eclipse / VS Code):
+
+**Bước 1: Bật hạ tầng MySQL & Ngrok:**
 ```powershell
-Set-Location frontend
-Copy-Item .env.example .env   # đặt VITE_VEGGIEPAL_API_BASE_URL=http://localhost:9080/api
-npm install
-npm run dev                   # http://localhost:5173
+Set-Location backend
+docker compose -f docker-compose.infra.yml --project-name veggiepal-prm up -d
 ```
 
-| Lệnh | Mô tả |
-|---|---|
-| `npm run dev` | Chạy môi trường phát triển (Vite) |
-| `npm run build` | Build production vào `frontend/dist/` |
-| `npm run preview` | Chạy thử bản build |
-| `npm run lint` | Kiểm tra code với ESLint |
-| `npm test` | Chạy các file `*.test.js` bằng `node:test` |
+**Bước 2: Nạp cơ sở dữ liệu:**
+Chạy script `init_database.sql` như hướng dẫn ở Mục 5.
 
-### 3. Mobile
+**Bước 3: Khởi chạy từng service bằng Maven (theo thứ tự khuyến nghị):**
+Mỗi service là một dự án Maven độc lập. Mở từng terminal riêng biệt:
 
+1. **Identity Service:**
+   ```powershell
+   cd backend/identity-service
+   mvn spring-boot:run
+   ```
+2. **Nutrition Service:**
+   ```powershell
+   cd backend/nutrition-service
+   mvn spring-boot:run
+   ```
+3. **Recipe Service:**
+   ```powershell
+   cd backend/recipe-service
+   mvn spring-boot:run
+   ```
+4. **Location Service:**
+   ```powershell
+   cd backend/location-service
+   mvn spring-boot:run
+   ```
+5. **Blog Service:**
+   ```powershell
+   cd backend/blog-service
+   mvn spring-boot:run
+   ```
+6. **Payment Service:**
+   ```powershell
+   cd backend/payment-service
+   mvn spring-boot:run
+   ```
+7. **AI Service:**
+   ```powershell
+   cd backend/ai-service
+   mvn spring-boot:run
+   ```
+8. **API Gateway (Bắt buộc chạy sau cùng):**
+   ```powershell
+   cd backend/api-gateway
+   mvn spring-boot:run
+   ```
+
+---
+
+### Cách 3: Khởi chạy Web Client (React 19 + Vite)
+
+**Bước 1:** Di chuyển vào thư mục `frontend`:
+```powershell
+Set-Location frontend
+```
+
+**Bước 2:** Cài đặt các gói phụ thuộc (Dependencies):
+```powershell
+npm install
+```
+
+**Bước 3:** Đảm bảo file `.env` đã có biến trỏ đến Gateway:
+```dotenv
+VITE_VEGGIEPAL_API_BASE_URL=http://localhost:9080/api
+```
+
+**Bước 4:** Khởi chạy máy chủ phát triển (Vite Dev Server):
+```powershell
+npm run dev
+```
+
+Ứng dụng web sẽ chạy tại: **<http://localhost:5173>**
+
+**Các lệnh kiểm tra Web:**
+- `npm run build`: Đóng gói ứng dụng cho production (thư mục `dist/`).
+- `npm run lint`: Kiểm tra chất lượng mã nguồn bằng ESLint.
+- `npm test`: Chạy kiểm thử tự động.
+
+---
+
+### Cách 4: Khởi chạy Mobile App (Flutter)
+
+**Bước 1:** Di chuyển vào thư mục `mobile`:
 ```powershell
 Set-Location mobile
-Copy-Item .env.example .env
+```
+
+**Bước 2:** Tải các gói thư viện Flutter:
+```powershell
 flutter pub get
+```
+
+**Bước 3:** Cấu hình file `mobile/.env`:
+- Đối với **Android Emulator**: Đặt `API_BASE_URL=http://10.0.2.2:9080/api`
+- Đối với **iOS Simulator**: Đặt `API_BASE_URL=http://localhost:9080/api`
+- Đối với **Thiết bị thật (Physical Phone)**: Kết nối điện thoại và máy tính vào cùng một mạng Wi-Fi, đặt `API_BASE_URL=http://<IP_LAN_MAY_TINH>:9080/api` (Ví dụ: `http://192.168.1.15:9080/api`).
+
+**Bước 4:** Kiểm tra thiết bị kết nối và khởi chạy:
+```powershell
+# Liệt kê thiết bị
+flutter devices
+
+# Chạy ứng dụng trên thiết bị mục tiêu
 flutter run
 ```
 
-Giá trị `API_BASE_URL` trong `mobile/.env` phụ thuộc thiết bị chạy app:
+---
 
-| Thiết bị | `API_BASE_URL` |
-|---|---|
-| Android emulator | `http://10.0.2.2:9080/api` (`localhost` trong emulator là chính emulator, không phải máy host) |
-| Web / Windows / iOS simulator | `http://localhost:9080/api` |
-| Điện thoại thật | `http://<IP-LAN-của-máy-chạy-backend>:9080/api` |
+### Cách 5: Thiết lập Local AI Runner (Tùy chọn)
 
-Để trống `API_BASE_URL` thì app tự chọn theo nền tảng. `.env` được đóng gói vào app lúc build nên sau khi đổi phải chạy lại hẳn (không dùng hot reload).
+Mặc định, `ai-service` có chế độ mock thông minh giúp toàn bộ chức năng (lập thực đơn, chatbot, kiểm duyệt) hoạt động ngay lập tức mà không cần GPU cấu hình cao.
 
-## Port và địa chỉ
+Nếu bạn muốn chạy mô hình AI tự host cục bộ:
+1. Dự án hỗ trợ mô hình **Qwen2.5-1.5B-Instruct** thông qua **llama.cpp** server.
+2. Tham khảo hướng dẫn cấu hình trong thư mục `backend/ai-inference/compose.local-ai.yml`.
+3. Bật profile AI local trong `backend/.env`:
+   ```dotenv
+   AI_SERVICE_PROFILES=local
+   AI_LOCAL_BASE_URL=http://llama:8080/v1
+   AI_LOCAL_MODEL=qwen2.5-1.5b-instruct
+   ```
 
-| Thành phần | Địa chỉ trên máy host |
-|---|---|
-| API Gateway | <http://localhost:9080> (container 8080) |
-| Swagger UI tổng hợp | <http://localhost:9080/swagger-ui.html> |
-| MySQL | `127.0.0.1:4307` |
-| Ngrok inspector | <http://localhost:5041> |
-| Web (Vite dev) | <http://localhost:5173> |
+---
 
-Chỉ ba port đầu (9080, 4307, 5041) được publish ra host; các service còn lại chỉ truy cập được trong mạng Docker. Có thể đổi bằng `PRM_GATEWAY_HOST_PORT`, `PRM_MYSQL_HOST_PORT`, `PRM_NGROK_INSPECTOR_HOST_PORT` trong `backend/.env`.
+## 8. Tài khoản kiểm thử & Phân quyền
 
-## Cấu hình `.env`
+Cơ sở dữ liệu sau khi nạp file `init_database.sql` đã có sẵn 3 tài khoản mẫu được kích hoạt sẵn (`status = ACTIVE`, `email_verified = true`):
 
-Không commit `.env` hoặc credential thật; chỉ commit các file `.env.example`.
+| Email | Mật khẩu | Quyền hạn (Role) | Chức năng kiểm thử nổi bật |
+|---|---|:---:|---|
+| **`admin@veggiepal.com`** | `password` | **ADMIN** | Truy cập trang Quản trị, duyệt hàng đợi kiểm duyệt AI, xem nhật ký & chi phí token AI, quản lý danh sách người dùng, thống kê doanh thu PayOS |
+| **`user@veggiepal.com`** | `password` | **USER** | Lên thực đơn 7 ngày, chat với AI, ghi nhật ký ăn uống & thể chất, đăng bài blog, chia sẻ video, thanh toán gói PLUS/PRO |
+| **`user2@veggiepal.com`** | `password` | **USER** | Tác giả nội dung thứ hai dùng để test tính năng follow tác giả, bình luận chéo và upvote/downvote |
 
-| File | Dùng cho |
-|---|---|
-| `backend/.env` (mẫu: [backend/.env.example](backend/.env.example)) | Toàn bộ backend và Docker Compose |
-| `frontend/.env` (mẫu: [frontend/.env.example](frontend/.env.example)) | Web |
-| `mobile/.env` (mẫu: [mobile/.env.example](mobile/.env.example)) | Mobile. Không để secret thật vì file được đóng gói vào app |
+### Bảng phân quyền chi tiết:
 
-### Backend
+| Tính năng | Khách (GUEST) | Thành viên (USER) | Quản trị viên (ADMIN) |
+|---|:---:|:---:|:---:|
+| Xem công thức, quán chay, blog công khai | Có | Có | Có |
+| Chatbot AI thử nghiệm | Có (Giới hạn 3 lượt/ngày) | Có (Theo gói FREE/PLUS/PRO) | Có (Không giới hạn) |
+| Lập thực đơn AI 7 ngày | Không | Có (Theo gói đăng ký) | Có |
+| Lưu nhật ký dinh dưỡng & theo dõi sức khỏe | Không | Có | Có |
+| Đăng bài viết, đăng video, bình luận | Không | Có (Tự động kiểm duyệt AI) | Có |
+| Nâng cấp gói thành viên qua VietQR | Không | Có | Có |
+| Quản lý tài khoản, phân quyền, khóa người dùng | Không | Không | **Có** |
+| Duyệt bài kiểm duyệt bị giữ lại (Moderation Queue)| Không | Không | **Có** |
+| Giám sát hệ thống AI (AI Usage & Token Latency)  | Không | Không | **Có** |
 
-Biến bắt buộc để stack khởi động:
+---
 
-```dotenv
-DB_PASSWORD=...
-JWT_SECRET=...
-INTERNAL_SERVICE_TOKEN=...
-NGROK_AUTHTOKEN=...
-```
+## 9. Hướng dẫn sử dụng các luồng nghiệp vụ chính
 
-Các biến còn lại bật tính năng tương ứng: `CLOUDINARY_*` (ảnh, video), `GOOGLE_CLIENT_ID` (đăng nhập Google), `PAYOS_*` (thanh toán). Xem danh sách đầy đủ và giá trị mặc định trong `backend/.env.example`.
+### 9.1. Đăng ký & Đăng nhập
+- Người dùng có thể đăng ký tài khoản mới bằng Email. Hệ thống sẽ gửi mã OTP 6 số qua email để xác thực.
+- Hỗ trợ đăng nhập Google một chạm trên cả Web và Mobile.
+- Nếu quên mật khẩu, người dùng bấm "Quên mật khẩu", nhập mã OTP 6 số gửi về email và tạo mật khẩu mới.
 
-Webhook PayOS đăng ký bằng URL public `https://<ngrok-domain>/api/payments/webhook/payos`; domain Ngrok hiện tại xem tại Ngrok inspector. Return/cancel URL của PayOS trỏ về frontend và cấu hình qua `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL`.
+### 9.2. Khai báo Sức khỏe & Dị ứng
+- Vào mục **Hồ sơ cá nhân (Profile) > Sức khỏe & Dị ứng**.
+- Nhập chiều cao, cân nặng: Hệ thống tự động tính toán chỉ số BMI và phân loại thể trạng.
+- Chọn các chất gây dị ứng (ví dụ: Đậu phộng, Gluten, Đậu nành...). Khi lập thực đơn AI, hệ thống sẽ **tự động loại bỏ hoàn toàn** các món chứa thành phần này.
 
-### Web
+### 9.3. Lập Thực đơn Dinh dưỡng 7 ngày bằng AI
+- Vào phân hệ **Thực đơn AI (Meal Planner)**.
+- Chọn mục tiêu thể trạng (Giữ cân, Giảm cân, Tăng cơ) và mức độ vận động.
+- Hệ thống AI sẽ tính toán lượng calo mục tiêu (BMR & TDEE) và sinh ra bảng thực đơn gồm 21 bữa ăn (Sáng, Trưa, Tối trong 7 ngày) từ kho 115 công thức thực tế.
+- Người dùng có thể:
+  - Đổi món cho từng bữa nếu muốn thay đổi khẩu vị.
+  - Lưu thực đơn vào danh sách Yêu thích.
+  - Xem và khôi phục các phiên bản thực đơn đã lưu trong lịch sử.
 
-| Biến | Mô tả |
-|---|---|
-| `VITE_VEGGIEPAL_API_BASE_URL` | Base URL của gateway, đã gồm `/api` (ví dụ `http://localhost:9080/api`) |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth Web client ID; phải trùng `GOOGLE_CLIENT_ID` của identity-service. Origin `http://localhost:5173` phải nằm trong Authorized JavaScript origins |
-| `VITE_MAPBOX_TOKEN`, `VITE_MAPBOX_STYLE` | Token và style cho bản đồ. Thiếu token thì trang bản đồ hiện thông báo thay vì bản đồ |
+### 9.4. Nhật ký Dinh dưỡng & Thể chất
+- **Nhật ký ăn uống (Food Log):** Ghi lại các món đã ăn trong ngày theo bữa. Hệ thống tính tổng Calo, Đạm (Protein), Đường bột (Carbs), Chất béo (Fat), Chất xơ (Fiber) và đối chiếu với mức calo mục tiêu.
+- **Nhật ký thể chất (Wellness Log):** Theo dõi lượng nước uống (ml) so với mục tiêu 2.400 ml/ngày, số bước chân, thời gian vận động và lượng calo tiêu hao.
 
-### Mobile
+### 9.5. Chia sẻ Cộng đồng & Bóc tách Video AI
+- Người dùng có thể đăng bài viết Blog chia sẻ kinh nghiệm hoặc đăng Video hướng dẫn nấu ăn từ YouTube hoặc tệp tải lên.
+- **Bóc tách tự động AI:** Với các video nấu ăn, AI tự động phân tích và trích xuất danh sách nguyên liệu, định lượng và giá trị dinh dưỡng ước tính.
+- **Hệ thống Kiểm duyệt AI (AI Moderation):** Mọi bài viết hoặc bình luận khi đăng sẽ được AI phân tích nội dung. Nếu phát hiện vi phạm tiêu chuẩn hoặc chứa ngôn từ không phù hợp, bài viết sẽ được đưa vào hàng đợi kiểm duyệt để Admin xem xét trước khi hiển thị công khai.
 
-| Biến | Mô tả |
-|---|---|
-| `API_BASE_URL` | URL gateway kèm `/api` (xem bảng theo thiết bị ở trên) |
-| `GOOGLE_CLIENT_ID` | OAuth Web client ID, trùng `GOOGLE_CLIENT_ID` của identity-service. Để trống thì nút Google báo chưa cấu hình. Android cần thêm một OAuth client loại Android (package `com.veggiepal.mobile` + SHA-1 của khóa ký) |
-| `GOOGLE_IOS_CLIENT_ID` | OAuth client loại iOS, chỉ cần khi build iOS |
+### 9.6. Tìm kiếm Quán ăn chay & Bản đồ
+- Vào phân hệ **Bản đồ Quán chay (Restaurants Map)**.
+- Cho phép trình duyệt/ứng dụng truy cập vị trí hiện tại.
+- Hệ thống sẽ hiển thị danh sách các quán ăn chay gần nhất theo bán kính (tính toán khoảng cách bằng công thức cầu `ST_Distance_Sphere`).
+- Hỗ trợ tìm kiếm theo tên quán, địa chỉ và lọc các quán "Thuần chay" (Vegan Only).
 
-## Kiểm thử và kiểm tra code
+### 9.7. Nâng cấp Gói hội viên PayOS VietQR
+- Vào mục **Gói hội viên (Subscription)**.
+- Chọn gói nâng cấp:
+  - **Gói FREE:** Miễn phí, 5 lượt chat AI/ngày, 2 thực đơn AI/tháng.
+  - **Gói PLUS (29.000 VNĐ / 30 ngày):** 20 lượt chat AI/ngày, 8 thực đơn AI/tháng.
+  - **Gói PRO (59.000 VNĐ / 30 ngày):** 50 lượt chat AI/ngày, 20 thực đơn AI/tháng.
+- Hệ thống gọi PayOS tạo đơn hàng và hiển thị mã VietQR động cùng thông tin chuyển khoản chính xác.
+- Khi người dùng quét mã thanh toán bằng ứng dụng ngân hàng, PayOS gửi Webhook tức thời qua Ngrok vào Payment Service để kích hoạt gói thành công chỉ sau vài giây.
 
-| Phần | Lệnh | Ghi chú |
-|---|---|---|
-| Backend | `mvn test` trong thư mục từng service (hoặc `./mvnw test`) | Mỗi service là một Maven project riêng. Một số test `@SpringBootTest` cần MySQL; lệnh loại trừ và quy ước nằm trong [backend/CLAUDE.md](backend/CLAUDE.md) |
-| Web | `npm run lint`, `npm test` | `npm test` chạy `node --test "src/**/*.test.js"` |
-| Mobile | `flutter analyze`, `flutter test` | Test nằm ở [mobile/test/](mobile/test) |
+---
 
-## Cấu trúc mã nguồn web và mobile
+## 10. Tài liệu API & Swagger UI
 
-### Web (`frontend/src`)
+API Gateway cung cấp giao diện tài liệu OpenAPI/Swagger tập trung, cho phép xem và gọi thử API của toàn bộ 7 microservices tại một địa chỉ duy nhất:
+
+👉 **URL Swagger UI:** **<http://localhost:9080/swagger-ui.html>**  
+👉 **Tài liệu đặc tả chi tiết kèm ví dụ Request/Response:** Xem tại file [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) ở thư mục gốc.
+
+Tại góc trên bên phải của Swagger UI, bạn có thể chọn danh mục (Spec) của từng service:
+- `identity-service`: `/v3/api-docs/identity`
+- `nutrition-service`: `/v3/api-docs/nutrition`
+- `blog-service`: `/v3/api-docs/blog`
+- `recipe-service`: `/v3/api-docs/recipe`
+- `location-service`: `/v3/api-docs/location`
+- `ai-service`: `/v3/api-docs/ai`
+- `payment-service`: `/v3/api-docs/payment`
+
+### Quy ước Chuẩn API:
+1. **Định dạng dữ liệu trả về (Envelope Format):**
+   Mọi response đều trả về cấu trúc JSON thống nhất:
+   ```json
+   {
+     "code": 1000,
+     "message": "Thao tác thành công",
+     "result": { ... }
+   }
+   ```
+2. **Xác thực (Authentication):**
+   Các API yêu cầu đăng nhập cần truyền header:
+   ```http
+   Authorization: Bearer <access_token>
+   ```
+
+---
+
+## 11. Xử lý sự cố thường gặp (Troubleshooting)
+
+### 1. Trùng cổng (Port Conflict) 9080 hoặc 4307 khi chạy Docker
+- **Hiện tượng:** Docker báo lỗi `bind: address already in use`.
+- **Cách xử lý:** Mở file `backend/.env`, đổi giá trị `PRM_GATEWAY_HOST_PORT` (ví dụ thành `9081`) hoặc `PRM_MYSQL_HOST_PORT` (ví dụ thành `4308`), sau đó chạy lại `docker compose up -d`.
+
+### 2. Android Emulator không kết nối được Backend
+- **Hiện tượng:** App Flutter báo `Connection refused` hoặc timeout khi đăng nhập.
+- **Nguyên nhân:** Trên Android Emulator, địa chỉ `localhost` trỏ vào chính máy ảo, không phải máy tính chạy backend.
+- **Cách xử lý:** Đảm bảo trong `mobile/.env` đặt `API_BASE_URL=http://10.0.2.2:9080/api`.
+
+### 3. Webhook PayOS không kích hoạt gói sau khi thanh toán
+- **Hiện tượng:** Quét mã VietQR thành công nhưng tài khoản vẫn ở gói cũ.
+- **Nguyên nhân:** Ngrok chưa được cấp AuthToken hoặc URL webhook chưa được đăng ký trong cổng PayOS.
+- **Cách xử lý:**
+  1. Mở trang Ngrok Inspector: <http://localhost:5041> để lấy domain public ngrok hiện tại (ví dụ: `https://xxxx.ngrok-free.app`).
+  2. Truy cập trang quản trị PayOS, cập nhật Webhook URL thành:  
+     `https://xxxx.ngrok-free.app/api/payments/webhook/payos`
+  3. Kiểm tra tab Request trong Ngrok Inspector để xem log webhook trả về mã `200 OK`.
+
+### 4. Lỗi CORS khi gọi API từ Web
+- **Hiện tượng:** Trình duyệt báo `Cross-Origin Request Blocked`.
+- **Cách xử lý:** Đảm bảo Web client đang gọi qua API Gateway tại port `9080` (được cấu hình CORS cho phép `http://localhost:5173`), không gọi trực tiếp vào port nội bộ của các microservice.
+
+---
+
+## 12. Quy trình CI/CD Tự động hóa
+
+Dự án thiết lập pipeline CI/CD hoàn chỉnh trên **GitHub Actions** tại file [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) bao phủ cả 3 nền tảng: **Backend**, **Frontend**, và **Mobile**.
+
+### 12.1. Cơ chế kích hoạt (Triggers)
+- Tự động chạy khi có sự kiện `push` hoặc mở/cập nhật `pull_request` vào 2 nhánh chính: `dev` và `main`.
+- Lắng nghe thay đổi trên các đường dẫn: `backend/**`, `frontend/**`, `mobile/**`, và `.github/workflows/ci-cd.yml`.
+
+### 12.2. Các giai đoạn (Pipeline Jobs)
 
 ```text
-app/            App, provider (Query + Router), routes
-components/ui/  Component shadcn/ui
-features/       admin, auth, blog, chatbot, community, diary, home, ingredient,
-                meal-planner, my-content, payment, profile, recipe, restaurant-map, video
-lib/            queryClient, schema zod, cn
-shared/         apiClient (axios), component dùng chung, store, hooks
-styles/         globals.css (Tailwind + design token)
+                                  ┌────────────────────────┐
+                                  │   Code Push / PR       │
+                                  └───────────┬────────────┘
+                                              │
+                    ┌─────────────────────────┼─────────────────────────┐
+                    │                         │                         │
+            ┌───────▼───────┐         ┌───────▼───────┐         ┌───────▼───────┐
+            │  BACKEND CI   │         │  FRONTEND CI  │         │   MOBILE CI   │
+            │ (Maven 8 svcs)│         │ (React 19)    │         │ (Flutter)     │
+            └───────┬───────┘         └───────┬───────┘         └───────┬───────┘
+                    │                         │                         │
+                    ▼                         ▼                         ▼
+            ┌───────────────┐         ┌───────────────┐         ┌───────────────┐
+            │ Docker Build  │         │  Artifact:    │         │  Artifact:    │
+            │ (8 images)    │         │ frontend-dist │         │  mobile-apk   │
+            └───────┬───────┘         └───────┬───────┘         └───────┬───────┘
+                    │                         │                         │
+                    ▼                         │                         │
+            ┌───────────────┐                 │                         │
+            │ Compose Check │                 │                         │
+            └───────┬───────┘                 │                         │
+                    │                         │                         │
+                    └─────────────────────────┼─────────────────────────┘
+                                              │ (Chỉ chạy khi push dev/main & tất cả CI passed)
+                                      ┌───────▼───────┐
+                                      │ CD DEPLOYMENT │
+                                      │(Win Self-host)│
+                                      └───────────────┘
 ```
 
-Alias import `@/` trỏ tới `src/`. Quy ước công nghệ và UI: [frontend/docs/TECH_STACK.md](frontend/docs/TECH_STACK.md).
+| Nhóm | Tên Job | Môi trường | Mô tả chi tiết |
+|---|---|---|---|
+| **Backend** | `maven` | `ubuntu-latest` (Matrix 8 services) | Chạy kiểm thử tự động (Unit & Integration tests) và đóng gói JAR cho từng microservice với MySQL 8.4 service container. |
+| **Backend** | `docker` | `ubuntu-latest` (Matrix 8 services) | Kiểm tra quá trình đóng gói Dockerfile cho toàn bộ 8 services. |
+| **Backend** | `compose-check` | `ubuntu-latest` | Xác thực cấu hình `docker-compose.yml` (environment, ports, networks). |
+| **Frontend** | `frontend` | `ubuntu-latest` | Cài đặt Node.js 22, kiểm tra chuẩn mã nguồn bằng **ESLint**, chạy unit test, đóng gói bản production bằng **Vite** và xuất artifact `veggiepal-frontend-dist`. |
+| **Mobile** | `mobile` | `ubuntu-latest` | Cài đặt JDK 17 & Flutter stable, kiểm tra mã nguồn bằng `flutter analyze`, chạy bộ test UI/Widget `flutter test`, build Android APK `flutter build apk --debug` và xuất artifact `veggiepal-mobile-apk`. |
+| **Deploy** | `deploy` | `self-hosted` (Windows X64) | Tự động cập nhật và khởi chạy toàn bộ hệ thống bằng `docker compose up -d --build` khi push lên `dev` hoặc `main`, xác minh health check của từng container. |
 
-### Mobile (`mobile/lib`)
+### 12.3. Tải về Bản dựng (Build Artifacts)
+Sau mỗi lần pipeline chạy thành công, nhóm phát triển và người kiểm thử có thể tải trực tiếp các tệp đóng gói từ tab **Actions** trên GitHub:
+- **`veggiepal-frontend-dist`**: Bản dựng web tĩnh sẵn sàng đưa lên máy chủ Web (Nginx/Hosting).
+- **`veggiepal-mobile-apk`**: Tệp cài đặt Android APK sẵn sàng cài đặt trực tiếp lên điện thoại thật để thử nghiệm.
 
-```text
-core/        constants (endpoints, màu, chuỗi), network (Dio), storage (phiên đăng nhập),
-             theme, utils, widget dùng chung
-features/    admin, ai_nutrition, auth, blog, home, ingredient, menu_planner,
-             notifications, payment, places, profile, recipe, video
-navigation/  Thanh điều hướng dưới và màn hình chính
-```
+---
 
-Mỗi feature chia `data/` (repository, model) và `presentation/` (màn hình, controller).
+## Liên hệ & Hỗ trợ
 
-## CI/CD
-
-Workflow [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) chạy khi push hoặc mở/cập nhật pull request vào `dev` hoặc `main`.
-
-| Job | Chạy ở đâu | Nội dung |
-|---|---|---|
-| `maven` | GitHub-hosted Ubuntu, MySQL 8.4 làm service container | Với từng trong 8 module backend: chạy test và package |
-| `docker` | GitHub-hosted Ubuntu | Build Dockerfile của từng module |
-| `compose-check` | GitHub-hosted Ubuntu | Kiểm tra cấu hình Docker Compose |
-| `deploy` | Self-hosted Windows runner | Chỉ chạy khi **push** vào `dev` hoặc `main` sau khi CI thành công: `docker compose --project-name veggiepal-prm up -d --build --wait --wait-timeout 300`, rồi kiểm tra trạng thái và healthcheck của các container thuộc project |
-
-Pull request chỉ chạy CI, không deploy. Workflow chỉ build và deploy backend; web và mobile chưa có job CI.
-
-### Cấp `.env` cho job deploy
-
-Chọn một trong hai cách:
-
-1. **Secret (khuyến nghị):** tạo repository secret `BACKEND_ENV_FILE` tại **Settings > Secrets and variables > Actions**, giá trị là toàn bộ nội dung `backend/.env`. Workflow ghi secret thành `.env` trên runner mà không in ra log. Nếu cần tách cấu hình `dev` và `main`, dùng GitHub Environment secrets và gắn environment vào job `deploy`.
-2. **File có sẵn trên runner:** sau lần checkout đầu tiên, tạo `backend/.env` từ `backend/.env.example` trên máy runner. Workflow đặt `clean: false` nên file này được giữ giữa các lần checkout.
-
-## Self-hosted runner trên Windows
-
-1. Cài Git for Windows và Docker Desktop; bật Linux containers và chờ Docker Desktop ở trạng thái running.
-2. Vào GitHub repository: **Settings > Actions > Runners > New self-hosted runner > Windows > x64**.
-3. Trong PowerShell, làm đúng các lệnh tải xuống và cấu hình GitHub hiển thị. Không cài runner bên trong thư mục repository.
-4. Giữ các label mặc định `self-hosted`, `Windows`, `X64`.
-5. Chạy thử bằng `run.cmd`. Để tự khởi động cùng Windows, chạy `config.cmd` bằng quyền Administrator và chọn chạy dưới dạng Windows service.
-6. Tài khoản chạy runner phải dùng được Docker Desktop; kiểm tra bằng `docker version` và `docker compose version`.
-
-Runner cần online liên tục để nhận job deploy. Không dùng chung runner này cho repository không tin cậy.
-
-## Tài liệu liên quan
-
-- [docs/REPORT7_FINAL_PROJECT_REPORT.md](docs/REPORT7_FINAL_PROJECT_REPORT.md): báo cáo capstone (yêu cầu, thiết kế, kiểm thử, hướng dẫn).
-- [backend/README.md](backend/README.md), [backend/CLAUDE.md](backend/CLAUDE.md): tài liệu và quy ước backend.
-- [frontend/CLAUDE.md](frontend/CLAUDE.md), [frontend/docs/TECH_STACK.md](frontend/docs/TECH_STACK.md): quy ước web.
-- [AGENTS.md](AGENTS.md): quy tắc cho AI coding agent, gồm yêu cầu giữ báo cáo đồng bộ với code.
+- **Dự án:** VeggiePal Microservices Ecosystem
+- **Đồ án Capstone:** Môn PRM393 - FPT University
+- **Báo cáo Kỹ thuật & Nghiên cứu:** Tham khảo chi tiết tại `init_database.sql` và tài liệu kiến trúc hệ thống.

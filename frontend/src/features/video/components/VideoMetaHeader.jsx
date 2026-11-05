@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { formatCompactNumber, formatTimeAgo, getInitials } from "@/features/blog/utils/blogFormat";
 import AuthorFollowButton from "@/features/community/components/AuthorFollowButton";
 import FavoriteButton from "@/features/profile/components/FavoriteButton";
